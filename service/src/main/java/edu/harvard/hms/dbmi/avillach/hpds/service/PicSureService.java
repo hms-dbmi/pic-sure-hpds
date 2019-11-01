@@ -179,13 +179,24 @@ public class PicSureService implements IResourceRS {
 					if(store!=null) {
 						String query = searchJson.getQuery().toString();
 						List<String> searchResults = store.search(query);
-						boolean storeIsNumeric = store.isContinuous;
-						if( ! searchResults.isEmpty()) {
-							infoResults.put(infoColumn, ImmutableMap.of("description", store.description, "values", searchResults, "continuous", storeIsNumeric));
-						}
+
 						String lowerCase = query.toLowerCase();
-						if(store.description.toLowerCase().contains(lowerCase) || store.column_key.toLowerCase().contains(lowerCase)) {
-							infoResults.put(infoColumn, ImmutableMap.of("description", store.description, "values", store.isContinuous? new ArrayList<String>() : store.allValues.keys(), "continuous", storeIsNumeric));
+						// only build and save the result if it has 1) search results, 2) the query matches its column_key or something in the description
+						if(!searchResults.isEmpty() || store.description.toLowerCase().contains(lowerCase) || store.column_key.toLowerCase().contains(lowerCase)) {
+							boolean storeIsCategorical = ! store.isContinuous;
+							ImmutableMap.Builder thisResultBuilder = new ImmutableMap.Builder<String, Object>();
+							thisResultBuilder.put("name", infoColumn);
+							thisResultBuilder.put("description", store.description);
+							thisResultBuilder.put("min", store.min);
+							thisResultBuilder.put("max", store.max);
+							thisResultBuilder.put("categorical", storeIsCategorical);
+							if(searchResults.isEmpty()) {
+								thisResultBuilder.put("categoryValues", storeIsCategorical ? store.allValues.keys() : new ArrayList<String>() );
+							} else {
+								thisResultBuilder.put("categoryValues", searchResults);
+							}
+							// add the returned results map
+							infoResults.put(infoColumn, thisResultBuilder.build());
 						}
 					}
 				});
@@ -325,7 +336,7 @@ public class PicSureService implements IResourceRS {
 					AbstractProcessor.infoStoreColumns.stream().forEach((infoColumn)->{
 						FileBackedByteIndexedInfoStore store = queryService.processor.getInfoStore(infoColumn);
 						if(store!=null) {
-							infoStores.add(ImmutableMap.of("key", store.column_key, "description", store.description, "isContinuous", store.isContinuous, "min", store.min, "max", store.max));
+							infoStores.add(ImmutableMap.of("name", store.column_key, "description", store.description, "categorical", !store.isContinuous, "min", store.min, "max", store.max));
 						}
 					});
 					return Response.ok(infoStores, MediaType.APPLICATION_JSON_VALUE).build();
