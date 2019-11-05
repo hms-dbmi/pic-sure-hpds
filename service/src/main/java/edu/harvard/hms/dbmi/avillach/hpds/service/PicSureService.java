@@ -184,19 +184,20 @@ public class PicSureService implements IResourceRS {
 						// only build and save the result if it has 1) search results, 2) the query matches its column_key or something in the description
 						if(!searchResults.isEmpty() || store.description.toLowerCase().contains(lowerCase) || store.column_key.toLowerCase().contains(lowerCase)) {
 							boolean storeIsCategorical = ! store.isContinuous;
-							ImmutableMap.Builder thisResultBuilder = new ImmutableMap.Builder<String, Object>();
-							thisResultBuilder.put("name", infoColumn);
-							thisResultBuilder.put("description", store.description);
-							thisResultBuilder.put("min", store.min);
-							thisResultBuilder.put("max", store.max);
-							thisResultBuilder.put("categorical", storeIsCategorical);
-							if(searchResults.isEmpty()) {
-								thisResultBuilder.put("categoryValues", storeIsCategorical ? store.allValues.keys() : new ArrayList<String>() );
-							} else {
-								thisResultBuilder.put("categoryValues", searchResults);
-							}
 							// add the returned results map
-							infoResults.put(infoColumn, thisResultBuilder.build());
+							infoResults.put(infoColumn, Map.of(
+									"name", infoColumn,
+									"description", store.description,
+									"min", store.min,
+									"max", store.max,
+									"categorical", storeIsCategorical,
+									"categoryValues",
+											searchResults.isEmpty() ?
+												storeIsCategorical ?
+													store.allValues.keys() :
+													new ArrayList<String>()
+												: searchResults
+									));
 						}
 					}
 				});
