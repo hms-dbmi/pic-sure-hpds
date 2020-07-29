@@ -158,8 +158,8 @@ public class PicSureService implements IResourceRS {
 							||(
 									entry.getValue().isCategorical() 
 									&& 
-									entry.getValue().getCategoryValues().stream().map(String::toLowerCase).collect(Collectors.toList())
-									.contains(lowerCaseSearchTerm));
+									entry.getValue().getCategoryValues().stream().map(String::toLowerCase)
+									.anyMatch((categoryValue)->{return categoryValue.contains(lowerCaseSearchTerm);}));
 				}).collect(Collectors.toMap(Entry::getKey, Entry::getValue)) 
 				: allColumns;
 
