@@ -150,10 +150,10 @@ public class PicSureService implements IResourceRS {
 	public SearchResults search(QueryRequest searchJson) {
 		Set<Entry<String, ColumnMeta>> allColumns = queryService.getDataDictionary().entrySet();
 		
+		String lowerCaseSearchTerm = searchJson.getQuery().toString().toLowerCase();
 		//Phenotype Values
 		Object phenotypeResults = searchJson.getQuery()!=null ? 
 				allColumns.parallelStream().filter((entry)->{
-					String lowerCaseSearchTerm = searchJson.getQuery().toString().toLowerCase();
 					return entry.getKey().toLowerCase().contains(lowerCaseSearchTerm) 
 							||(
 									entry.getValue().isCategorical() 
@@ -179,14 +179,12 @@ public class PicSureService implements IResourceRS {
 				AbstractProcessor.infoStoreColumns.parallelStream().forEach((String infoColumn)->{
 					FileBackedByteIndexedInfoStore store = queryService.processor.getInfoStore(infoColumn);
 					if(store!=null) {
-						String query = searchJson.getQuery().toString();
-						List<String> searchResults = store.search(query);
+						List<String> searchResults = store.search(lowerCaseSearchTerm);
 						boolean storeIsNumeric = store.isContinuous;
 						if( ! searchResults.isEmpty()) {
 							infoResults.put(infoColumn, ImmutableMap.of("description", store.description, "values", searchResults, "continuous", storeIsNumeric));
 						}
-						String lowerCase = query.toLowerCase();
-						if(store.description.toLowerCase().contains(lowerCase) || store.column_key.toLowerCase().contains(lowerCase)) {
+						if(store.description.toLowerCase().contains(lowerCaseSearchTerm) || store.column_key.toLowerCase().contains(lowerCaseSearchTerm)) {
 							infoResults.put(infoColumn, ImmutableMap.of("description", store.description, "values", store.isContinuous? new ArrayList<String>() : store.allValues.keys(), "continuous", storeIsNumeric));
 						}
 					}

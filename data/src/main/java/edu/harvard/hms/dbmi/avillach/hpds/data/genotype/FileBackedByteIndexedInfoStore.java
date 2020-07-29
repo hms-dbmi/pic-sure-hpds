@@ -27,11 +27,11 @@ public class FileBackedByteIndexedInfoStore implements Serializable {
 	public CompressedIndex continuousValueIndex;
 
 	public List<String> search(String term) {
+		String lowerTerm = term.toLowerCase();
 		if(isContinuous) {
 			return new ArrayList<String>();
 		}else {
 			return allValues.keys().stream().filter((value)->{
-				String lowerTerm = term.toLowerCase();
 				return value.toLowerCase().contains(lowerTerm);
 			}).collect(Collectors.toList());
 		}
