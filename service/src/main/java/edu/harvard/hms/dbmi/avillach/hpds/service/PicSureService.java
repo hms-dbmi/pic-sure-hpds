@@ -152,7 +152,7 @@ public class PicSureService implements IResourceRS {
 		
 		//Phenotype Values
 		Object phenotypeResults = searchJson.getQuery()!=null ? 
-				allColumns.stream().filter((entry)->{
+				allColumns.parallelStream().filter((entry)->{
 					String lowerCaseSearchTerm = searchJson.getQuery().toString().toLowerCase();
 					return entry.getKey().toLowerCase().contains(lowerCaseSearchTerm) 
 							||(
