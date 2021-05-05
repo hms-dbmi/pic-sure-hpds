@@ -75,25 +75,27 @@ public class Query {
 		switch(expectedResultType) {
 		case INFO_COLUMN_LISTING:
 			//info column listing has no query body
-			break;
+			return builder.toString();
 		
 		case CROSS_COUNT:
-		case OBSERVATION_COUNT:
 			writePartFormat("Cross Count Fields", crossCountFields, builder, true);
+		case OBSERVATION_COUNT:
+			writePartFormat("Observation Count Fields", fields, builder, true);
 		case DATAFRAME:
 		case DATAFRAME_MERGED:
 			writePartFormat("Data Export Fields", fields, builder, true);
 		case COUNT:
-			writePartFormat("Required Fields", requiredFields, builder, false);
-			writePartFormat("Numeric filters", numericFilters, builder);
-			writePartFormat("Category filters", categoryFilters, builder);
-			writePartFormat("Variant Info filters", variantInfoFilters, builder, false);
-			writePartFormat("Any-Record-Of filters", anyRecordOf, builder, true);
 			break;
 		default:
 			//no logic here; all enum values should be present above
 			System.out.println("Foratting not supported for type " + expectedResultType);
 		}
+
+		writePartFormat("Required Fields", requiredFields, builder, false);
+		writePartFormat("Numeric filters", numericFilters, builder);
+		writePartFormat("Category filters", categoryFilters, builder);
+		writePartFormat("Variant Info filters", variantInfoFilters, builder, false);
+		writePartFormat("Any-Record-Of filters", anyRecordOf, builder, true);
 
 		return builder.toString();
 	}
