@@ -79,11 +79,14 @@ public class Query {
 		
 		case CROSS_COUNT:
 			writePartFormat("Cross Count Fields", crossCountFields, builder, true);
+			break;
 		case OBSERVATION_COUNT:
 			writePartFormat("Observation Count Fields", fields, builder, true);
+			break;
 		case DATAFRAME:
 		case DATAFRAME_MERGED:
 			writePartFormat("Data Export Fields", fields, builder, true);
+			break;
 		case COUNT:
 			break;
 		default:
