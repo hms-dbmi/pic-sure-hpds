@@ -8,7 +8,7 @@
         </layout>
     </appender>
 
-    <logger name="org.apache.cxf.jaxrs" level="info" additivity="false">
+    <logger name="org.apache.cxf" level="info" additivity="false">
         <appender-ref ref="CONSOLE"/>
     </logger>
 
