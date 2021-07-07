@@ -487,6 +487,7 @@ public abstract class AbstractProcessor {
 			for(VariantInfoFilter filter : query.variantInfoFilters){
 				ArrayList<Set<String>> variantSets = new ArrayList<>();
 				addVariantsMatchingFilters(filter, variantSets);
+				// todo: update this to count the variants in all sets
 				log.info("Found " + variantSets.size() + " varients for patient identification");
 				if(!variantSets.isEmpty()) {
 					// INTERSECT all the variant sets.
@@ -851,7 +852,7 @@ public abstract class AbstractProcessor {
 		return unionOfInfoFilters;
 	}
 
-	private BigInteger createMaskForPatientSet(Set<Integer> patientSubset) {
+	protected BigInteger createMaskForPatientSet(Set<Integer> patientSubset) {
 		StringBuilder builder = new StringBuilder("11"); //variant bitmasks are bookended with '11'
 		for(String patientId : variantStore.getPatientIds()) {
 			Integer idInt = Integer.parseInt(patientId);
