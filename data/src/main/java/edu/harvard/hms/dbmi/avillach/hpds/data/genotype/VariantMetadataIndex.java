@@ -45,13 +45,14 @@ public class VariantMetadataIndex implements Serializable {
 			FileBackedByteIndexedStorage<String, String[]> fbbis = indexMap.get(contig);
 			fbbis.open();
 		}
+		log.info("Initialized metadata index with " + indexMap.size() + " contig stores");
 	}
 
 	public String[] findBySingleVariantSpec(String variantSpec) {
 		try {
 			String contig = variantSpec.substring(0, variantSpec.indexOf(','));
 			FileBackedByteIndexedStorage<String, String[]> fbbis = indexMap.get(contig);
-			String[] value = fbbis != null ? fbbis.get(variantSpec) : null;
+			String[] value = (fbbis != null ? fbbis.get(variantSpec) : null);
 			return value != null  ? value :  new String[0];
 		} catch (IOException e) {
 			log.warn("IOException caught looking up variantSpec : " + variantSpec, e);

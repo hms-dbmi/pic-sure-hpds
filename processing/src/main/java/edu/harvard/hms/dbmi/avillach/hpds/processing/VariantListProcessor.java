@@ -316,7 +316,7 @@ public class VariantListProcessor extends AbstractProcessor {
 
 	private void initializeMetadataIndex() throws IOException{
 		if(metadataIndex == null) {
-			String metadataIndexPath = "/opt/local/hpds/all/VariantMetadata.javabin";
+			String metadataIndexPath = VariantMetadataIndex.VARIANT_METADATA_BIN_FILE;
 			try(ObjectInputStream in = new ObjectInputStream(new GZIPInputStream(
 					new FileInputStream(metadataIndexPath)))){
 				metadataIndex = (VariantMetadataIndex) in.readObject();
