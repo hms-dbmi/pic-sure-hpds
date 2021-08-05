@@ -1,13 +1,7 @@
 package edu.harvard.hms.dbmi.avillach.hpds.etl.genotype;
 
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.ObjectOutputStream;
-import java.io.Reader;
+import java.io.*;
 import java.nio.charset.Charset;
 import java.util.*;
 import java.util.zip.GZIPInputStream;
@@ -20,18 +14,22 @@ import org.apache.log4j.Logger;
 
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMetadataIndex;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantSpec;
-import htsjdk.samtools.util.BlockCompressedInputStream;
 
 /**
  * 
- * To be implemented as part of ALS-112
- * 
+ * This loader will read in the metadata associated with each variant and build a VariantMetadataIndex that
+ * can be used to populate data in the PIC-SURE Varaint Explorer.
  */
 public class VariantMetadataLoader {
 	
 	private static Logger log = Logger.getLogger(VariantMetadataLoader.class);
-	public static String binFile = "/opt/local/hpds/all/VariantMetadata.javabin";
-    
+	
+	private static VariantMetadataIndex metadataIndex;
+	
+	//fields to allow tests to override default file location
+	private static String storagePathForTests = null;
+	private static String variantIndexPathForTests = null;
+	
 	private static final int 
 	INFO_COLUMN = 7,
 	ANNOTATED_FLAG_COLUMN = 2,
@@ -40,14 +38,16 @@ public class VariantMetadataLoader {
 	
 	public static void main(String[] args) throws Exception{  
 		File vcfIndexFile;
-		String storagePathForTests = null;
+		
 		log.info(new File(".").getAbsolutePath());
 		if(args.length > 0 && new File(args[0]).exists()) {
 			log.info("using path from command line, is this a test");
 			vcfIndexFile = new File(args[0]);
-			binFile = args[1];
+			variantIndexPathForTests = args[1];
 			storagePathForTests = args[2];
+			metadataIndex = new VariantMetadataIndex(storagePathForTests);
 		}else {
+			metadataIndex = new VariantMetadataIndex();
 			vcfIndexFile = new File("/opt/local/hpds/vcfIndex.tsv");
 		}
 		List<File> vcfFiles = new ArrayList<>();
@@ -68,24 +68,23 @@ public class VariantMetadataLoader {
 			});
 		}
 		
-		VariantMetadataIndex vmi = storagePathForTests == null ? 
-				new VariantMetadataIndex() : new VariantMetadataIndex(storagePathForTests); 
-				
+		//process each tsv (vcf file) into our set of VariantMetadataIndex files
 		for(int x = 0;x<vcfFiles.size();x++){
-			processVCFFile(vmi, vcfFiles.get(x), gzipFlags.get(x)); 
-			
+			processVCFFile(vcfFiles.get(x), gzipFlags.get(x)); 
 		}
 
-		vmi.complete(); 
+		metadataIndex.complete(); 
 		
-		try(ObjectOutputStream out = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(new File(binFile))))){
-			out.writeObject(vmi);
+		//store this in a path per contig (or a preset path 
+		String binfilePath = variantIndexPathForTests == null ?  VariantMetadataIndex.VARIANT_METADATA_BIN_FILE : variantIndexPathForTests;
+		
+		try(ObjectOutputStream out = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(new File(binfilePath))))){
+			out.writeObject(metadataIndex);
 			out.flush();
 		}
-		
 	}
 	 
-	public static void processVCFFile(VariantMetadataIndex metadataIndex, File vcfFile, boolean gzipFlag) {  
+	public static void processVCFFile(File vcfFile, boolean gzipFlag) {  
 		log.info("Processing VCF file:  "+vcfFile.getName());   
 		try(Reader reader = new InputStreamReader( 
 			gzipFlag ? new GZIPInputStream(new FileInputStream(vcfFile)) : new FileInputStream(vcfFile));
@@ -101,13 +100,14 @@ public class VariantMetadataLoader {
 		    	VariantSpec variantSpec = new VariantSpec(csvRecord); 
 		    	
 		    	List<String> existingRecords =  new ArrayList<String>();
+		    	//variantSpec class still uses 'chromosome' nomenclature instead of 'contig'
 		    	Collections.addAll(existingRecords, metadataIndex.findBySingleVariantSpec(variantSpec.specNotation()));
 		    	existingRecords.add(csvRecord.get(INFO_COLUMN).trim());
 		    	
 		    	metadataIndex.put(variantSpec.specNotation(), existingRecords.toArray(new String[existingRecords.size()]));
 			} 			
 		}catch(IOException e) {
-			log.error("Error processing VCF file: "+vcfFile.getName(), e);
+			log.error("Error processing VCF file: " + vcfFile.getName(), e);
 		}
 	}   
 }

@@ -4,9 +4,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
@@ -14,30 +12,46 @@ import org.apache.log4j.Logger;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
 
 /**
- * To be implemented as part of ALS-112
- * 
+ * This class will create a set of FBBIS objects that allow lookups of variant-spec -> metadata, instead of the 
+ * metadata -> variant-spec map that is used for searching and identifying patients. 
  */
 public class VariantMetadataIndex implements Serializable {
+	public static String VARIANT_METADATA_BIN_FILE = "/opt/local/hpds/all/VariantMetadata.javabin";
+	
 	private static final long serialVersionUID = 5917054606643971537L;
 	private static Logger log = Logger.getLogger(VariantMetadataIndex.class); 
-	private FileBackedByteIndexedStorage<String, String[]> fbbis;  
-	public static String DEFAULT_STORAGE_FILE_LOCATION = "/opt/local/hpds/all/VariantMetadataStorage.bin";
 	
+	private static Map<String,  FileBackedByteIndexedStorage<String, String[]> > indexMap = new HashMap<String,  FileBackedByteIndexedStorage<String, String[]> >();
+	private static String fileStoragePrefix = "/opt/local/hpds/all/VariantMetadataStorage";
+
+	/**
+	 * This constructor should only be used for testing; we expect the files to be in the default locations in production
+	 * @param storageFile
+	 * @throws IOException
+	 */
 	public VariantMetadataIndex(String storageFile) throws IOException { 
-		fbbis = new FileBackedByteIndexedStorage<>(String.class, String[].class, new File(storageFile));   
+		fileStoragePrefix = storageFile;  
 	}  
 	
+	/**
+	 * creates a default metadata index that maps variant spec -> metadata using an array of one file per contig.
+	 * @throws IOException
+	 */
 	public VariantMetadataIndex() throws IOException {  
-		fbbis = new FileBackedByteIndexedStorage<>(String.class, String[].class, new File(DEFAULT_STORAGE_FILE_LOCATION));   
 	}
 
 	public void initializeRead() throws FileNotFoundException, IOException, ClassNotFoundException {
-		fbbis.open();
+		for(String contig : indexMap.keySet()) {
+			FileBackedByteIndexedStorage<String, String[]> fbbis = indexMap.get(contig);
+			fbbis.open();
+		}
 	}
 
 	public String[] findBySingleVariantSpec(String variantSpec) {
 		try {
-			String[] value = fbbis.get(variantSpec);
+			String contig = variantSpec.substring(0, variantSpec.indexOf(','));
+			FileBackedByteIndexedStorage<String, String[]> fbbis = indexMap.get(contig);
+			String[] value = fbbis != null ? fbbis.get(variantSpec) : null;
 			return value != null  ? value :  new String[0];
 		} catch (IOException e) {
 			log.warn("IOException caught looking up variantSpec : " + variantSpec, e);
@@ -52,15 +66,23 @@ public class VariantMetadataIndex implements Serializable {
 				));
 	}
 
-	public void put(String specNotation, String[] array) throws IOException {
-		fbbis.put(specNotation, array);
+	public void put(String variantSpec, String[] array) throws IOException {
+		String contig = variantSpec.substring(0, variantSpec.indexOf(','));
+		FileBackedByteIndexedStorage<String, String[]> fbbis = indexMap.get(contig);
+		
+		if(fbbis == null) {
+			String filePath = fileStoragePrefix + "_" + contig + ".bin";
+			fbbis = new FileBackedByteIndexedStorage<>(String.class, String[].class, new File(filePath));
+			indexMap.put(contig, fbbis);
+		}
+		
+		fbbis.put(variantSpec, array);
 	}
 
 	public void complete() {
-		fbbis.complete();
-	}
-
-	public FileBackedByteIndexedStorage<String, String[]> getFbbis() {
-		return fbbis;
+		for(String contig : indexMap.keySet()) {
+			FileBackedByteIndexedStorage<String, String[]> fbbis = indexMap.get(contig);
+			fbbis.complete();
+		}
 	}
 }
