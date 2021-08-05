@@ -21,7 +21,7 @@ public class VariantMetadataIndex implements Serializable {
 	private static final long serialVersionUID = 5917054606643971537L;
 	private static Logger log = Logger.getLogger(VariantMetadataIndex.class); 
 	
-	private static Map<String,  FileBackedByteIndexedStorage<String, String[]> > indexMap = new HashMap<String,  FileBackedByteIndexedStorage<String, String[]> >();
+	private Map<String,  FileBackedByteIndexedStorage<String, String[]> > indexMap = new HashMap<String,  FileBackedByteIndexedStorage<String, String[]> >();
 	private static String fileStoragePrefix = "/opt/local/hpds/all/VariantMetadataStorage";
 
 	/**
