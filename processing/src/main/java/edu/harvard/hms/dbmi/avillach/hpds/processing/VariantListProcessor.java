@@ -30,11 +30,14 @@ public class VariantListProcessor extends AbstractProcessor {
 	private static Logger log = Logger.getLogger(VariantListProcessor.class);
 	
 	private static final Boolean VCF_EXCERPT_ENABLED;
+	private static final Boolean AGGREGATE_VCF_EXCERPT_ENABLED;
 	private static final Boolean VARIANT_LIST_ENABLED;
 	
 	static {
 		VCF_EXCERPT_ENABLED = "TRUE".equalsIgnoreCase(System.getProperty("VCF_EXCERPT_ENABLED", "FALSE"));
-		VARIANT_LIST_ENABLED = "TRUE".equalsIgnoreCase(System.getProperty("VCF_EXCERPT_ENABLED", "FALSE"));
+		//always enable aggregate queries if full queries are permitted.
+		AGGREGATE_VCF_EXCERPT_ENABLED = VCF_EXCERPT_ENABLED || "TRUE".equalsIgnoreCase(System.getProperty("AGGREGATE_VCF_EXCERPT_ENABLED", "FALSE"));
+		VARIANT_LIST_ENABLED = VCF_EXCERPT_ENABLED || AGGREGATE_VCF_EXCERPT_ENABLED;
 	}	
 
 	public VariantListProcessor() throws ClassNotFoundException, FileNotFoundException, IOException {
@@ -108,9 +111,12 @@ public class VariantListProcessor extends AbstractProcessor {
 	 */
 	public String runVcfExcerptQuery(Query query, boolean includePatientData) throws IOException {
 		
-		if(!VCF_EXCERPT_ENABLED) {
+		if(includePatientData && !VCF_EXCERPT_ENABLED) {
 			log.warn("VCF_EXCERPT query attempted, but not enabled.");
 			return "VCF_EXCERPT query type not allowed";
+		} else if (!includePatientData && !AGGREGATE_VCF_EXCERPT_ENABLED) {
+			log.warn("AGGREGATE_VCF_EXCERPT query attempted, but not enabled.");
+			return "AGGREGATE_VCF_EXCERPT query type not allowed";
 		}
 		
 		
