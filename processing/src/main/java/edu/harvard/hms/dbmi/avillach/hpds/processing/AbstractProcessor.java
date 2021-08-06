@@ -405,26 +405,16 @@ public abstract class AbstractProcessor {
 					bitmask = bitmask.or(variantBitmasks.get(x));
 				}
 			}
-			// TODO : This is probably not necessary, see TODO below. 
-			String bitmaskString = bitmask.toString(2);
-			log.debug("or'd masks : " + bitmaskString);
-//			PhenoCube<String> idCube;
-//			try {
-//				idCube = ID_CUBE_NAME.contentEquals("NONE") ? null : (PhenoCube<String>) store.get(ID_CUBE_NAME);
-				// TODO : This is much less efficient than using bitmask.testBit(x)
-				for(int x = 2;x < bitmaskString.length()-2;x++) {
-					if('1'==bitmaskString.charAt(x)) {
-						String patientId = variantStore.getPatientIds()[x-2];
-						try{
-							ids.add(Integer.parseInt(patientId));
-						}catch(NullPointerException | NoSuchElementException e) {
-							log.error(ID_CUBE_NAME + " has no value for patientId : " + patientId);
-						}
+			for(int x = 2;x < bitmask.bitLength()-2;x++) {
+				if(bitmask.testBit(x)) {
+					String patientId = variantStore.getPatientIds()[x-2];
+					try{
+						ids.add(Integer.parseInt(patientId));
+					}catch(NullPointerException | NoSuchElementException e) {
+						log.error(ID_CUBE_NAME + " has no value for patientId : " + patientId);
 					}
 				}
-//			} catch (ExecutionException e) {
-//				e.printStackTrace();
-//			}
+			}
 		}
 	}
 
