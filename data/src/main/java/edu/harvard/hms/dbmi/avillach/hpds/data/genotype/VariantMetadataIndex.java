@@ -84,6 +84,7 @@ public class VariantMetadataIndex implements Serializable {
 		for(String contig : indexMap.keySet()) {
 			FileBackedByteIndexedStorage<String, String[]> fbbis = indexMap.get(contig);
 			fbbis.complete();
+			log.info("Saved FBBIS for " + contig);
 		}
 	}
 }

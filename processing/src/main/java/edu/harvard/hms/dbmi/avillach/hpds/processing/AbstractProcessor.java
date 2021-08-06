@@ -487,8 +487,8 @@ public abstract class AbstractProcessor {
 			for(VariantInfoFilter filter : query.variantInfoFilters){
 				ArrayList<Set<String>> variantSets = new ArrayList<>();
 				addVariantsMatchingFilters(filter, variantSets);
-				// todo: update this to count the variants in all sets
-				log.info("Found " + variantSets.size() + " varients for patient identification");
+				log.info("Found " + variantSets.size() + " groups of sets for patient identification");
+				log.info("found " + variantSets.stream().collect(Collectors.summingInt(set->set.size())) + "variants for identification");
 				if(!variantSets.isEmpty()) {
 					// INTERSECT all the variant sets.
 					Set<String> intersectionOfInfoFilters = variantSets.get(0);
