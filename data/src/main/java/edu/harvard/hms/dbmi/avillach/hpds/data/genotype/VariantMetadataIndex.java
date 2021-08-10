@@ -1,15 +1,13 @@
 package edu.harvard.hms.dbmi.avillach.hpds.data.genotype;
 
-import java.beans.Transient;
-import java.io.*;
-import java.time.Duration;
+import java.io.File;
+import java.io.IOException;
+import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
-
-import com.google.common.cache.*;
 
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHolder;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;

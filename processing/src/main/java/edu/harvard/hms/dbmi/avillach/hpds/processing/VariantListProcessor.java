@@ -296,7 +296,7 @@ public class VariantListProcessor extends AbstractProcessor {
 		});
 
 		StringBuilder b2 = new StringBuilder();
-		for( String key : variantMaskBucketHolder.lastSetOfVariants.keySet()) {
+		for( String key : variantMaskBucketHolder.lastValue.keySet()) {
 			b2.append(key + "\t");
 		}
 		log.info("Found variants " + b2.toString());
