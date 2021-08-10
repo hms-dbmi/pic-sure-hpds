@@ -3,7 +3,9 @@ package edu.harvard.hms.dbmi.avillach.hpds.etl.genotype;
 
 import java.io.*;
 import java.nio.charset.Charset;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -50,8 +52,8 @@ public class VariantMetadataLoader {
 			metadataIndex = new VariantMetadataIndex();
 			vcfIndexFile = new File("/opt/local/hpds/vcfIndex.tsv");
 		}
-		List<File> vcfFiles = new ArrayList<>();
-		List<Boolean> gzipFlags = new ArrayList<>();
+		
+		List<VcfInputFile> vcfFiles = new ArrayList<>();
 
 		try(CSVParser parser = CSVParser.parse(vcfIndexFile, Charset.forName("UTF-8"), CSVFormat.DEFAULT.withDelimiter('\t').withSkipHeaderRecord(true))) { 
 			final boolean[] horribleHeaderSkipFlag = {false}; 
@@ -59,8 +61,10 @@ public class VariantMetadataLoader {
 				if(horribleHeaderSkipFlag[0]) {
 					File vcfFileLocal = new File(r.get(FILE_COLUMN)); 
 					if(Integer.parseInt(r.get(ANNOTATED_FLAG_COLUMN).trim())==1) {
-						vcfFiles.add(vcfFileLocal);
-						gzipFlags.add(Integer.parseInt(r.get(GZIP_FLAG_COLUMN).trim())==1);
+						VcfInputFile vcfInput = new VcfInputFile();
+						vcfInput.vcfFile = vcfFileLocal;
+						vcfInput.gzipped = (Integer.parseInt(r.get(GZIP_FLAG_COLUMN).trim())==1);
+						vcfFiles.add(vcfInput);
 					}
 				}else {
 					horribleHeaderSkipFlag[0] = true;
@@ -69,10 +73,11 @@ public class VariantMetadataLoader {
 		}
 		
 		//process each tsv (vcf file) into our set of VariantMetadataIndex files
-		for(int x = 0;x<vcfFiles.size();x++){
-			processVCFFile(vcfFiles.get(x), gzipFlags.get(x)); 
-		}
-
+		vcfFiles.parallelStream().forEach((VcfInputFile vcfFile)->{
+			processVCFFile(vcfFile.vcfFile, vcfFile.gzipped); 
+		});
+		
+		
 		metadataIndex.complete(); 
 		
 		//store this in a path per contig (or a preset path 
@@ -98,16 +103,15 @@ public class VariantMetadataLoader {
 			    }
 			    
 		    	VariantSpec variantSpec = new VariantSpec(csvRecord); 
-		    	
-		    	List<String> existingRecords =  new ArrayList<String>();
-		    	//variantSpec class still uses 'chromosome' nomenclature instead of 'contig'
-		    	Collections.addAll(existingRecords, metadataIndex.findBySingleVariantSpec(variantSpec.specNotation()));
-		    	existingRecords.add(csvRecord.get(INFO_COLUMN).trim());
-		    	
-		    	metadataIndex.put(variantSpec.specNotation(), existingRecords.toArray(new String[existingRecords.size()]));
+		    	metadataIndex.put(variantSpec.specNotation(), csvRecord.get(INFO_COLUMN).trim());
 			} 			
 		}catch(IOException e) {
 			log.error("Error processing VCF file: " + vcfFile.getName(), e);
 		}
 	}   
+	
+	private static class VcfInputFile {
+		File vcfFile;
+		boolean gzipped;
+	}
 }

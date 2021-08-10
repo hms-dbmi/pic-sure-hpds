@@ -320,7 +320,6 @@ public class VariantListProcessor extends AbstractProcessor {
 			try(ObjectInputStream in = new ObjectInputStream(new GZIPInputStream(
 					new FileInputStream(metadataIndexPath)))){
 				metadataIndex = (VariantMetadataIndex) in.readObject();
-				metadataIndex.initializeRead();	
 			}catch(Exception e) {
 				log.error("No Metadata Index found at " + metadataIndexPath);
 			}

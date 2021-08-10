@@ -108,19 +108,19 @@ public class VariantStore implements Serializable {
 		String contig = segments[0];
 
 		if (Level.DEBUG.equals(log.getEffectiveLevel())) {
-			log.debug("Getting masks for variant " + variant + "  Test " + (bucketCache.lastSetOfVariants != null
+			log.debug("Getting masks for variant " + variant + "  Test " + (bucketCache.lastValue != null
 					&& contig.contentEquals(bucketCache.lastContig) && chrOffset == bucketCache.lastChunkOffset));
 		}
 
-		if (bucketCache.lastSetOfVariants != null && contig.contentEquals(bucketCache.lastContig)
+		if (bucketCache.lastValue != null && contig.contentEquals(bucketCache.lastContig)
 				&& chrOffset == bucketCache.lastChunkOffset) {
 			// TODO : This is a temporary efficiency hack, NOT THREADSAFE!!!
 		} else {
-			bucketCache.lastSetOfVariants = variantMaskStorage.get(contig).get(chrOffset);
+			bucketCache.lastValue = variantMaskStorage.get(contig).get(chrOffset);
 			bucketCache.lastContig = contig;
 			bucketCache.lastChunkOffset = chrOffset;
 		}
-		return bucketCache.lastSetOfVariants == null ? null : bucketCache.lastSetOfVariants.get(variant);
+		return bucketCache.lastValue == null ? null : bucketCache.lastValue.get(variant);
 	}
 
 	public String[] getHeaders() {
