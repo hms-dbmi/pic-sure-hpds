@@ -15,7 +15,7 @@ import com.google.common.cache.CacheLoader.InvalidCacheLoadException;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMasks;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMetadataIndex;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantSpec;
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantMaskBucketHolder;
+import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHolder;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -195,7 +195,7 @@ public class VariantListProcessor extends AbstractProcessor {
 		}
 		//End of headers
 		builder.append("\n");
-		VariantMaskBucketHolder variantMaskBucketHolder = new VariantMaskBucketHolder();
+		VariantBucketHolder<VariantMasks> variantMaskBucketHolder = new VariantBucketHolder<VariantMasks>();
 
 		//loop over the variants identified, and build an output row
 		metadata.forEach((String variantSpec, String[] variantMetadata)->{

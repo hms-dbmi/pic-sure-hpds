@@ -19,7 +19,7 @@ import org.apache.log4j.Logger;
 
 import com.google.common.collect.RangeSet;
 
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantMaskBucketHolder;
+import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHolder;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
 
 public class VariantStore implements Serializable {
@@ -98,7 +98,7 @@ public class VariantStore implements Serializable {
 		return patientIds;
 	}
 
-	public VariantMasks getMasks(String variant, VariantMaskBucketHolder bucketCache) throws IOException {
+	public VariantMasks getMasks(String variant, VariantBucketHolder<VariantMasks> bucketCache) throws IOException {
 		String[] segments = variant.split(",");
 		if (segments.length < 2) {
 			log.error("Less than 2 segments found in this variant : " + variant);
