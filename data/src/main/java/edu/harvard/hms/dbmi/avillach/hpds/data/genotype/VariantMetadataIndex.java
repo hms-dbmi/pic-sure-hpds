@@ -125,7 +125,9 @@ public class VariantMetadataIndex implements Serializable {
 		
 		
 		List<String> existingRecords =  new ArrayList<String>();
-    	Collections.addAll(existingRecords, bucket.get(variantSpec));
+		if(bucket.get(variantSpec) != null) {
+			Collections.addAll(existingRecords, bucket.get(variantSpec));
+		}
     	existingRecords.add(metaData);
     	bucket.put(variantSpec, existingRecords.toArray(new String[existingRecords.size()]));
 		

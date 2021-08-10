@@ -35,7 +35,6 @@ public class VariantMetadataIndexTest {
 			}catch(Exception e) {
 				e.printStackTrace();
 			}
-			vmi.initializeRead();			
 		} 
 	}
 	
