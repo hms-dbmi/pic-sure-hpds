@@ -405,8 +405,11 @@ public abstract class AbstractProcessor {
 					bitmask = bitmask.or(variantBitmasks.get(x));
 				}
 			}
-			for(int x = 2;x < bitmask.bitLength()-2;x++) {
-				if(bitmask.testBit(x)) {
+			String bitmaskString = bitmask.toString(2);
+			log.debug("or'd masks : " + bitmaskString);
+			// TODO : This is much less efficient than using bitmask.testBit(x)
+			for(int x = 2;x < bitmaskString.length()-2;x++) {
+				if('1'==bitmaskString.charAt(x)) {
 					String patientId = variantStore.getPatientIds()[x-2];
 					try{
 						ids.add(Integer.parseInt(patientId));

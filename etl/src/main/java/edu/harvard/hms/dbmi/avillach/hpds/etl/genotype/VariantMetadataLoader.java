@@ -104,7 +104,8 @@ public class VariantMetadataLoader {
 			    
 		    	VariantSpec variantSpec = new VariantSpec(csvRecord); 
 		    	metadataIndex.put(variantSpec.specNotation(), csvRecord.get(INFO_COLUMN).trim());
-			} 			
+			} 	
+			log.info("Finished processing:  "+vcfFile.getName());  
 		}catch(IOException e) {
 			log.error("Error processing VCF file: " + vcfFile.getName(), e);
 		}
