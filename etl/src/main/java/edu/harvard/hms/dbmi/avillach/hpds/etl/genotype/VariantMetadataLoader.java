@@ -3,9 +3,7 @@ package edu.harvard.hms.dbmi.avillach.hpds.etl.genotype;
 
 import java.io.*;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -53,7 +51,7 @@ public class VariantMetadataLoader {
 			vcfIndexFile = new File("/opt/local/hpds/vcfIndex.tsv");
 		}
 		
-		List<VcfInputFile> vcfFiles = new ArrayList<>();
+		TreeSet<VcfInputFile> vcfFileTree = new TreeSet<>();
 
 		try(CSVParser parser = CSVParser.parse(vcfIndexFile, Charset.forName("UTF-8"), CSVFormat.DEFAULT.withDelimiter('\t').withSkipHeaderRecord(true))) { 
 			final boolean[] horribleHeaderSkipFlag = {false}; 
@@ -61,10 +59,8 @@ public class VariantMetadataLoader {
 				if(horribleHeaderSkipFlag[0]) {
 					File vcfFileLocal = new File(r.get(FILE_COLUMN)); 
 					if(Integer.parseInt(r.get(ANNOTATED_FLAG_COLUMN).trim())==1) {
-						VcfInputFile vcfInput = new VcfInputFile();
-						vcfInput.vcfFile = vcfFileLocal;
-						vcfInput.gzipped = (Integer.parseInt(r.get(GZIP_FLAG_COLUMN).trim())==1);
-						vcfFiles.add(vcfInput);
+						VcfInputFile vcfInput = new VcfInputFile(vcfFileLocal, (Integer.parseInt(r.get(GZIP_FLAG_COLUMN).trim())==1));
+						vcfFileTree.add(vcfInput);
 					}
 				}else {
 					horribleHeaderSkipFlag[0] = true;
@@ -72,13 +68,29 @@ public class VariantMetadataLoader {
 			});
 		}
 		
-		//process each tsv (vcf file) into our set of VariantMetadataIndex files
-		vcfFiles.parallelStream().forEach((VcfInputFile vcfFile)->{
-			processVCFFile(vcfFile.vcfFile, vcfFile.gzipped); 
-		});
+		String currentContig = "";
+		while( vcfFileTree.size() > 0) {
+			
+			//find and remove the lowest element
+			VcfInputFile vcfInput = vcfFileTree.pollFirst();
+			
+			//write to disk each time the contig changes
+			if(! currentContig.equals(vcfInput.currentContig)) {
+				metadataIndex.flush();
+			}
+			
+			currentContig = vcfInput.currentContig;
+			metadataIndex.put(vcfInput.currentVariantSpec, vcfInput.currentMetaData);
+			
+			if(vcfInput.hasNextVariant()) {
+				vcfInput.nextVariant();
+				vcfFileTree.add(vcfInput);
+			} else {
+				log.info("Finished processing:  "+ vcfInput.fileName);  
+			}
+		}
 		
-		
-		metadataIndex.complete(); 
+		metadataIndex.flush(); 
 		
 		//store this in a path per contig (or a preset path 
 		String binfilePath = variantIndexPathForTests == null ?  VariantMetadataIndex.VARIANT_METADATA_BIN_FILE : variantIndexPathForTests;
@@ -89,30 +101,75 @@ public class VariantMetadataLoader {
 		}
 	}
 	 
-	public static void processVCFFile(File vcfFile, boolean gzipFlag) {  
-		log.info("Processing VCF file:  "+vcfFile.getName());   
-		try(Reader reader = new InputStreamReader( 
-			gzipFlag ? new GZIPInputStream(new FileInputStream(vcfFile)) : new FileInputStream(vcfFile));
-			CSVParser parser = new CSVParser(reader, CSVFormat.DEFAULT.withDelimiter('\t').withSkipHeaderRecord(false))){
-			Iterator<CSVRecord> iterator = parser.iterator();   
-			while(iterator.hasNext()) { 
-			    CSVRecord csvRecord = iterator.next(); 
-			    //skip all header rows
-		    	if(csvRecord.get(0).startsWith("#")) {  
-			    	continue;
-			    }
-			    
-		    	VariantSpec variantSpec = new VariantSpec(csvRecord); 
-		    	metadataIndex.put(variantSpec.specNotation(), csvRecord.get(INFO_COLUMN).trim());
-			} 	
-			log.info("Finished processing:  "+vcfFile.getName());  
-		}catch(IOException e) {
-			log.error("Error processing VCF file: " + vcfFile.getName(), e);
+	private static class VcfInputFile implements Comparable<VcfInputFile> {
+		
+		Iterator<CSVRecord> iterator;
+		CSVParser parser;
+		
+		String fileName;
+		String currentContig;
+		String currentVariantSpec;
+		String currentMetaData;
+		
+		/**
+		 * read in an vcfFile, skip the header rows, and queue up the first variant (with metadata)
+		 * @param vcfFile
+		 * @param gzipped
+		 */
+		public VcfInputFile(File vcfFile, boolean gzipped) {
+			fileName = vcfFile.getName();
+			log.info("Processing VCF file:  " + fileName);   
+			try{
+				Reader reader = new InputStreamReader( gzipped ? new GZIPInputStream(new FileInputStream(vcfFile)) : new FileInputStream(vcfFile));
+				parser = new CSVParser(reader, CSVFormat.DEFAULT.withDelimiter('\t').withSkipHeaderRecord(false));
+				
+				iterator = parser.iterator();   
+				while(iterator.hasNext()) { 
+				    CSVRecord csvRecord = iterator.next(); 
+				    //skip all header rows
+			    	if(csvRecord.get(0).startsWith("#")) {  
+				    	continue;
+				    }
+				    
+			    	VariantSpec variantSpec = new VariantSpec(csvRecord); 
+			    	currentContig = variantSpec.metadata.chromosome;
+			    	currentVariantSpec = variantSpec.specNotation();
+	    			currentMetaData = csvRecord.get(INFO_COLUMN).trim();
+	    			break;
+				} 	
+				
+			}catch(IOException e) {
+				log.error("Error processing VCF file: " + vcfFile.getName(), e);
+			}
+		
 		}
-	}   
-	
-	private static class VcfInputFile {
-		File vcfFile;
-		boolean gzipped;
+		
+		boolean hasNextVariant() {
+			return iterator.hasNext();
+		}
+		
+		void nextVariant() {
+			CSVRecord csvRecord = iterator.next(); 
+		    //skip all header rows
+	    	if(csvRecord.get(0).startsWith("#")) {  
+		    	return;
+		    }
+		    
+	    	VariantSpec variantSpec = new VariantSpec(csvRecord); 
+	    	currentContig = variantSpec.metadata.chromosome;
+	    	currentVariantSpec = variantSpec.specNotation();
+			currentMetaData = csvRecord.get(INFO_COLUMN).trim();
+		}
+
+		/**
+		 * These files will be sorted by the current variant spec.  We need to make sure they are never actually 
+		 * equal values (since the TreeSet used to keep them sorted enforces uniqueness)
+		 */
+		@Override
+		public int compareTo(VcfInputFile arg0) {
+			return (currentVariantSpec + iterator.toString()).compareTo(arg0.currentVariantSpec  + arg0.iterator.toString());
+		}
+		
+		
 	}
 }
