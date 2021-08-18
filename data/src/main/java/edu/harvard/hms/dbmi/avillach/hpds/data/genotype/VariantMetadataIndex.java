@@ -77,7 +77,17 @@ public class VariantMetadataIndex implements Serializable {
 				bucketCache.lastContig = contig;
 				bucketCache.lastChunkOffset = chrOffset;
 			}
-			return bucketCache.lastValue != null ? bucketCache.lastValue.get(variantSpec) :  new String[0];
+			
+			if( bucketCache.lastValue != null) {
+				if(bucketCache.lastValue.get(variantSpec) == null) {
+					log.warn("No variant data found for spec " + variantSpec);
+					return new String[0];
+				}
+				return  bucketCache.lastValue.get(variantSpec);
+			}
+			log.warn("No bucket found for spec " + variantSpec + " in bucket " + chrOffset);
+			return new String[0];
+		
 		} catch (IOException e) {
 			log.warn("IOException caught looking up variantSpec : " + variantSpec, e);
 			return new String[0];
