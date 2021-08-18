@@ -85,6 +85,9 @@ public class VariantMetadataIndex implements Serializable {
 	}
 
 	public Map<String, String[]> findByMultipleVariantSpec(Collection<String> varientSpecList) {
+		
+		log.info("SPEC list" + Arrays.deepToString(varientSpecList.toArray()));
+		
 		VariantBucketHolder<String[]> bucketCache = new VariantBucketHolder<String[]>();
 		return varientSpecList.stream().collect(Collectors.toMap(
 				variant->{return variant;},
@@ -144,6 +147,7 @@ public class VariantMetadataIndex implements Serializable {
 			
 			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> contigFbbis = indexMap.get(contig);
 			if(contigFbbis == null) {
+				log.info("creating new file for " + contig);
 				String filePath = fileStoragePrefix + "_" + contig + ".bin";
 				contigFbbis = new FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>>(Integer.class, (Class<ConcurrentHashMap<String, String[]>>)(Class<?>) ConcurrentHashMap.class, new File(filePath));
 				indexMap.put(contig, contigFbbis);
@@ -160,7 +164,8 @@ public class VariantMetadataIndex implements Serializable {
 		loadingMap = new HashMap<String,  ConcurrentHashMap<Integer, ConcurrentHashMap<String, String[]>> >();
 	}
 	
-	public void complete() {
+	public void complete() throws IOException {
+		flush();
 	
 		for(String contig : indexMap.keySet()) {
 			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> contigFbbis = indexMap.get(contig);
