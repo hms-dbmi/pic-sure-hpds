@@ -550,7 +550,7 @@ public abstract class AbstractProcessor {
 			log.info("Awaiting completion of variant index");
 		}
 		
-		log.info("Found " + numVariants + " total variants.");
+		log.info("Found " + numVariants.length + " total variants.");
 
 		variantIndex = new String[numVariants[0]];
 

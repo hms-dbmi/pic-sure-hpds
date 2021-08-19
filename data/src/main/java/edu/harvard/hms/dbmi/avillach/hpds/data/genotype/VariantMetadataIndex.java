@@ -165,7 +165,15 @@ public class VariantMetadataIndex implements Serializable {
 			
 			ConcurrentHashMap<Integer, ConcurrentHashMap<String, String[]>> contigMap = loadingMap.get(contig);
 			for(Integer bucketNumber : contigMap.keySet()) {
-				contigFbbis.put(bucketNumber, contigMap.get(bucketNumber));
+				//make sure we don't lose any existing data
+				ConcurrentHashMap<String, String[]> bucketStorage = contigFbbis.get(bucketNumber);
+				if(bucketStorage == null) {
+					bucketStorage = contigMap.get(bucketNumber);
+				} else {
+					bucketStorage.putAll(contigMap.get(bucketNumber));
+				}
+				
+				contigFbbis.put(bucketNumber, bucketStorage);
 			}
 			
 			log.info("Saved " + contig + " to FBBIS");
