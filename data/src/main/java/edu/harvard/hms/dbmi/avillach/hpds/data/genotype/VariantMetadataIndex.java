@@ -5,11 +5,11 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
 
@@ -19,7 +19,8 @@ import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
  */
 public class VariantMetadataIndex implements Serializable {
 	private static final long serialVersionUID = 5917054606643971537L;
-	private static Logger log = Logger.getLogger(VariantMetadataIndex.class); 
+	
+	private static Logger log = LoggerFactory.getLogger(VariantMetadataIndex.class); 
 	private FileBackedByteIndexedStorage<String, String[]> fbbis;  
 	public static String DEFAULT_STORAGE_FILE_LOCATION = "/opt/local/hpds/all/VariantMetadataStorage.bin";
 	

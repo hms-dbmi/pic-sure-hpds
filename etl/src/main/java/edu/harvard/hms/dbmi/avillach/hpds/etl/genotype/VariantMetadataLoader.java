@@ -9,14 +9,19 @@ import java.io.InputStreamReader;
 import java.io.ObjectOutputStream;
 import java.io.Reader;
 import java.nio.charset.Charset;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.TreeSet;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMetadataIndex;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantSpec;
@@ -29,9 +34,15 @@ import htsjdk.samtools.util.BlockCompressedInputStream;
  */
 public class VariantMetadataLoader {
 	
-	private static Logger log = Logger.getLogger(VariantMetadataLoader.class);
 	public static String binFile = "/opt/local/hpds/all/VariantMetadata.javabin";
-    
+	private static Logger log = LoggerFactory.getLogger(VariantMetadataLoader.class);
+	
+	private static VariantMetadataIndex metadataIndex;
+	
+	//fields to allow tests to override default file location
+	private static String storagePathForTests = null;
+	private static String variantIndexPathForTests = null;
+	
 	private static final int 
 	INFO_COLUMN = 7,
 	ANNOTATED_FLAG_COLUMN = 2,

@@ -11,8 +11,8 @@ import java.util.zip.GZIPOutputStream;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.InfoStore;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMasks;
@@ -22,8 +22,9 @@ import htsjdk.samtools.util.BlockCompressedInputStream;
 
 public class NewVCFLoader {
 
-	static Logger logger = Logger.getLogger(NewVCFLoader.class);
-	static File storageDir = null;
+	private static Logger logger = LoggerFactory.getLogger(NewVCFLoader.class);
+	private static File storageDir = null;
+
 	// DO NOT CHANGE THIS unless you want to reload all the data everywhere.
 	private static int CHUNK_SIZE = 1000;
 
@@ -62,7 +63,7 @@ public class NewVCFLoader {
 				walker.readHeaders(infoStoreMap);
 				allPatientIds.addAll(Arrays.asList(walker.vcfIndexLine.patientIds));
 			} catch (IOException e) {
-				logger.error(e);
+				logger.error("an error occurred", e);
 				System.exit(-1);
 			}});
 		String[] allSampleIds = new String[allPatientIds.size()];
@@ -148,7 +149,7 @@ public class NewVCFLoader {
 
 		convertInfoStoresToByteIndexed();
 
-		if(Level.DEBUG.equals(logger.getEffectiveLevel())) {
+		if(logger.isDebugEnabled()) {
 			//Log out the first and last 50 variants
 			int[] count = {0};
 //			Integer[] allPatientIdsArray = allPatientIds.toArray(new Integer[0]);
@@ -174,7 +175,7 @@ public class NewVCFLoader {
 									if(!homoIdList.isEmpty() && homoIdList.length()<1000)logger.debug(variantSpec + " : homozygous : " + homoIdList);
 								}
 							} catch (IOException e) {
-								logger.error(e);
+								logger.error("an error occurred", e);
 							}
 						}
 						if(count[0]>50)break;
@@ -196,7 +197,7 @@ public class NewVCFLoader {
 									if(!homoIdList.isEmpty() && homoIdList.length()<1000)logger.debug(variantSpec + " : homozygous : " + homoIdList);
 								}
 							} catch (IOException e) {
-								logger.error(e);
+								logger.error("an error occurred", e);
 							}
 						});
 						if(count[0]>50)break;
@@ -262,7 +263,7 @@ public class NewVCFLoader {
 					}
 					variantMaskStorage_f.get(lastContigProcessed_f).put(lastChunkProcessed_f, convertLoadingMapToMaskMap(zygosityMaskStrings_f));
 				} catch (IOException e) {
-					logger.error(e);
+					logger.error("an error occurred", e);
 				}
 			});
 			if(lastChunkProcessed % 100 == 0) {

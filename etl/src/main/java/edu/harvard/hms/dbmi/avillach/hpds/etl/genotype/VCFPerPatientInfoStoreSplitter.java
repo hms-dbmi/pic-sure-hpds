@@ -1,22 +1,23 @@
 package edu.harvard.hms.dbmi.avillach.hpds.etl.genotype;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.InfoStore;
 
 public class VCFPerPatientInfoStoreSplitter {
-	static File mergedFolder = new File("/opt/local/hpds/merged");
-	public static void splitAll() throws ClassNotFoundException, FileNotFoundException, IOException, InterruptedException, ExecutionException {
+	private static Logger logger = LoggerFactory.getLogger(NewVCFLoader.class);
+	private static File mergedFolder = new File("/opt/local/hpds/merged");
+
+	public static void splitAll() throws ClassNotFoundException, FileNotFoundException, IOException,
+			InterruptedException, ExecutionException {
+
 		ConcurrentHashMap<String, File> mergedFiles = new ConcurrentHashMap<String, File>();
 
 		File[] inputFiles = new File("/opt/local/hpds/all/").listFiles((file)->{return file.getName().endsWith("_infoStores.javabin");});

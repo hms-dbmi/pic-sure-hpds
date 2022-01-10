@@ -8,7 +8,8 @@ import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -36,7 +37,7 @@ public class BucketIndexBySample implements Serializable {
 	//used to track buckets while building the cache in a stream
 	private Integer bucketIndex;
 
-	transient Logger log = Logger.getLogger(BucketIndexBySample.class);
+	transient Logger log = LoggerFactory.getLogger(BucketIndexBySample.class);
 	
 	//here's an array of bytes with a single bit set; these are used for masks.
 	//the bit set is the index in the array
@@ -218,7 +219,7 @@ public class BucketIndexBySample implements Serializable {
 		try {
 			return  bucketSetCache.get(patientId);
 		} catch (ExecutionException e) {
-			log.error(e);
+			log.error("execution error", e);
 		}
 		return new HashSet<Integer>();
 	}
