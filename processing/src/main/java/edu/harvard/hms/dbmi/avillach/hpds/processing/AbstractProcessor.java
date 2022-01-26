@@ -715,6 +715,7 @@ public abstract class AbstractProcessor {
 
 			int patientsInScopeSize = patientsInScope.size();
 			BigInteger patientsInScopeMask = createMaskForPatientSet(patientsInScope);
+			boolean traceIsEnabled = log.isTraceEnabled();
 			for(int x = 0;
 					x<variantPartitions.size() 
 					&& matchingPatients[0].bitCount() < patientsInScopeSize+4;
@@ -729,7 +730,7 @@ public abstract class AbstractProcessor {
 							masks = variantStore.getMasks(variantSpec, bucketCache);
 							if(masks != null) {
 								// Iffing here to avoid all this string parsing and counting when logging not set to DEBUG
-								if(log.isTraceEnabled()) {
+								if(traceIsEnabled) {
 									log.trace("checking variant " + variantSpec + " for patients: " + ( masks.heterozygousMask == null ? "null" :(masks.heterozygousMask.bitCount() - 4)) 
 											+ "/" + (masks.homozygousMask == null ? "null" : (masks.homozygousMask.bitCount() - 4)) + "    "
 											+ ( masks.heterozygousNoCallMask == null ? "null" :(masks.heterozygousNoCallMask.bitCount() - 4)) 
