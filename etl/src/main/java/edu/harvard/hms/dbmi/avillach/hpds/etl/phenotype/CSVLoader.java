@@ -35,6 +35,7 @@ public class CSVLoader {
 		store.allObservationsStore = new RandomAccessFile("/opt/local/hpds/allObservationsStore.javabin", "rw");
 		initialLoad();
 		store.saveStore();
+		store.dumpStats();
 	}
 
 	private static void initialLoad() throws IOException {

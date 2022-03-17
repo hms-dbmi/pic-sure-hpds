@@ -1,6 +1,9 @@
 package edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
@@ -131,15 +134,27 @@ public class LoadingStore {
 
 			long totalNumberOfObservations = 0;
 			
+			List<String> columnMetaOutputTocsv = new ArrayList<>();
+			
 			System.out.println("\n\nConceptPath\tObservationCount\tMinNumValue\tMaxNumValue\tCategoryValues");
 			for(String key : metastore.keySet()) {
+				
 				ColumnMeta columnMeta = metastore.get(key);
-				System.out.println(String.join("\t", key.toString(), columnMeta.getObservationCount()+"", 
+				
+				columnMetaOutputTocsv.add(columnMeta.toCsv());
+				
+				System.out.println(String.join("\t", key.toString(), columnMeta.getObservationCount() + "", 
+				
 						columnMeta.getMin()==null ? "NaN" : columnMeta.getMin().toString(), 
+				
 								columnMeta.getMax()==null ? "NaN" : columnMeta.getMax().toString(), 
+								
 										columnMeta.getCategoryValues() == null ? "NUMERIC CONCEPT" : String.join(",", 
+										
 												columnMeta.getCategoryValues()
+												
 												.stream().map((value)->{return value==null ? "NULL_VALUE" : "\""+value+"\"";}).collect(Collectors.toList()))));
+				
 				totalNumberOfObservations += columnMeta.getObservationCount();
 			}
 
@@ -147,6 +162,13 @@ public class LoadingStore {
 			System.out.println("Total Number of Patients : " + allIds.size());
 			System.out.println("Total Number of Observations : " + totalNumberOfObservations);
 			
+			try(BufferedWriter writer = Files.newBufferedWriter(Paths.get("/opt/local/hpds/columnMeta.javabin"), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+				columnMetaOutputTocsv.forEach(metaRecord -> {
+					writer.write(metaRecord);
+				});
+				writer.flush();
+				writer.close();
+			}
 		} catch (IOException | ClassNotFoundException e) {
 			e.printStackTrace();
 			throw new RuntimeException("Could not load metastore");

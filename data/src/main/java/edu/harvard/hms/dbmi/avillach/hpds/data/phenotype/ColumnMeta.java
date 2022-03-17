@@ -109,5 +109,26 @@ public class ColumnMeta implements Serializable{
 	public void setMax(double max) {
 		this.max = max;
 	}
-
+	
+	public String toCsv() {
+		String str = "\"" + name + "\"," +
+				"\"" + widthInBytes + "\"," +
+				"\"" + columnOffset + "\"," +
+				"\"" + categorical + "\"," +
+				"\"" + categoryValues + "\"," +
+				"\"" + min + "\"," +
+				"\"" + max + "\"," +
+				"\"" + allObservationsOffset + "\"," +
+				"\"" + allObservationsLength + "\"," +
+				"\"" + observationCount + "\"," +
+				"\"" + patientCount + "\"";
+		return str;
+		//return ""\"" + name + "\"", widthInBytes=" + widthInBytes + ", columnOffset=" + columnOffset
+		//		+ ", categorical=" + categorical + ", categoryValues=" + categoryValues + ", min=" + min + ", max="
+		//		+ max + ", allObservationsOffset=" + allObservationsOffset + ", allObservationsLength="
+		//		+ allObservationsLength + ", observationCount=" + observationCount + ", patientCount=" + patientCount
+		//		+ "]";
+	}
+	
+	
 }
