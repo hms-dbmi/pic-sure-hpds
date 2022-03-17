@@ -164,7 +164,7 @@ public class LoadingStore {
 			
 			try(BufferedWriter writer = Files.newBufferedWriter(Paths.get("/opt/local/hpds/columnMeta.javabin"), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
 				columnMetaOutputTocsv.forEach(metaRecord -> {
-					writer.write(metaRecord);
+					writer.write(metaRecord + "\n");
 				});
 				writer.flush();
 				writer.close();
