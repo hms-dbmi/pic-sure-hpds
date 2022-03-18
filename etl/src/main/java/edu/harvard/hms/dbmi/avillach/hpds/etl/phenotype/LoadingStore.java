@@ -162,7 +162,7 @@ public class LoadingStore {
 			System.out.println("Total Number of Patients : " + allIds.size());
 			System.out.println("Total Number of Observations : " + totalNumberOfObservations);
 			
-			try(BufferedWriter writer = Files.newBufferedWriter(Paths.get("/opt/local/hpds/columnMeta.javabin"), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+			try(BufferedWriter writer = Files.newBufferedWriter(Paths.get("/opt/local/hpds/columnMeta.csv"), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
 				columnMetaOutputTocsv.forEach(metaRecord -> {
 					writer.write(metaRecord + "\n");
 				});
