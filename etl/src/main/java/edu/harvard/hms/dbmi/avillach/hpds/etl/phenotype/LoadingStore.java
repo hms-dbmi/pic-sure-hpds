@@ -137,42 +137,39 @@ public class LoadingStore {
 			List<String> columnMetaOutputTocsv = new ArrayList<>();
 			
 			System.out.println("\n\nConceptPath\tObservationCount\tMinNumValue\tMaxNumValue\tCategoryValues");
-			for(String key : metastore.keySet()) {
-				
-				ColumnMeta columnMeta = metastore.get(key);
-				
-				columnMetaOutputTocsv.add(columnMeta.toCsv());
-				
-				System.out.println(String.join("\t", key.toString(), columnMeta.getObservationCount() + "", 
-				
-						columnMeta.getMin()==null ? "NaN" : columnMeta.getMin().toString(), 
-				
-								columnMeta.getMax()==null ? "NaN" : columnMeta.getMax().toString(), 
-								
-										columnMeta.getCategoryValues() == null ? "NUMERIC CONCEPT" : String.join(",", 
-										
-												columnMeta.getCategoryValues()
-												
-												.stream().map((value)->{return value==null ? "NULL_VALUE" : "\""+value+"\"";}).collect(Collectors.toList()))));
-				
-				totalNumberOfObservations += columnMeta.getObservationCount();
-			}
-
-			System.out.println("Total Number of Concepts : " + metastore.size());
-			System.out.println("Total Number of Patients : " + allIds.size());
-			System.out.println("Total Number of Observations : " + totalNumberOfObservations);
-			
 			try(BufferedWriter writer = Files.newBufferedWriter(Paths.get("/opt/local/hpds/columnMeta.csv"), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
-				columnMetaOutputTocsv.forEach(metaRecord -> {
-					writer.write(metaRecord + "\n");
-				});
+
+				for(String key : metastore.keySet()) {
+					
+					ColumnMeta columnMeta = metastore.get(key);
+					
+					writer.write(columnMeta.toCsv();
+					
+					System.out.println(String.join("\t", key.toString(), columnMeta.getObservationCount() + "", 
+					
+							columnMeta.getMin()==null ? "NaN" : columnMeta.getMin().toString(), 
+					
+									columnMeta.getMax()==null ? "NaN" : columnMeta.getMax().toString(), 
+									
+											columnMeta.getCategoryValues() == null ? "NUMERIC CONCEPT" : String.join(",", 
+											
+													columnMeta.getCategoryValues()
+													
+													.stream().map((value)->{return value==null ? "NULL_VALUE" : "\""+value+"\"";}).collect(Collectors.toList()))));
+					
+					totalNumberOfObservations += columnMeta.getObservationCount();
+				}
 				writer.flush();
 				writer.close();
-			} catch (IOException e ) {
-				e.printStackTrace();
-				throw new RuntimeException("Could not output metadata");
+				System.out.println("Total Number of Concepts : " + metastore.size());
+				System.out.println("Total Number of Patients : " + allIds.size());
+				System.out.println("Total Number of Observations : " + totalNumberOfObservations);
+			
 
-			}
+
+				}
+				
+			
 		} catch (IOException | ClassNotFoundException e) {
 			e.printStackTrace();
 			throw new RuntimeException("Could not load metastore");
