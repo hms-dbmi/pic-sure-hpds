@@ -121,7 +121,7 @@ public class ColumnMeta implements Serializable{
 				"\"" + allObservationsOffset + "\"," +
 				"\"" + allObservationsLength + "\"," +
 				"\"" + observationCount + "\"," +
-				"\"" + patientCount + "\"";
+				"\"" + patientCount + "\"\n";
 		return str;
 		//return ""\"" + name + "\"", widthInBytes=" + widthInBytes + ", columnOffset=" + columnOffset
 		//		+ ", categorical=" + categorical + ", categoryValues=" + categoryValues + ", min=" + min + ", max="
