@@ -168,6 +168,10 @@ public class LoadingStore {
 				});
 				writer.flush();
 				writer.close();
+			} catch (IOException e ) {
+				e.printStackTrace();
+				throw new RuntimeException("Could not output metadata");
+
 			}
 		} catch (IOException | ClassNotFoundException e) {
 			e.printStackTrace();
