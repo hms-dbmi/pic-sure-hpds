@@ -44,6 +44,7 @@ public class RekeyDataset {
 		initialLoad();
 		
 		store.saveStore();
+		store.dumpStats();
 	}
 
 	private static void initialLoad() throws IOException, ExecutionException {
