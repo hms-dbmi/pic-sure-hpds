@@ -31,12 +31,15 @@ public class CSVLoader {
 
 	private static final int DATETIME = 4;
 
-	private static boolean DO_VARNAME_ROLLUP = false;
+	private static boolean DO_VARNAME_ROLLUP = true;
 	
 	public static void main(String[] args) throws IOException {
 		if(args.length > 1) {
 			
-			if(args[0].equalsIgnoreCase("NO_ROLLUP")) DO_VARNAME_ROLLUP = false;
+			if(args[0].equalsIgnoreCase("NO_ROLLUP")) {
+				log.info("NO_ROLLUP SET.");
+				DO_VARNAME_ROLLUP = false;
+			}
 		}
 		store.allObservationsStore = new RandomAccessFile("/opt/local/hpds/allObservationsStore.javabin", "rw");
 		initialLoad();

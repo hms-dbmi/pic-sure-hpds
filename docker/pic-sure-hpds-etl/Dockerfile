@@ -14,5 +14,5 @@ ADD RekeyDataset-jar-with-dependencies.jar .
 ADD RemoveConceptFromMetadata-jar-with-dependencies.jar .
 
 
-ENTRYPOINT java $JAVA_OPTS -Xmx${HEAPSIZE:-2048}m -jar ${LOADER_NAME:-CSVLoader}-jar-with-dependencies.jar 
+ENTRYPOINT java $JAVA_OPTS ${NO_ROLLUP:-} -Xmx${HEAPSIZE:-2048}m -jar ${LOADER_NAME:-CSVLoader}-jar-with-dependencies.jar 
 
