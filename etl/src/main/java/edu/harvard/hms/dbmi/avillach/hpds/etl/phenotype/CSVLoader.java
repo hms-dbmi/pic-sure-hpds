@@ -31,7 +31,7 @@ public class CSVLoader {
 
 	private static final int DATETIME = 4;
 
-	private static boolean DO_VARNAME_ROLLUP = true;
+	private static boolean DO_VARNAME_ROLLUP = false;
 	
 	public static void main(String[] args) throws IOException {
 		if(args.length > 1) {

@@ -15,4 +15,4 @@ ADD RemoveConceptFromMetadata-jar-with-dependencies.jar .
 
 
 #ENTRYPOINT java $JAVA_OPTS -Xmx${HEAPSIZE:-2048}m -jar ${LOADER_NAME:-CSVLoader}-jar-with-dependencies.jar 
-ENTRYPOINT ["sh","-c","java $JAVA_OPTS -Xmx${HEAPSIZE:-2048}m -jar ${LOADER_NAME:-CSVLoader}-jar-with-dependencies.jar NO_ROLLUP"]
+ENTRYPOINT ["sh","-c","java $JAVA_OPTS -Xmx${HEAPSIZE:-2048}m -jar ${LOADER_NAME:-CSVLoader}-jar-with-dependencies.jar ${NO_ROLLUP}"]
