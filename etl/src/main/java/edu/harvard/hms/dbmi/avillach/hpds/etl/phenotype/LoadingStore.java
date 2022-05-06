@@ -142,7 +142,9 @@ public class LoadingStore {
 				for(String key : metastore.keySet()) {
 					
 					ColumnMeta columnMeta = metastore.get(key);
-					
+					columnMeta.getCategoryValues().stream().forEach(value -> {
+						value = "\"" + value + "\"";
+					});
 					writer.write(columnMeta.toCsv());
 					
 					System.out.println(String.join("\t", key.toString(), columnMeta.getObservationCount() + "", 
