@@ -142,9 +142,14 @@ public class LoadingStore {
 				for(String key : metastore.keySet()) {
 					
 					ColumnMeta columnMeta = metastore.get(key);
+					// quoted string around values is needed here as the dictionary data store
+					// stores these values 
 					columnMeta.getCategoryValues().stream().forEach(value -> {
+						
 						value = "\"" + value + "\"";
+						
 					});
+					
 					writer.write(columnMeta.toCsv());
 					
 					System.out.println(String.join("\t", key.toString(), columnMeta.getObservationCount() + "", 
