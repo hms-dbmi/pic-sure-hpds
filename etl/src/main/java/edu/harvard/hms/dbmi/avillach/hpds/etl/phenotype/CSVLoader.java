@@ -34,8 +34,7 @@ public class CSVLoader {
 	private static boolean DO_VARNAME_ROLLUP = false;
 	
 	public static void main(String[] args) throws IOException {
-		if(args.length > 1) {
-			
+		if(args.length > 1) {			
 			if(args[0].equalsIgnoreCase("NO_ROLLUP")) {
 				log.info("NO_ROLLUP SET.");
 				DO_VARNAME_ROLLUP = false;

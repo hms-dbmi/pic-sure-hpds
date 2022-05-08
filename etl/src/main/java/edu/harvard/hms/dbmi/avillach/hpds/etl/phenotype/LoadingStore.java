@@ -144,7 +144,7 @@ public class LoadingStore {
 					ColumnMeta columnMeta = metastore.get(key);
 					// quoted string around values is needed here as the dictionary data store
 					// stores these values 
-					if(columnMeta.getCategoryValues() != null && !columnMeta.getCategoryValues().isEmpty()) {
+					if(columnMeta.getCategoryValues() != null) {
 						columnMeta.getCategoryValues().stream().forEach(value -> {
 							
 							value = "\"" + value + "\"";
