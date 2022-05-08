@@ -148,8 +148,7 @@ public class LoadingStore {
 						
 						value = "\"" + value + "\"";
 						
-					});
-					
+					});					
 					writer.write(columnMeta.toCsv());
 					
 					System.out.println(String.join("\t", key.toString(), columnMeta.getObservationCount() + "", 

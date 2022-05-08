@@ -31,7 +31,16 @@ public class CSVLoader {
 
 	private static final int DATETIME = 4;
 
+	private static boolean DO_VARNAME_ROLLUP = false;
+	
 	public static void main(String[] args) throws IOException {
+		if(args.length > 1) {
+			
+			if(args[0].equalsIgnoreCase("NO_ROLLUP")) {
+				log.info("NO_ROLLUP SET.");
+				DO_VARNAME_ROLLUP = false;
+			}
+		}
 		store.allObservationsStore = new RandomAccessFile("/opt/local/hpds/allObservationsStore.javabin", "rw");
 		initialLoad();
 		store.saveStore();
@@ -67,8 +76,14 @@ public class CSVLoader {
 			String textValueFromRow = record.get(TEXT_VALUE) == null ? null : record.get(TEXT_VALUE).trim();
 			if(textValueFromRow!=null) {
 				textValueFromRow = textValueFromRow.replaceAll("\\ufffd", "");
+			} 
+			String conceptPath;
+			
+			if(DO_VARNAME_ROLLUP) {
+				conceptPath = conceptPathFromRow.endsWith("\\" +textValueFromRow+"\\") ? conceptPathFromRow.replaceAll("\\\\[^\\\\]*\\\\$", "\\\\") : conceptPathFromRow;
+			} else {
+				conceptPath = conceptPathFromRow;
 			}
-			String conceptPath = conceptPathFromRow.endsWith("\\" +textValueFromRow+"\\") ? conceptPathFromRow.replaceAll("\\\\[^\\\\]*\\\\$", "\\\\") : conceptPathFromRow;
 			// This is not getDouble because we need to handle null values, not coerce them into 0s
 			String numericValue = record.get(NUMERIC_VALUE);
 			if((numericValue==null || numericValue.isEmpty()) && textValueFromRow!=null) {
