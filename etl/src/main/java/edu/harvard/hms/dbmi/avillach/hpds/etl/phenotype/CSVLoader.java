@@ -105,7 +105,17 @@ public class CSVLoader {
 			String value = isAlpha ? record.get(TEXT_VALUE) : numericValue;
 
 			if(value != null && !value.trim().isEmpty() && ((isAlpha && currentConcept[0].vType == String.class)||(!isAlpha && currentConcept[0].vType == Double.class))) {
+				// need to remove double quotes from values.
+				// if double quotes are in a value it will break a 
+				// downstream methodology for the Dictionary Topmed value mask methodology
+				// if manipulating the string value stored in the variable metadata to be an array or collection is any more difficult than this
+				// it is probably best to solve the issue by moving the value mask from a string in the 
+				// variable metadata and storing it with a simple Set<String> in the TopmedVariable that we can use as the value mask.
+				// ANY object deserializer will make the Set<String> a proper Set<String>.
+				// The response used in search should then populate it's values based on values in Set<String> object.
+				value = value.replace("\"", "");
 				value = value.trim();
+
 				currentConcept[0].setColumnWidth(isAlpha ? Math.max(currentConcept[0].getColumnWidth(), value.getBytes().length) : Double.BYTES);
 				int patientId = Integer.parseInt(record.get(PATIENT_NUM));
 				Date date = null;
