@@ -150,7 +150,7 @@ public class LoadingStore {
 					if(columnMeta.getCategoryValues() != null) {
 						columnMeta.getCategoryValues().stream().forEach(value -> {
 							
-							list.add("\"" + value + "\"");
+							list.add("\\\"" + value + "\\\"");
 							
 						});					
 					}
