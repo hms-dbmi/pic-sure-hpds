@@ -145,13 +145,16 @@ public class LoadingStore {
 					// quoted string around values is needed here as the dictionary data store
 					// stores these values 
 					System.out.println(columnMeta.toCsv());
+					List<String> list = new ArrayList<>();
+					
 					if(columnMeta.getCategoryValues() != null) {
 						columnMeta.getCategoryValues().stream().forEach(value -> {
 							
-							value = "\\\\\"" + value + "\\\\\"";
+							list.add("\"" + value + "\"");
 							
 						});					
 					}
+					columnMeta.setCategoryValues(list);
 					writer.write(columnMeta.toCsv());
 					
 					System.out.println(String.join("\t", key.toString(), columnMeta.getObservationCount() + "", 
