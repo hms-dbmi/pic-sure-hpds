@@ -9,6 +9,8 @@ import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -138,25 +140,28 @@ public class LoadingStore {
 			
 			System.out.println("\n\nConceptPath\tObservationCount\tMinNumValue\tMaxNumValue\tCategoryValues");
 			try(BufferedWriter writer = Files.newBufferedWriter(Paths.get("/opt/local/hpds/columnMeta.csv"), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
-
+				CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT);
 				for(String key : metastore.keySet()) {
 					
 					ColumnMeta columnMeta = metastore.get(key);
-					// quoted string around values is needed here as the dictionary data store
-					// stores these values 
-					System.out.println(columnMeta.toCsv());
-					List<String> list = new ArrayList<>();
 					
-					if(columnMeta.getCategoryValues() != null) {
-						columnMeta.getCategoryValues().stream().forEach(value -> {
-							
-							list.add("\\\"" + value + "\\\"");
-							
-						});					
-					}
-					columnMeta.setCategoryValues(list);
 					writer.write(columnMeta.toCsv());
+					Object[] columnMetaOut = new Object[11];
 					
+					columnMetaOut[0] = columnMeta.getName();
+					columnMetaOut[1] = columnMeta.getWidthInBytes();
+					columnMetaOut[2] = columnMeta.getColumnOffset();
+					columnMetaOut[3] = columnMeta.isCategorical();
+					columnMetaOut[4] = columnMeta.getCategoryValues();
+					columnMetaOut[5] = columnMeta.getMin();
+					columnMetaOut[6] = columnMeta.getMax();
+					columnMetaOut[7] = columnMeta.getAllObservationsOffset();
+					columnMetaOut[8] = columnMeta.getAllObservationsLength();
+					columnMetaOut[9] = columnMeta.getObservationCount();
+					columnMetaOut[10] = columnMeta.getPatientCount();
+					
+					printer.print(Arrays.asList(columnMetaOut));
+
 					System.out.println(String.join("\t", key.toString(), columnMeta.getObservationCount() + "", 
 					
 							columnMeta.getMin()==null ? "NaN" : columnMeta.getMin().toString(), 

@@ -112,10 +112,10 @@ public class CSVLoader {
 				// it is probably best to solve the issue by moving the value mask from a string in the 
 				// variable metadata and storing it with a simple Set<String> in the TopmedVariable that we can use as the value mask.
 				// ANY object deserializer will make the Set<String> a proper Set<String>.
-				// The response used in search should then populate it's values based on values in Set<String> object.
+				/*The response used in search should then populate it's values based on values in Set<String> object.
 				value = value.replace("\"", "");
 				value = value.trim();
-
+*/
 				currentConcept[0].setColumnWidth(isAlpha ? Math.max(currentConcept[0].getColumnWidth(), value.getBytes().length) : Double.BYTES);
 				int patientId = Integer.parseInt(record.get(PATIENT_NUM));
 				Date date = null;
