@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -167,12 +168,19 @@ public class LoadingStore {
 					
 					Object[] columnMetaOut = new Object[11];
 					
-					List<String> listQuoted = new ArrayList<>();
+					StringBuilder listQuoted = new StringBuilder();
+					AtomicInteger x = new AtomicInteger(1);
 					
-					columnMeta.getCategoryValues().forEach(string -> {
-						listQuoted.add("\"" + string + "\"");
-					});
-					
+					if(columnMeta.getCategoryValues() != null){
+						if(columnMeta.getCategoryValues().size() > 1) {
+							columnMeta.getCategoryValues().forEach(string -> {
+								
+								listQuoted.append(string);
+								if(x.get() != columnMeta.getCategoryValues().size()) listQuoted.append("µ");
+								x.incrementAndGet();
+							});
+						}
+					}
 					columnMetaOut[0] = columnMeta.getName();
 					columnMetaOut[1] = String.valueOf(columnMeta.getWidthInBytes());
 					columnMetaOut[2] = String.valueOf(columnMeta.getColumnOffset());
