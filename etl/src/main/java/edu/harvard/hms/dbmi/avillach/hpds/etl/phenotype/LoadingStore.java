@@ -1,10 +1,26 @@
 package edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype;
 
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.RandomAccessFile;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -14,7 +30,11 @@ import org.apache.commons.csv.CSVPrinter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.cache.*;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import com.google.common.cache.RemovalListener;
+import com.google.common.cache.RemovalNotification;
 
 import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
@@ -136,7 +156,7 @@ public class LoadingStore {
 
 			long totalNumberOfObservations = 0;
 			
-			List<String> columnMetaOutputTocsv = new ArrayList<>();
+			//List<String> columnMetaOutputTocsv = new ArrayList<>();
 			
 			System.out.println("\n\nConceptPath\tObservationCount\tMinNumValue\tMaxNumValue\tCategoryValues");
 			try(BufferedWriter writer = Files.newBufferedWriter(Paths.get("/opt/local/hpds/columnMeta.csv"), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
@@ -145,23 +165,29 @@ public class LoadingStore {
 					
 					ColumnMeta columnMeta = metastore.get(key);
 					
-					writer.write(columnMeta.toCsv());
 					Object[] columnMetaOut = new Object[11];
 					
-					columnMetaOut[0] = columnMeta.getName();
-					columnMetaOut[1] = columnMeta.getWidthInBytes();
-					columnMetaOut[2] = columnMeta.getColumnOffset();
-					columnMetaOut[3] = columnMeta.isCategorical();
-					columnMetaOut[4] = columnMeta.getCategoryValues();
-					columnMetaOut[5] = columnMeta.getMin();
-					columnMetaOut[6] = columnMeta.getMax();
-					columnMetaOut[7] = columnMeta.getAllObservationsOffset();
-					columnMetaOut[8] = columnMeta.getAllObservationsLength();
-					columnMetaOut[9] = columnMeta.getObservationCount();
-					columnMetaOut[10] = columnMeta.getPatientCount();
+					List<String> listQuoted = new ArrayList<>();
 					
-					printer.print(Arrays.asList(columnMetaOut));
-
+					columnMeta.getCategoryValues().forEach(string -> {
+						listQuoted.add("\"" + string + "\"");
+					});
+					
+					columnMetaOut[0] = columnMeta.getName();
+					columnMetaOut[1] = String.valueOf(columnMeta.getWidthInBytes());
+					columnMetaOut[2] = String.valueOf(columnMeta.getColumnOffset());
+					columnMetaOut[3] = String.valueOf(columnMeta.isCategorical());
+					// this should nest the list of values in a list inside the String array. 
+					columnMetaOut[4] = listQuoted;  
+					columnMetaOut[5] = String.valueOf(columnMeta.getMin());
+					columnMetaOut[6] = String.valueOf(columnMeta.getMax());
+					columnMetaOut[7] = String.valueOf(columnMeta.getAllObservationsOffset());
+					columnMetaOut[8] = String.valueOf(columnMeta.getAllObservationsLength());
+					columnMetaOut[9] = String.valueOf(columnMeta.getObservationCount());
+					columnMetaOut[10] = String.valueOf(columnMeta.getPatientCount());
+					
+					printer.printRecord(columnMetaOut);
+					
 					System.out.println(String.join("\t", key.toString(), columnMeta.getObservationCount() + "", 
 					
 							columnMeta.getMin()==null ? "NaN" : columnMeta.getMin().toString(), 
