@@ -1,4 +1,4 @@
-FROM docker.io/alpine:latest
+FROM docker.io/alpine:3.16
 
 RUN apk add --no-cache --purge -uU bash &&     rm -rf /var/cache/apk/* /tmp/*
 
