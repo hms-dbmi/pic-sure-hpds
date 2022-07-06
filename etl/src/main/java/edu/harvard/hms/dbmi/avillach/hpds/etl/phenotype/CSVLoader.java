@@ -34,7 +34,7 @@ public class CSVLoader {
 	private static boolean DO_VARNAME_ROLLUP = false;
 	
 	public static void main(String[] args) throws IOException {
-		if(args.length > 1) {			
+		if(args.length > 1) {
 			if(args[0].equalsIgnoreCase("NO_ROLLUP")) {
 				log.info("NO_ROLLUP SET.");
 				DO_VARNAME_ROLLUP = false;
@@ -85,13 +85,14 @@ public class CSVLoader {
 			}
 			// This is not getDouble because we need to handle null values, not coerce them into 0s
 			String numericValue = record.get(NUMERIC_VALUE);
+			/*
 			if((numericValue==null || numericValue.isEmpty()) && textValueFromRow!=null) {
 				try {
 					numericValue = Double.parseDouble(textValueFromRow) + "";
 				}catch(NumberFormatException e) {
 
 				}
-			}
+			}*/
 			boolean isAlpha = (numericValue == null || numericValue.isEmpty());
 			if(currentConcept[0] == null || !currentConcept[0].name.equals(conceptPath)) {
 				System.out.println(conceptPath);
