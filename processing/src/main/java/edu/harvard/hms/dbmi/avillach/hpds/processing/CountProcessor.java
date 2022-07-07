@@ -127,7 +127,13 @@ public class CountProcessor extends AbstractProcessor {
 			Map<String, Integer> varCount = new TreeMap<>();;
 			try {
 				TreeMap<String, TreeSet<Integer>> categoryMap = getCube(concept).getCategoryMap();
+				//We do not have all the categories (aka variables) for required fields, so we need to get them and
+				// then ensure that our base patient set, which is filtered down by our filters. Which may include
+				// not only other required filters, but categorical filters, numerical filters, or genomic filters.
+				// We then need to get the amount a patients for each category and map that to the concept path.
 				categoryMap.forEach((String category, TreeSet<Integer> patientSet)->{
+					//If all the patients are in the base then no need to loop, this would always be true for single
+					// filter queries.
 					if (baseQueryPatientSet.containsAll(patientSet)) {
 						varCount.put(category, patientSet.size());
 					} else {
@@ -145,6 +151,8 @@ public class CountProcessor extends AbstractProcessor {
 				e.printStackTrace();
 			}
 		});
+		//For categoryFilters we need to ensure the variables included in the filter are the ones included in our count
+		//map. Then we make sure that the patients who have that variable are also in our base set.
 		query.categoryFilters.keySet().parallelStream().forEach((String concept)-> {
 			Map<String, Integer> varCount;
 			try {
@@ -175,12 +183,13 @@ public class CountProcessor extends AbstractProcessor {
 		query.numericFilters.forEach((String concept, Filter.DoubleFilter range)-> {
 			KeyAndValue[] pairs = getCube(concept).getEntriesForValueRange(range.getMin(), range.getMax());
 			Map<Double, Integer> countMap = new TreeMap<>();
-			Arrays.stream(pairs).forEach(kv -> {
-				if (baseQueryPatientSet.contains(kv.getKey())) {
-					if (countMap.containsKey(kv.getValue())) {
-						countMap.put((double)kv.getValue(), countMap.get(kv.getValue()) + 1);
+			Arrays.stream(pairs).forEach(patientConceptPair -> {
+				//The key of the patientConceptPair is the patient id. We need to make sure the patient matches our query.
+				if (baseQueryPatientSet.contains(patientConceptPair.getKey())) {
+					if (countMap.containsKey(patientConceptPair.getValue())) {
+						countMap.put((double)patientConceptPair.getValue(), countMap.get(patientConceptPair.getValue()) + 1);
 					} else {
-						countMap.put((double)kv.getValue(), 1);
+						countMap.put((double)patientConceptPair.getValue(), 1);
 					}
 				}
 			});
