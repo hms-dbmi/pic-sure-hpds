@@ -172,7 +172,7 @@ public class LoadingStore {
 					AtomicInteger x = new AtomicInteger(1);
 					
 					if(columnMeta.getCategoryValues() != null){
-						if(columnMeta.getCategoryValues().size() > 1) {
+						if(columnMeta.getCategoryValues().size() >= 1) {
 							columnMeta.getCategoryValues().forEach(string -> {
 								
 								listQuoted.append(string);
