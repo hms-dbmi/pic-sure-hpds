@@ -20,6 +20,19 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantStore;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
 import htsjdk.samtools.util.BlockCompressedInputStream;
 
+/**
+ * This class will build variant info stores
+ * 
+ * VCFIndex.tsv is simplified to only store the sample id to hpds patient num only
+ * 
+ * all vcfs that need to be processed should be stored in the /opt/local/hpds directory
+ * vcfs should be all in the same format based on these requirements:
+ * - annotated
+ * - chr removed from CHROM column
+ * - gzipped with an filename extension as vcf.gz
+ * - vcf filenames must contain the chromosome the vcf is associated with as well as the genome reference
+ * ex: variants_chr22_hg38.vcf.gz, variants_chr21_hg38.vcf.gz, etc...
+ */
 public class VCFLoaderLiteConfig {
 
 	private static Logger logger = LoggerFactory.getLogger(VCFLoaderLiteConfig.class);
