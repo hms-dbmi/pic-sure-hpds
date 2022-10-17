@@ -3,7 +3,6 @@ package edu.harvard.hms.dbmi.avillach.hpds.service;
 import java.io.IOException;
 import java.util.*;
 import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 import javax.ws.rs.*;
@@ -12,7 +11,8 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 
-import com.googlecode.concurrentlinkedhashmap.ConcurrentLinkedHashMap;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.apache.http.entity.ContentType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,8 +44,8 @@ public class PicSureService implements IResourceRS {
 			countProcessor = new CountProcessor();
 			timelineProcessor = new TimelineProcessor();
 			variantListProcessor = new VariantListProcessor();
-			responseCache = new ConcurrentLinkedHashMap.Builder<String, Response>()
-					.maximumWeightedCapacity(RESPONSE_CACHE_SIZE)
+			responseCache = Caffeine.newBuilder()
+					.maximumSize(RESPONSE_CACHE_SIZE)
 					.build();
 		} catch (ClassNotFoundException | IOException e3) {
 			log.error("ClassNotFoundException or IOException caught: ", e3);
@@ -70,7 +70,7 @@ public class PicSureService implements IResourceRS {
 	private static final int RESPONSE_CACHE_SIZE = 50;
 
 	//sync and async queries have different execution paths, so we cache them separately.
-	protected static ConcurrentMap<String, Response> responseCache;
+	protected static Cache<String, Response> responseCache;
 
 	@POST
 	@Path("/info")
@@ -279,7 +279,7 @@ public class PicSureService implements IResourceRS {
 			try {
 				Query incomingQuery = convertIncomingQuery(resultRequest);
 				String queryID = UUIDv5.UUIDFromString(incomingQuery.toString()).toString();
-				Response cachedResponse = responseCache.get(queryID);
+				Response cachedResponse = responseCache.getIfPresent(queryID);
 				if (cachedResponse != null) {
 					return cachedResponse;
 				} else {

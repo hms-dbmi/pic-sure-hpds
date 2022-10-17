@@ -6,7 +6,8 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
-import com.googlecode.concurrentlinkedhashmap.ConcurrentLinkedHashMap;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +36,7 @@ public class QueryService {
 
 	ExecutorService smallTaskExecutor;
 
-	protected static ConcurrentMap<String, AsyncResult> resultCache;
+	protected static Cache<String, AsyncResult> resultCache;
 
 	public QueryService () throws ClassNotFoundException, FileNotFoundException, IOException{
 		SMALL_JOB_LIMIT = getIntProp("SMALL_JOB_LIMIT");
@@ -53,15 +54,15 @@ public class QueryService {
 		smallTaskExecutor = createExecutor(smallTaskExecutionQueue, SMALL_TASK_THREADS);
 		
 		//set up results cache
-		resultCache = new ConcurrentLinkedHashMap.Builder<String, AsyncResult>()
-				.maximumWeightedCapacity(RESULTS_CACHE_SIZE)
+		resultCache = Caffeine.newBuilder()
+				.maximumSize(RESULTS_CACHE_SIZE)
 				.build();
 	}
 
 	public AsyncResult runQuery(Query query) throws ClassNotFoundException, IOException {
 		
 		String id = UUIDv5.UUIDFromString(query.toString()).toString();
-		AsyncResult cachedResult = resultCache.get(id);
+		AsyncResult cachedResult = resultCache.getIfPresent(id);
 		if(cachedResult != null) {
 			log.debug("cache hit for " + id);
 			return cachedResult;
@@ -211,7 +212,7 @@ public class QueryService {
 	}
 
 	public AsyncResult getStatusFor(String queryId) {
-		AsyncResult asyncResult = resultCache.get(queryId);
+		AsyncResult asyncResult = resultCache.getIfPresent(queryId);
 		if(asyncResult == null) {
 			return null;
 		}
@@ -234,7 +235,7 @@ public class QueryService {
 	}
 
 	public AsyncResult getResultFor(String queryId) {
-		return resultCache.get(queryId);
+		return resultCache.getIfPresent(queryId);
 	}
 
 	public TreeMap<String, ColumnMeta> getDataDictionary() {
