@@ -279,8 +279,9 @@ public class PicSureService implements IResourceRS {
 			try {
 				Query incomingQuery = convertIncomingQuery(resultRequest);
 				String queryID = UUIDv5.UUIDFromString(incomingQuery.toString()).toString();
-				if (responseCache.get(queryID) != null) {
-					return responseCache.get(queryID);
+				Response cachedResponse = responseCache.get(queryID);
+				if (cachedResponse != null) {
+					return cachedResponse;
 				} else {
 					Response response = _querySync(resultRequest);
 					responseCache.put(queryID, response);
