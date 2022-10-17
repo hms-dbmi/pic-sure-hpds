@@ -3,6 +3,7 @@ package edu.harvard.hms.dbmi.avillach.hpds.service;
 import java.io.IOException;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 import javax.ws.rs.*;
@@ -11,6 +12,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 
+import com.googlecode.concurrentlinkedhashmap.ConcurrentLinkedHashMap;
 import org.apache.http.entity.ContentType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +28,6 @@ import com.google.common.collect.ImmutableMap;
 
 import edu.harvard.dbmi.avillach.domain.*;
 import edu.harvard.dbmi.avillach.service.IResourceRS;
-import edu.harvard.dbmi.avillach.util.LRUCache;
 import edu.harvard.dbmi.avillach.util.UUIDv5;
 import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.FileBackedByteIndexedInfoStore;
@@ -43,6 +44,9 @@ public class PicSureService implements IResourceRS {
 			countProcessor = new CountProcessor();
 			timelineProcessor = new TimelineProcessor();
 			variantListProcessor = new VariantListProcessor();
+			responseCache = new ConcurrentLinkedHashMap.Builder<String, Response>()
+					.maximumWeightedCapacity(RESPONSE_CACHE_SIZE)
+					.build();
 		} catch (ClassNotFoundException | IOException e3) {
 			log.error("ClassNotFoundException or IOException caught: ", e3);
 		}
@@ -66,7 +70,7 @@ public class PicSureService implements IResourceRS {
 	private static final int RESPONSE_CACHE_SIZE = 50;
 
 	//sync and async queries have different execution paths, so we cache them separately.
-	protected static LRUCache<String, Response> responseCache = new LRUCache<>(RESPONSE_CACHE_SIZE);
+	protected static ConcurrentMap<String, Response> responseCache;
 
 	@POST
 	@Path("/info")

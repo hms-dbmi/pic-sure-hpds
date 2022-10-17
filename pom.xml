@@ -300,6 +300,12 @@
 				<artifactId>spring-jdbc</artifactId>
 				<version>5.1.1.RELEASE</version>
 			</dependency>
+			<dependency>
+				<groupId>com.googlecode.concurrentlinkedhashmap</groupId>
+				<artifactId>concurrentlinkedhashmap-lru</artifactId>
+				<version>1.4.2</version>
+			</dependency>
+
 		</dependencies>
 	</dependencyManagement>
 	<repositories>

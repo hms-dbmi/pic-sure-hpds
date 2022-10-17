@@ -6,12 +6,12 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
+import com.googlecode.concurrentlinkedhashmap.ConcurrentLinkedHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableMap;
 
-import edu.harvard.dbmi.avillach.util.LRUCache;
 import edu.harvard.dbmi.avillach.util.UUIDv5;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
@@ -35,7 +35,7 @@ public class QueryService {
 
 	ExecutorService smallTaskExecutor;
 
-	protected static LRUCache<String, AsyncResult> resultCache;
+	protected static ConcurrentMap<String, AsyncResult> resultCache;
 
 	public QueryService () throws ClassNotFoundException, FileNotFoundException, IOException{
 		SMALL_JOB_LIMIT = getIntProp("SMALL_JOB_LIMIT");
@@ -53,15 +53,18 @@ public class QueryService {
 		smallTaskExecutor = createExecutor(smallTaskExecutionQueue, SMALL_TASK_THREADS);
 		
 		//set up results cache
-		resultCache = new LRUCache<>(RESULTS_CACHE_SIZE);
+		resultCache = new ConcurrentLinkedHashMap.Builder<String, AsyncResult>()
+				.maximumWeightedCapacity(RESULTS_CACHE_SIZE)
+				.build();
 	}
 
-	public AsyncResult runQuery(Query query) throws ClassNotFoundException, FileNotFoundException, IOException {
+	public AsyncResult runQuery(Query query) throws ClassNotFoundException, IOException {
 		
 		String id = UUIDv5.UUIDFromString(query.toString()).toString();
-		if(resultCache.get(id) != null) {
+		AsyncResult cachedResult = resultCache.get(id);
+		if(cachedResult != null) {
 			log.debug("cache hit for " + id);
-			return resultCache.get(id);
+			return cachedResult;
 		}
 		
 		// Merging fields from filters into selected fields for user validation of results
