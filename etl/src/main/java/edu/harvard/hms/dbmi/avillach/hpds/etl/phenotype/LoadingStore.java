@@ -1,15 +1,41 @@
 package edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype;
 
-import java.io.*;
-import java.util.*;
+import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.RandomAccessFile;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.cache.*;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import com.google.common.cache.RemovalListener;
+import com.google.common.cache.RemovalNotification;
 
 import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
@@ -25,7 +51,7 @@ public class LoadingStore {
 	private static Logger log = LoggerFactory.getLogger(LoadingStore.class);
 	
 	public LoadingCache<String, PhenoCube> store = CacheBuilder.newBuilder()
-			.maximumSize(16)
+			.maximumSize(64)
 			.removalListener(new RemovalListener<String, PhenoCube>() {
 
 				@Override
@@ -122,7 +148,10 @@ public class LoadingStore {
 		System.out.println("Closing Store");
 		allObservationsStore.close();
 	}
-
+	/**
+	 * This method will display counts for the objects stored in the metadata.
+	 * This will also write out a csv file used by the data dictionary importer.
+	 */
 	public void dumpStats() {
 		System.out.println("Dumping Stats");
 		try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream("/opt/local/hpds/columnMeta.javabin")));){
@@ -130,22 +159,67 @@ public class LoadingStore {
 			Set<Integer> allIds = (TreeSet<Integer>) objectInputStream.readObject();
 
 			long totalNumberOfObservations = 0;
-			
+						
 			System.out.println("\n\nConceptPath\tObservationCount\tMinNumValue\tMaxNumValue\tCategoryValues");
-			for(String key : metastore.keySet()) {
-				ColumnMeta columnMeta = metastore.get(key);
-				System.out.println(String.join("\t", key.toString(), columnMeta.getObservationCount()+"", 
-						columnMeta.getMin()==null ? "NaN" : columnMeta.getMin().toString(), 
-								columnMeta.getMax()==null ? "NaN" : columnMeta.getMax().toString(), 
-										columnMeta.getCategoryValues() == null ? "NUMERIC CONCEPT" : String.join(",", 
-												columnMeta.getCategoryValues()
-												.stream().map((value)->{return value==null ? "NULL_VALUE" : "\""+value+"\"";}).collect(Collectors.toList()))));
-				totalNumberOfObservations += columnMeta.getObservationCount();
+			try(BufferedWriter writer = Files.newBufferedWriter(Paths.get("/opt/local/hpds/columnMeta.csv"), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+				CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT);
+				for(String key : metastore.keySet()) {
+					
+					ColumnMeta columnMeta = metastore.get(key);
+					
+					Object[] columnMetaOut = new Object[11];
+					
+					StringBuilder listQuoted = new StringBuilder();
+					AtomicInteger x = new AtomicInteger(1);
+					
+					if(columnMeta.getCategoryValues() != null){
+						if(columnMeta.getCategoryValues().size() >= 1) {
+							columnMeta.getCategoryValues().forEach(string -> {
+								
+								listQuoted.append(string);
+								if(x.get() != columnMeta.getCategoryValues().size()) listQuoted.append("µ");
+								x.incrementAndGet();
+							});
+						}
+					}
+					
+					columnMetaOut[0] = columnMeta.getName();
+					columnMetaOut[1] = String.valueOf(columnMeta.getWidthInBytes());
+					columnMetaOut[2] = String.valueOf(columnMeta.getColumnOffset());
+					columnMetaOut[3] = String.valueOf(columnMeta.isCategorical());
+					// this should nest the list of values in a list inside the String array. 
+					columnMetaOut[4] = listQuoted;  
+					columnMetaOut[5] = String.valueOf(columnMeta.getMin());
+					columnMetaOut[6] = String.valueOf(columnMeta.getMax());
+					columnMetaOut[7] = String.valueOf(columnMeta.getAllObservationsOffset());
+					columnMetaOut[8] = String.valueOf(columnMeta.getAllObservationsLength());
+					columnMetaOut[9] = String.valueOf(columnMeta.getObservationCount());
+					columnMetaOut[10] = String.valueOf(columnMeta.getPatientCount());
+					
+					printer.printRecord(columnMetaOut);
+					
+					System.out.println(String.join("\t", key.toString(), columnMeta.getObservationCount() + "", 
+					
+							columnMeta.getMin()==null ? "NaN" : columnMeta.getMin().toString(), 
+					
+									columnMeta.getMax()==null ? "NaN" : columnMeta.getMax().toString(), 
+									
+											columnMeta.getCategoryValues() == null ? "NUMERIC CONCEPT" : String.join(",", 
+											
+													columnMeta.getCategoryValues()
+													
+													.stream().map((value)->{return value==null ? "NULL_VALUE" : "\""+value+"\"";}).collect(Collectors.toList()))));
+					
+					totalNumberOfObservations += columnMeta.getObservationCount();
+				}
+			
+				writer.flush();
+				writer.close();
+				System.out.println("Total Number of Concepts : " + metastore.size());
+				System.out.println("Total Number of Patients : " + allIds.size());
+				System.out.println("Total Number of Observations : " + totalNumberOfObservations);
+			
 			}
-
-			System.out.println("Total Number of Concepts : " + metastore.size());
-			System.out.println("Total Number of Patients : " + allIds.size());
-			System.out.println("Total Number of Observations : " + totalNumberOfObservations);
 			
 		} catch (IOException | ClassNotFoundException e) {
 			e.printStackTrace();

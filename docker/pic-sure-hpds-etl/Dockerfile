@@ -5,6 +5,7 @@ RUN apt-get update -y && apt-get install -y gnupg openssl && rm -rf /var/lib/apt
 ADD create_key.sh .
 ADD SQLLoader-jar-with-dependencies.jar .
 ADD CSVLoader-jar-with-dependencies.jar .
+ADD CSVLoaderNewSearch-jar-with-dependencies.jar .
 ADD CSVDumper-jar-with-dependencies.jar .
 ADD VCFLocalLoader-jar-with-dependencies.jar .
 ADD VariantMetadataLoader-jar-with-dependencies.jar .
