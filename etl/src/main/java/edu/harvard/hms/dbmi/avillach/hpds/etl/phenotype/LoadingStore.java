@@ -148,11 +148,43 @@ public class LoadingStore {
 		System.out.println("Closing Store");
 		allObservationsStore.close();
 	}
+
+	
+	public void dumpStats() {
+		System.out.println("Dumping Stats");
+		try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream("/opt/local/hpds/columnMeta.javabin")));){
+			TreeMap<String, ColumnMeta> metastore = (TreeMap<String, ColumnMeta>) objectInputStream.readObject();
+			Set<Integer> allIds = (TreeSet<Integer>) objectInputStream.readObject();
+
+			long totalNumberOfObservations = 0;
+			
+			System.out.println("\n\nConceptPath\tObservationCount\tMinNumValue\tMaxNumValue\tCategoryValues");
+			for(String key : metastore.keySet()) {
+				ColumnMeta columnMeta = metastore.get(key);
+				System.out.println(String.join("\t", key.toString(), columnMeta.getObservationCount()+"", 
+						columnMeta.getMin()==null ? "NaN" : columnMeta.getMin().toString(), 
+								columnMeta.getMax()==null ? "NaN" : columnMeta.getMax().toString(), 
+										columnMeta.getCategoryValues() == null ? "NUMERIC CONCEPT" : String.join(",", 
+												columnMeta.getCategoryValues()
+												.stream().map((value)->{return value==null ? "NULL_VALUE" : "\""+value+"\"";}).collect(Collectors.toList()))));
+				totalNumberOfObservations += columnMeta.getObservationCount();
+			}
+
+			System.out.println("Total Number of Concepts : " + metastore.size());
+			System.out.println("Total Number of Patients : " + allIds.size());
+			System.out.println("Total Number of Observations : " + totalNumberOfObservations);
+			
+		} catch (IOException | ClassNotFoundException e) {
+			e.printStackTrace();
+			throw new RuntimeException("Could not load metastore");
+		}
+	}
+	
 	/**
 	 * This method will display counts for the objects stored in the metadata.
 	 * This will also write out a csv file used by the data dictionary importer.
 	 */
-	public void dumpStats() {
+	public void dumpStatsAndColumnMeta() {
 		System.out.println("Dumping Stats");
 		try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream("/opt/local/hpds/columnMeta.javabin")));){
 			TreeMap<String, ColumnMeta> metastore = (TreeMap<String, ColumnMeta>) objectInputStream.readObject();
