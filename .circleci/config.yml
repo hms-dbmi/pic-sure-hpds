@@ -9,4 +9,5 @@ workflows:
   maven_test:
     jobs:
       - maven/test:
+          context: Maven Environment Variables
           settings_file: .circleci/maven-settings.xml
