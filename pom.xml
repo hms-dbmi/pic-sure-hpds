@@ -292,8 +292,8 @@
 			</dependency>
 			<dependency>
 				<groupId>com.oracle.database.jdbc</groupId>
-				<artifactId>ojdbc6</artifactId>
-				<version>11.2.0.4</version>
+				<artifactId>ojdbc10</artifactId>
+				<version>19.17.0.0</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework</groupId>
@@ -308,12 +308,6 @@
 
 		</dependencies>
 	</dependencyManagement>
-	<repositories>
-		<repository>
-			<id>data-nucleus</id>
-			<url>http://www.datanucleus.org/downloads/maven2/</url>
-		</repository>
-	</repositories>
 	<distributionManagement>
 		<repository>
 			<id>github</id>
