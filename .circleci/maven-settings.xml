@@ -12,6 +12,10 @@
             <id>github</id>
             <repositories>
                 <repository>
+                    <id>data-nucleus</id>
+                    <url>http://www.datanucleus.org/downloads/maven2/</url>
+                </repository>
+                <repository>
                     <id>central</id>
                     <url>https://repo1.maven.org/maven2</url>
                 </repository>
