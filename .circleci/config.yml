@@ -9,5 +9,7 @@ workflows:
   maven_test:
     jobs:
       - maven/test:
+          executor:
+            tag: 11.0
           context: Maven Environment Variables
           settings_file: .circleci/maven-settings.xml
