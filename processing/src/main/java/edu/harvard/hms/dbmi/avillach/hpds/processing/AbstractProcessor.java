@@ -31,7 +31,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
 
 public abstract class AbstractProcessor {
-	
+
 	private static Logger log = LoggerFactory.getLogger(AbstractProcessor.class);
 
 	private static boolean dataFilesLoaded = false;
@@ -48,7 +48,7 @@ public abstract class AbstractProcessor {
 	protected static String ID_CUBE_NAME;
 	protected static int ID_BATCH_SIZE;
 	protected static int CACHE_SIZE;
-	
+
 	static {
 		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
 		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
@@ -68,7 +68,7 @@ public abstract class AbstractProcessor {
 	protected static TreeMap<String, ColumnMeta> metaStore;
 
 	protected static TreeSet<Integer> allIds;
-	
+
 	static {
 		try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream("/opt/local/hpds/columnMeta.javabin")));){
 			TreeMap<String, ColumnMeta> _metastore = (TreeMap<String, ColumnMeta>) objectInputStream.readObject();
@@ -89,11 +89,11 @@ public abstract class AbstractProcessor {
 			log.warn("************************************************");
 			metaStore = new TreeMap<String, ColumnMeta>();
 			allIds = new TreeSet<Integer>();
-		} 
+		}
 	}
-	
+
 	public AbstractProcessor() throws ClassNotFoundException, FileNotFoundException, IOException {
-		store = initializeCache(); 
+		store = initializeCache();
 		synchronized(store) {
 			loadAllDataFiles();
 			infoStoreColumns = new ArrayList<String>(infoStores.keySet());
@@ -121,7 +121,7 @@ public abstract class AbstractProcessor {
 				if(!new File(VARIANT_INDEX_FBBIS_FILE).exists()) {
 					log.info("Creating new " + VARIANT_INDEX_FBBIS_FILE);
 					populateVariantIndex();
-					FileBackedByteIndexedStorage<Integer, String[]> fbbis = 
+					FileBackedByteIndexedStorage<Integer, String[]> fbbis =
 							new FileBackedByteIndexedStorage<Integer, String[]>(Integer.class, String[].class, new File(VARIANT_INDEX_FBBIS_STORAGE_FILE));
 							try (ObjectOutputStream oos = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(VARIANT_INDEX_FBBIS_FILE)));
 									){
@@ -131,7 +131,7 @@ public abstract class AbstractProcessor {
 								int bucketCount = (variantIndex.length / VARIANT_INDEX_BLOCK_SIZE) + 1;  //need to handle overflow
 								int index = 0;
 								for( int i = 0; i < bucketCount; i++) {
-									int blockSize = i == (bucketCount - 1) ? (variantIndex.length % VARIANT_INDEX_BLOCK_SIZE) : VARIANT_INDEX_BLOCK_SIZE; 
+									int blockSize = i == (bucketCount - 1) ? (variantIndex.length % VARIANT_INDEX_BLOCK_SIZE) : VARIANT_INDEX_BLOCK_SIZE;
 
 									String[] variantArrayBlock = new String[blockSize];
 									System.arraycopy(variantIndex, index, variantArrayBlock, 0, blockSize);
@@ -193,7 +193,7 @@ public abstract class AbstractProcessor {
 				try (
 						FileOutputStream fos = new FileOutputStream(BUCKET_INDEX_BY_SAMPLE_FILE);
 						GZIPOutputStream gzos = new GZIPOutputStream(fos);
-						ObjectOutputStream oos = new ObjectOutputStream(gzos);			
+						ObjectOutputStream oos = new ObjectOutputStream(gzos);
 						){
 					oos.writeObject(bucketIndex);
 					oos.flush();oos.close();
@@ -205,7 +205,7 @@ public abstract class AbstractProcessor {
 					objectInputStream.close();
 				} catch (IOException | ClassNotFoundException e) {
 					log.error("an error occurred", e);
-				} 
+				}
 			}
 		}
 	}
@@ -219,7 +219,7 @@ public abstract class AbstractProcessor {
 	/**
 	 * Merges a list of sets of patient ids by intersection. If we implemented OR semantics
 	 * this would be where the change happens.
-	 * 
+	 *
 	 * @param filteredIdSets
 	 * @return
 	 */
@@ -275,7 +275,7 @@ public abstract class AbstractProcessor {
 	 * For each filter in the query, return a set of patient ids that match. The order of these sets in the
 	 * returned list of sets does not matter and cannot currently be tied back to the filter that generated
 	 * it.
-	 * 
+	 *
 	 * @param query
 	 * @return
 	 */
@@ -304,8 +304,8 @@ public abstract class AbstractProcessor {
 
 	/**
 	 * Process each filter in the query and return a list of patient ids that should be included in the
-	 * result. 
-	 * 
+	 * result.
+	 *
 	 * @param query
 	 * @return
 	 */
@@ -318,11 +318,11 @@ public abstract class AbstractProcessor {
 		if(filteredIdSets.isEmpty()) {
 			if(variantStore.getPatientIds().length > 0 ) {
 				idList = new TreeSet(
-						Sets.union(allIds, 
+						Sets.union(allIds,
 								new TreeSet(Arrays.asList(
 										variantStore.getPatientIds()).stream()
 										.collect(Collectors.mapping(
-												(String id)->{return Integer.parseInt(id.trim());}, Collectors.toList()))) ));				
+												(String id)->{return Integer.parseInt(id.trim());}, Collectors.toList()))) ));
 			}else {
 				idList = allIds;
 			}
@@ -343,7 +343,7 @@ public abstract class AbstractProcessor {
 				} else {
 					return new TreeSet<Integer>(getCube(path).keyBasedIndex());
 				}
-			}).collect(Collectors.toSet()))); 
+			}).collect(Collectors.toSet())));
 		}
 	}
 
@@ -435,7 +435,7 @@ public abstract class AbstractProcessor {
 						}
 						variantBitmasks.add(homozygousReferenceBitmask);
 					} else if(masks.heterozygousMask != null && zygosity.equals(HETEROZYGOUS_VARIANT)) {
-						variantBitmasks.add(masks.heterozygousMask);							
+						variantBitmasks.add(masks.heterozygousMask);
 					}else if(masks.homozygousMask != null && zygosity.equals(HOMOZYGOUS_VARIANT)) {
 						variantBitmasks.add(masks.homozygousMask);
 					}else if(zygosity.equals("")) {
@@ -466,7 +466,7 @@ public abstract class AbstractProcessor {
 		}else if(masks.homozygousMask != null && masks.heterozygousMask != null) {
 			indiscriminateVariantBitmask = masks.heterozygousMask.or(masks.homozygousMask);
 		}else {
-			indiscriminateVariantBitmask = variantStore.emptyBitmask();			
+			indiscriminateVariantBitmask = variantStore.emptyBitmask();
 		}
 		return indiscriminateVariantBitmask;
 	}
@@ -490,7 +490,7 @@ public abstract class AbstractProcessor {
 					if(log.isDebugEnabled()) {
 						IntSummaryStatistics stats = variantSets.stream().collect(Collectors.summarizingInt(set->set.size()));
 						log.debug("Number of matching variants for all sets : " + stats.getSum());
-						log.debug("Number of matching variants for intersection of sets : " + intersectionOfInfoFilters.size());						
+						log.debug("Number of matching variants for intersection of sets : " + intersectionOfInfoFilters.size());
 					}
 					// add filteredIdSet for patients who have matching variants, heterozygous or homozygous for now.
 					addPatientIdsForIntersectionOfVariantSets(filteredIdSets, intersectionOfInfoFilters);
@@ -510,7 +510,7 @@ public abstract class AbstractProcessor {
 	private void populateVariantIndex() throws InterruptedException {
 		int[] numVariants = {0};
 		HashMap<String, String[]> contigMap = new HashMap<>();
-		
+
 		ExecutorService ex = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 		variantStore.variantMaskStorage.entrySet().forEach(entry->{
 			ex.submit(()->{
@@ -547,7 +547,7 @@ public abstract class AbstractProcessor {
 			Thread.sleep(20000);
 			log.info("Awaiting completion of variant index");
 		}
-		
+
 		log.info("Found " + numVariants[0] + " total variants.");
 
 		variantIndex = new String[numVariants[0]];
@@ -567,9 +567,11 @@ public abstract class AbstractProcessor {
 	protected static String[] variantIndex = null;
 
 	LoadingCache<String, int[]> infoCache = CacheBuilder.newBuilder()
-			.weigher(weigher).maximumWeight(500000000).build(new CacheLoader<String, int[]>() {
+			.weigher(weigher).maximumWeight(1000000000).build(new CacheLoader<String, int[]>() {
 				@Override
 				public int[] load(String infoColumn_valueKey) throws Exception {
+					log.info("Calculating value for cache for key " + infoColumn_valueKey);
+					long time = System.currentTimeMillis();
 					String[] column_and_value = infoColumn_valueKey.split(COLUMN_AND_KEY_DELIMITER);
 					String[] variantArray = infoStores.get(column_and_value[0]).allValues.get(column_and_value[1]);
 					int[] variantIndexArray = new int[variantArray.length];
@@ -583,9 +585,10 @@ public abstract class AbstractProcessor {
 							variantIndexArray[x++] = variantIndexArrayIndex;
 						}
 					}
-					
+
 					int[] compactedVariantIndexArray = new int[x];
 					System.arraycopy(variantIndexArray, 0, compactedVariantIndexArray, 0, x);
+					log.info("Cache value for key " + infoColumn_valueKey + " calculated in " + (System.currentTimeMillis() - time) + " ms");
 					return compactedVariantIndexArray;
 				}
 			});
@@ -640,7 +643,7 @@ public abstract class AbstractProcessor {
 
 		if(infoKeys.size()>1) {
 			/*
-			 *   Because constructing these TreeSets is taking most of the processing time, parallelizing 
+			 *   Because constructing these TreeSets is taking most of the processing time, parallelizing
 			 *   that part of the processing and synchronizing only the adds to the variantSets list.
 			 */
 			infoKeys.parallelStream().forEach((key)->{
@@ -693,7 +696,7 @@ public abstract class AbstractProcessor {
 				patientsInScope = patientIds;
 			}
 
-			
+
 			BigInteger[] matchingPatients = new BigInteger[] {variantStore.emptyBitmask()};
 
 			ArrayList<List<String>> variantBucketsInScope = new ArrayList<List<String>>(intersectionOfInfoFilters.parallelStream()
@@ -702,13 +705,13 @@ public abstract class AbstractProcessor {
 					})).values());
 
 			log.info("found " + variantBucketsInScope.size() + " buckets");
-			
+
 			//don't error on small result sets (make sure we have at least one element in each partition)
-			int partitionSize = variantBucketsInScope.size() / Runtime.getRuntime().availableProcessors(); 
+			int partitionSize = variantBucketsInScope.size() / Runtime.getRuntime().availableProcessors();
 			List<List<List<String>>> variantBucketPartitions = Lists.partition(variantBucketsInScope, partitionSize > 0 ? partitionSize : 1);
-			
+
 			log.info("and partitioned those into " + variantBucketPartitions.size() + " groups");
-			
+
 			int patientsInScopeSize = patientsInScope.size();
 			BigInteger patientsInScopeMask = createMaskForPatientSet(patientsInScope);
 			for(int x = 0;
@@ -725,9 +728,9 @@ public abstract class AbstractProcessor {
 							masks = variantStore.getMasks(variantSpec, bucketCache);
 							if(masks != null) {
 //								if(log.isDebugEnabled()) {
-//									log.debug("checking variant " + variantSpec + " for patients: " + ( masks.heterozygousMask == null ? "null" :(masks.heterozygousMask.bitCount() - 4)) 
+//									log.debug("checking variant " + variantSpec + " for patients: " + ( masks.heterozygousMask == null ? "null" :(masks.heterozygousMask.bitCount() - 4))
 //											+ "/" + (masks.homozygousMask == null ? "null" : (masks.homozygousMask.bitCount() - 4)) + "    "
-//											+ ( masks.heterozygousNoCallMask == null ? "null" :(masks.heterozygousNoCallMask.bitCount() - 4)) 
+//											+ ( masks.heterozygousNoCallMask == null ? "null" :(masks.heterozygousNoCallMask.bitCount() - 4))
 //											+ "/" + (masks.homozygousNoCallMask == null ? "null" : (masks.homozygousNoCallMask.bitCount() - 4)));
 //								}
 
@@ -767,10 +770,10 @@ public abstract class AbstractProcessor {
 	}
 
 	private Collection<String> processVariantList(Query query) throws IOException {
-		if(query.variantInfoFilters != null && 
-				(!query.variantInfoFilters.isEmpty() && 
+		if(query.variantInfoFilters != null &&
+				(!query.variantInfoFilters.isEmpty() &&
 						query.variantInfoFilters.stream().anyMatch((entry)->{
-							return ((!entry.categoryVariantInfoFilters.isEmpty()) 
+							return ((!entry.categoryVariantInfoFilters.isEmpty())
 									|| (!entry.numericVariantInfoFilters.isEmpty()));
 						}))) {
 			Set<String> unionOfInfoFilters = new HashSet<>();
@@ -784,7 +787,7 @@ public abstract class AbstractProcessor {
 				unionOfInfoFilters = addVariantsForInfoFilter(unionOfInfoFilters, query.variantInfoFilters.get(0));
 			}
 
-			Set<Integer> patientSubset = Sets.intersection(getPatientSubsetForQuery(query), 
+			Set<Integer> patientSubset = Sets.intersection(getPatientSubsetForQuery(query),
 					new HashSet<Integer>(
 							Arrays.asList(variantStore.getPatientIds()).stream()
 							.map((id)->{return Integer.parseInt(id.trim());})
@@ -800,7 +803,7 @@ public abstract class AbstractProcessor {
 			BigInteger patientMasks = createMaskForPatientSet(patientSubset);
 
 			Collection<String> variantsInScope = bucketIndex.filterVariantSetForPatientSet(unionOfInfoFilters, new ArrayList<>(patientSubset));
-			
+
 			//NC - this is the original variant filtering, which checks the patient mask from each variant against the patient mask from the query
 			if(variantsInScope.size()<100000) {
 				ConcurrentSkipListSet<String> variantsWithPatients = new ConcurrentSkipListSet<String>();
@@ -883,7 +886,7 @@ public abstract class AbstractProcessor {
 	 * If there are concepts in the list of paths which are already in the cache, push those to the
 	 * front of the list so that we don't evict and then reload them for concepts which are not yet
 	 * in the cache.
-	 * 
+	 *
 	 * @param paths
 	 * @param columnCount
 	 * @return
@@ -911,7 +914,7 @@ public abstract class AbstractProcessor {
 
 	/**
 	 * Load the variantStore object from disk and build the PhenoCube cache.
-	 * 
+	 *
 	 * @return
 	 * @throws ClassNotFoundException
 	 * @throws FileNotFoundException
@@ -923,7 +926,7 @@ public abstract class AbstractProcessor {
 			ObjectInputStream ois = new ObjectInputStream(new GZIPInputStream(new FileInputStream("/opt/local/hpds/all/variantStore.javabin")));
 			variantStore = (VariantStore) ois.readObject();
 			ois.close();
-			variantStore.open();			
+			variantStore.open();
 		} else {
 			//we still need an object to reference when checking the variant store, even if it's empty.
 			variantStore = new VariantStore();
@@ -945,7 +948,7 @@ public abstract class AbstractProcessor {
 										ObjectInputStream inStream = new ObjectInputStream(new ByteArrayInputStream(Crypto.decryptData(buffer)));
 										PhenoCube<?> ret = (PhenoCube<?>)inStream.readObject();
 										inStream.close();
-										return ret;																		
+										return ret;
 									}else {
 										System.out.println("ColumnMeta not found for : [" + key + "]");
 										return null;
@@ -957,7 +960,7 @@ public abstract class AbstractProcessor {
 
 	/**
 	 * Prime the cache if we have a key already by loading PhenoCubes into the cache up to maximum CACHE_SIZE
-	 * 
+	 *
 	 */
 	public synchronized void loadAllDataFiles() {
 		if(!dataFilesLoaded) {
@@ -973,7 +976,7 @@ public abstract class AbstractProcessor {
 							log.debug("loaded: " + cubes.get(x));
 							// +1 offset when logging to print _after_ each 10%
 							if((x + 1) % (conceptsToCache * .1)== 0) {
-								log.info("cached: " + (x + 1) + " out of " + conceptsToCache);	
+								log.info("cached: " + (x + 1) + " out of " + conceptsToCache);
 							}
 						}
 					} catch (ExecutionException e) {
@@ -995,7 +998,7 @@ public abstract class AbstractProcessor {
 							){
 						log.info("loading " + filename);
 						FileBackedByteIndexedInfoStore infoStore = (FileBackedByteIndexedInfoStore) ois.readObject();
-						infoStores.put(filename.replace("_infoStore.javabin", ""), infoStore);	
+						infoStores.put(filename.replace("_infoStore.javabin", ""), infoStore);
 						ois.close();
 					} catch (FileNotFoundException e) {
 						e.printStackTrace();
@@ -1013,10 +1016,13 @@ public abstract class AbstractProcessor {
 			}
 			dataFilesLoaded = true;
 		}
+		infoCache.refresh("Variant_freqency_as_text_____Rare");
+		infoCache.refresh("Variant_freqency_as_text_____Common");
+		infoCache.refresh("Variant_freqency_as_text_____Novel");
 	}
 
 	protected PhenoCube getCube(String path) {
-		try { 
+		try {
 			return store.get(path);
 		} catch (ExecutionException e) {
 			throw new RuntimeException(e);
@@ -1029,7 +1035,7 @@ public abstract class AbstractProcessor {
 
 	/**
 	 * Execute whatever processing is required for the particular implementation of AbstractProcessor
-	 * 
+	 *
 	 * @param query
 	 * @param asyncResult
 	 * @throws NotEnoughMemoryException
@@ -1038,7 +1044,7 @@ public abstract class AbstractProcessor {
 
 	/**
 	 * This should return a String array of the columns that will be exported in a DATAFRAME or COUNT type query.  default is NULL.
-	 * @param query 
+	 * @param query
 	 * @return
 	 */
 	public String[] getHeaderRow(Query query) {
