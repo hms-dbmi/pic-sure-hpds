@@ -97,9 +97,15 @@ public abstract class AbstractProcessor {
 		synchronized(store) {
 			loadAllDataFiles();
 			infoStoreColumns = new ArrayList<String>(infoStores.keySet());
+			warmCaches();
 		}
 	}
 
+	private void warmCaches() {
+		infoCache.refresh("Variant_freqency_as_text_____Rare");
+		infoCache.refresh("Variant_freqency_as_text_____Common");
+		infoCache.refresh("Variant_freqency_as_text_____Novel");
+	}
 
 
 	/**
@@ -567,7 +573,7 @@ public abstract class AbstractProcessor {
 	protected static String[] variantIndex = null;
 
 	LoadingCache<String, int[]> infoCache = CacheBuilder.newBuilder()
-			.weigher(weigher).maximumWeight(1000000000).build(new CacheLoader<String, int[]>() {
+			.weigher(weigher).maximumWeight(10000000000L).build(new CacheLoader<String, int[]>() {
 				@Override
 				public int[] load(String infoColumn_valueKey) throws Exception {
 					log.info("Calculating value for cache for key " + infoColumn_valueKey);
@@ -1016,9 +1022,6 @@ public abstract class AbstractProcessor {
 			}
 			dataFilesLoaded = true;
 		}
-		infoCache.refresh("Variant_freqency_as_text_____Rare");
-		infoCache.refresh("Variant_freqency_as_text_____Common");
-		infoCache.refresh("Variant_freqency_as_text_____Novel");
 	}
 
 	protected PhenoCube getCube(String path) {
