@@ -102,9 +102,9 @@ public abstract class AbstractProcessor {
 	}
 
 	private void warmCaches() {
-		infoCache.refresh("Variant_freqency_as_text_____Rare");
-		infoCache.refresh("Variant_freqency_as_text_____Common");
-		infoCache.refresh("Variant_freqency_as_text_____Novel");
+		infoCache.refresh("Variant_frequency_as_text_____Rare");
+		infoCache.refresh("Variant_frequency_as_text_____Common");
+		infoCache.refresh("Variant_frequency_as_text_____Novel");
 	}
 
 
