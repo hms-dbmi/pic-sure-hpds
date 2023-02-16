@@ -93,6 +93,7 @@ public abstract class AbstractProcessor {
 	}
 
 	public AbstractProcessor() throws ClassNotFoundException, FileNotFoundException, IOException {
+		// this should not run multiple times, or, everything created here should be a singleton
 		store = initializeCache();
 		synchronized(store) {
 			loadAllDataFiles();
@@ -102,9 +103,9 @@ public abstract class AbstractProcessor {
 	}
 
 	private void warmCaches() {
-		infoCache.refresh("Variant_frequency_as_text_____Rare");
-		infoCache.refresh("Variant_frequency_as_text_____Common");
-		infoCache.refresh("Variant_frequency_as_text_____Novel");
+		//infoCache.refresh("Variant_frequency_as_text_____Rare");
+		//infoCache.refresh("Variant_frequency_as_text_____Common");
+		//infoCache.refresh("Variant_frequency_as_text_____Novel");
 	}
 
 
