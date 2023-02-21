@@ -582,7 +582,7 @@ public abstract class AbstractProcessor {
 					long time = System.currentTimeMillis();
 					String[] column_and_value = infoColumn_valueKey.split(COLUMN_AND_KEY_DELIMITER);
 					String[] variantArray = infoStores.get(column_and_value[0]).allValues.get(column_and_value[1]);
-					int[] variantIndexArray = new int[variantArray.length];
+					Integer[] variantIndexArray = new Integer[variantArray.length];
 					int x = 0;
 					for(String variantSpec : variantArray) {
 						//we can exclude variants that may be present in the vcf but have no 0/1 or 1/1 samples
@@ -656,7 +656,7 @@ public abstract class AbstractProcessor {
 		/*
 		 * We want to union all the variants for each selected key, so we need an intermediate set
 		 */
-		Set[] categoryVariantSets = new Set[] {new HashSet<>()};
+		Set<Integer>[] categoryVariantSets = new Set[] {new HashSet<Integer>()};
 
 		if(infoKeys.size()>1) {
 			/*
