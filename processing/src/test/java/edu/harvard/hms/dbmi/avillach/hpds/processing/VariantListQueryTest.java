@@ -20,16 +20,16 @@ public class VariantListQueryTest {
 	}
 	
 	public class TestableVariantListProcessor extends VariantListProcessor {
-		private List<ArrayList<Set<String>>> testVariantSets;
+		private List<ArrayList<Set<Integer>>> testVariantSets;
 		private int callCount = 0;
 		
 		
-		public TestableVariantListProcessor(boolean isOnlyForTests, ArrayList<Set<String>> testVariantSets)
+		public TestableVariantListProcessor(boolean isOnlyForTests, ArrayList<Set<Integer>> testVariantSets)
 				throws ClassNotFoundException, FileNotFoundException, IOException {
 			this(isOnlyForTests, List.of(testVariantSets));
 		}
 
-		public TestableVariantListProcessor(boolean isOnlyForTests, List<ArrayList<Set<String>>> testVariantSets)
+		public TestableVariantListProcessor(boolean isOnlyForTests, List<ArrayList<Set<Integer>>> testVariantSets)
 				throws ClassNotFoundException, FileNotFoundException, IOException {
 			super(isOnlyForTests);
 			this.testVariantSets = testVariantSets;
@@ -39,8 +39,8 @@ public class VariantListQueryTest {
 			allIds = new TreeSet<>(Set.of(10001,20002));
 		}
 
-		public void addVariantsMatchingFilters(VariantInfoFilter filter, ArrayList<Set<String>> variantSets) {
-			for (Set<String> set : testVariantSets.get(callCount++ % testVariantSets.size())) {
+		public void addVariantsMatchingFilters(VariantInfoFilter filter, ArrayList<Set<Integer>> variantSets) {
+			for (Set<Integer> set : testVariantSets.get(callCount++ % testVariantSets.size())) {
 				System.out.println("Adding " + Arrays.deepToString(set.toArray()));
 				variantSets.add(set);
 			}
@@ -50,13 +50,13 @@ public class VariantListQueryTest {
 
 	@Test
 	public void testVariantListWithEmptyQuery() throws Exception {
-		TestableVariantListProcessor t = new TestableVariantListProcessor(true, new ArrayList<Set<String>>());
+		TestableVariantListProcessor t = new TestableVariantListProcessor(true, new ArrayList<Set<Integer>>());
 		assertEquals("[]", t.runVariantListQuery(new Query()));
 	} 
 	
 	@Test
 	public void testVariantListWithNullVariantInfoFiltersInQuery() throws Exception {
-		TestableVariantListProcessor t = new TestableVariantListProcessor(true, new ArrayList<Set<String>>());
+		TestableVariantListProcessor t = new TestableVariantListProcessor(true, new ArrayList<Set<Integer>>());
 		Query query = new Query();
 		query.variantInfoFilters = null;
 		assertEquals("[]", t.runVariantListQuery(query));
@@ -64,9 +64,9 @@ public class VariantListQueryTest {
 	
 	@Test
 	public void testVariantListWithVariantInfoFiltersWithMultipleVariantsButNoIntersectingKeys() throws Exception {
-		ArrayList<Set<String>> data = new ArrayList<Set<String>>(List.of(
-				Set.of("2,1234,G,T"), 
-				Set.of("2,5678,C,A")));
+		ArrayList<Set<Integer>> data = new ArrayList<>(List.of(
+				Set.of(42),
+				Set.of(99)));
 		
 		TestableVariantListProcessor t = new TestableVariantListProcessor(true, data);
 
@@ -84,9 +84,9 @@ public class VariantListQueryTest {
 	
 	@Test
 	public void testVariantListWithVariantInfoFiltersWithMultipleVariantsWithIntersectingKeys() throws Exception {
-		ArrayList<Set<String>> data = new ArrayList<Set<String>>(List.of(
-				Set.of("2,1234,G,T"), 
-				Set.of("2,1234,G,T","2,3456,C,A")));		
+		ArrayList<Set<Integer>> data = new ArrayList<>(List.of(
+				Set.of(42),
+				Set.of(42, 99)));
 
 		TestableVariantListProcessor t = new TestableVariantListProcessor(true, data);
 
@@ -104,9 +104,9 @@ public class VariantListQueryTest {
 	
 	@Test
 	public void testVariantListWithTwoVariantInfoFiltersWithMultipleVariantsWithIntersectingKeys() throws Exception {
-		List<ArrayList<Set<String>>> data = new ArrayList<ArrayList<Set<String>>>(new ArrayList(
-				List.of(new ArrayList(List.of(Set.of("2,1234,G,T", "3,10000,C,T"))),
-						new ArrayList(List.of(Set.of("2,1234,G,T", "2,3456,C,A"))))));
+		List<ArrayList<Set<Integer>>> data = new ArrayList<ArrayList<Set<Integer>>>(new ArrayList(
+				List.of(new ArrayList(List.of(Set.of(42, 99))),
+						new ArrayList(List.of(Set.of(42, 999))))));
 		
 		TestableVariantListProcessor t = new TestableVariantListProcessor(true, data);
 		
@@ -133,8 +133,8 @@ public class VariantListQueryTest {
 	
 	@Test
 	public void testVariantListWithVariantInfoFiltersWithOnlyOneFilterCriteria() throws Exception {
-		ArrayList<Set<String>> data = new ArrayList<Set<String>>(List.of(
-				Set.of("2,1234,G,T")));
+		ArrayList<Set<Integer>> data = new ArrayList<Set<Integer>>(List.of(
+				Set.of(42)));
 		
 		TestableVariantListProcessor t = new TestableVariantListProcessor(true, data);
 
@@ -152,7 +152,7 @@ public class VariantListQueryTest {
 	
 	@Test
 	public void testVariantListtWithVariantInfoFiltersWhenFiltersDoNotMatchAnyVariants() throws Exception {
-		TestableVariantListProcessor t = new TestableVariantListProcessor(true, new ArrayList<Set<String>>());
+		TestableVariantListProcessor t = new TestableVariantListProcessor(true, new ArrayList<Set<Integer>>());
 
 		Map<String, String[]> categoryVariantInfoFilters = Map.of("FILTERKEY", new String[] { "test1" }); 
 		VariantInfoFilter variantInfoFilter = new VariantInfoFilter();
