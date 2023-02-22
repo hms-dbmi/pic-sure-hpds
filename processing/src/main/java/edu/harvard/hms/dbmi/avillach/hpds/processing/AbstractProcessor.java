@@ -578,7 +578,7 @@ public abstract class AbstractProcessor {
 			.weigher(weigher).maximumWeight(10000000000L).build(new CacheLoader<String, Set<Integer>>() {
 				@Override
 				public Set<Integer> load(String infoColumn_valueKey) throws Exception {
-					log.info("Calculating value for cache for key " + infoColumn_valueKey);
+					log.debug("Calculating value for cache for key " + infoColumn_valueKey);
 					long time = System.currentTimeMillis();
 					String[] column_and_value = infoColumn_valueKey.split(COLUMN_AND_KEY_DELIMITER);
 					String[] variantArray = infoStores.get(column_and_value[0]).allValues.get(column_and_value[1]);
@@ -596,8 +596,8 @@ public abstract class AbstractProcessor {
 
 					Integer[] compactedVariantIndexArray = new Integer[x];
 					System.arraycopy(variantIndexArray, 0, compactedVariantIndexArray, 0, x);
-					log.info("Cache value for key " + infoColumn_valueKey + " calculated in " + (System.currentTimeMillis() - time) + " ms");
 					Set<Integer> integers = Sets.newHashSet(compactedVariantIndexArray);
+					log.debug("Cache value for key " + infoColumn_valueKey + " calculated in " + (System.currentTimeMillis() - time) + " ms");
 					return integers;
 				}
 			});
