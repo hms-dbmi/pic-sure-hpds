@@ -77,8 +77,9 @@ public class UpdateClinicalVariableCounts {
     protected static JSONArray updateCountsInJson(String filePath, TreeMap<String, Integer> counts)
             throws FileNotFoundException, IOException, ParseException {
         JSONParser parser = new JSONParser();
-        JSONArray fullJson = (JSONArray) parser.parse(new FileReader(filePath));
-        for (Object o : fullJson) {
+        Object fullJson = parser.parse(new FileReader(filePath));
+        JSONArray parsedArray = (JSONArray) fullJson;
+        for (Object o : parsedArray) {
             JSONObject studySegment = (JSONObject) o;
             String studyId = (String) studySegment.get("study_identifier");
             if (counts.containsKey(studyId)) {
@@ -88,6 +89,6 @@ public class UpdateClinicalVariableCounts {
                 System.out.println("No clinical variables found for identifier " + studyId);
             }
         }
-        return fullJson;
+        return parsedArray;
     }
 }
