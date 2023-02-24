@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 public class UpdateClinicalVariableCounts {
@@ -35,12 +36,16 @@ public class UpdateClinicalVariableCounts {
 			TreeMap<String, ColumnMeta> metastore = (TreeMap<String, ColumnMeta>) objectInputStream.readObject();
 			Collection<ColumnMeta> columnMetas = metastore.values();
             columnMetas.forEach(value -> {
-                String studyId = value.getName();
+                String backslashRegex = "\\";
+                String studyId = value.getName().split(Pattern.quote(backslashRegex))[0];
+                
                 if(counts.containsKey(studyId)){
                     counts.replace(studyId, counts.get(studyId)+1);
+                    System.out.println(studyId + " updated");
                 }
                 else{
-                   counts.put(studyId, 1);     
+                    System.out.println(studyId + " added");
+                    counts.put(studyId, 1);     
                 }
             });
 			
