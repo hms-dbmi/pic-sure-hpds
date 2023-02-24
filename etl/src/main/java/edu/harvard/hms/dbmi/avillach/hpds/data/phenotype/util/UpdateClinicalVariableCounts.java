@@ -78,7 +78,8 @@ public class UpdateClinicalVariableCounts {
             throws FileNotFoundException, IOException, ParseException {
         JSONParser parser = new JSONParser();
         Object fullJson = parser.parse(new FileReader(filePath));
-        JSONArray parsedArray = (JSONArray) fullJson;
+        JSONArray parsedArray = new JSONArray();
+        parsedArray.add(fullJson);
         for (Object o : parsedArray) {
             JSONObject studySegment = (JSONObject) o;
             String studyId = (String) studySegment.get("study_identifier");
