@@ -34,6 +34,12 @@ public class UpdateClinicalVariableCounts {
         try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream(COLUMN_META_FILE)))){
 		
 			TreeMap<String, ColumnMeta> metastore = (TreeMap<String, ColumnMeta>) objectInputStream.readObject();
+
+
+            Collection<String> KEYCHECKTEST = metastore.keySet();
+            KEYCHECKTEST.forEach(key -> {System.out.println(key);});
+
+            
 			Collection<ColumnMeta> columnMetas = metastore.values();
             columnMetas.forEach(value -> {
                 String backslashRegex = "\\";
@@ -41,10 +47,8 @@ public class UpdateClinicalVariableCounts {
                 
                 if(counts.containsKey(studyId)){
                     counts.replace(studyId, counts.get(studyId)+1);
-                    System.out.println(studyId + " updated");
                 }
                 else{
-                    System.out.println(studyId + " added");
                     counts.put(studyId, 1);     
                 }
             });
