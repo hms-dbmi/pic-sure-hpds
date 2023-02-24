@@ -1,22 +1,15 @@
 package edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.util;
-import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
-
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 public class UpdateClinicalVariableCounts {
     protected static final String COLUMN_META_FILE = "/opt/local/hpds/columnMeta.javabin";
@@ -28,12 +21,11 @@ public class UpdateClinicalVariableCounts {
 		}			
 
 		TreeMap<String, Integer> counts = updateCounts();
-			
-		ObjectOutputStream metaOut = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(new File(COLUMN_META_FILE))));
-			
-		metaOut.writeObject(counts); 
-		metaOut.flush();
-		metaOut.close();
+		Set<Map.Entry<String, Integer>> output = counts.entrySet();
+        output.forEach( entry -> {
+            System.out.println(entry.getKey() + "->" + entry.getValue());
+        });	
+		
 	}
 
     protected static TreeMap<String, Integer> updateCounts(){
