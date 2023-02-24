@@ -37,7 +37,7 @@ public class UpdateClinicalVariableCounts {
 			Collection<ColumnMeta> columnMetas = metastore.values();
             columnMetas.forEach(value -> {
                 String backslashRegex = "\\";
-                String studyId = value.getName().split(Pattern.quote(backslashRegex))[0];
+                String studyId = value.getName().split(Pattern.quote(backslashRegex))[1];
                 
                 if(counts.containsKey(studyId)){
                     counts.replace(studyId, counts.get(studyId)+1);
