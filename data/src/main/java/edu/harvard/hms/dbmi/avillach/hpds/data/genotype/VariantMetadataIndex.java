@@ -196,8 +196,9 @@ public class VariantMetadataIndex implements Serializable {
 				new FileInputStream(metadataIndexPath)))){
 			return (VariantMetadataIndex) in.readObject();
 		} catch(Exception e) {
-			// TODO: handle exceptions better
-			throw new RuntimeException("No Metadata Index found at " + metadataIndexPath);
+			// todo: handle exceptions better
+			log.error("No Metadata Index found at " + metadataIndexPath, e);
+			return null;
 		}
 	}
 }
