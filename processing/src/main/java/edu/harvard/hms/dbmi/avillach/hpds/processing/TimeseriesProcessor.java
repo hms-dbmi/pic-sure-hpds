@@ -14,6 +14,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 /**
  * A class for exporting datapoints from HPDS; this will export each individual
@@ -29,6 +30,7 @@ import org.springframework.beans.factory.annotation.Value;
  * @author nchu
  *
  */
+@Component
 public class TimeseriesProcessor implements HpdsProcessor {
 
 	private Logger log = LoggerFactory.getLogger(QueryProcessor.class);

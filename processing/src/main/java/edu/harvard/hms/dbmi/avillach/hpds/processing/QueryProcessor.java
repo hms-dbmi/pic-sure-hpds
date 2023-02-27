@@ -17,12 +17,15 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.KeyAndValue;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 /**
  * This class handles DATAFRAME export queries for HPDS.
  * @author nchu
  *
  */
+@Component
 public class QueryProcessor implements HpdsProcessor {
  
 	private static final byte[] EMPTY_STRING_BYTES = "".getBytes();
@@ -33,6 +36,7 @@ public class QueryProcessor implements HpdsProcessor {
 
 	private final AbstractProcessor abstractProcessor;
 
+	@Autowired
 	public QueryProcessor(AbstractProcessor abstractProcessor) {
 		this.abstractProcessor = abstractProcessor;
 		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));

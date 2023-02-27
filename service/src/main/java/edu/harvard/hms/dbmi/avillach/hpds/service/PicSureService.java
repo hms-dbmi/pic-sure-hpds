@@ -34,9 +34,11 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.FileBackedByteIndexedInf
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.*;
+import org.springframework.stereotype.Component;
 
 @Path("PIC-SURE")
 @Produces("application/json")
+@Component("picSureService")
 public class PicSureService implements IResourceRS {
 
 	@Autowired
