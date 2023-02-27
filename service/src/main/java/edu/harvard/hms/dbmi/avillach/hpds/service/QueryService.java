@@ -14,11 +14,13 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.ImmutableMap;
 
 import edu.harvard.dbmi.avillach.util.UUIDv5;
-import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.*;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.AsyncResult.Status;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
+@Service
 public class QueryService {
 
 	private static final int RESULTS_CACHE_SIZE = 50;
@@ -26,19 +28,31 @@ public class QueryService {
 	private final int LARGE_TASK_THREADS;
 	private final int SMALL_TASK_THREADS;
 
-	Logger log = LoggerFactory.getLogger(this.getClass());
+	private final Logger log = LoggerFactory.getLogger(this.getClass());
 	
-	private BlockingQueue<Runnable> largeTaskExecutionQueue;
+	private final BlockingQueue<Runnable> largeTaskExecutionQueue;
 
-	ExecutorService largeTaskExecutor;
+	private final ExecutorService largeTaskExecutor;
 
-	private BlockingQueue<Runnable> smallTaskExecutionQueue;
+	private final BlockingQueue<Runnable> smallTaskExecutionQueue;
 
-	ExecutorService smallTaskExecutor;
+	private final ExecutorService smallTaskExecutor;
+
+	private final AbstractProcessor abstractProcessor;
+	private final QueryProcessor queryProcessor;
+	private final TimeseriesProcessor timeseriesProcessor;
+	private final CountProcessor countProcessor;
+
 
 	protected static Cache<String, AsyncResult> resultCache;
 
-	public QueryService () throws ClassNotFoundException, FileNotFoundException, IOException{
+	@Autowired
+	public QueryService (AbstractProcessor abstractProcessor, QueryProcessor queryProcessor, TimeseriesProcessor timeseriesProcessor, CountProcessor countProcessor) {
+		this.abstractProcessor = abstractProcessor;
+		this.queryProcessor = queryProcessor;
+		this.timeseriesProcessor = timeseriesProcessor;
+		this.countProcessor = countProcessor;
+
 		SMALL_JOB_LIMIT = getIntProp("SMALL_JOB_LIMIT");
 		SMALL_TASK_THREADS = getIntProp("SMALL_TASK_THREADS");
 		LARGE_TASK_THREADS = getIntProp("LARGE_TASK_THREADS");
@@ -96,24 +110,24 @@ public class QueryService {
 	ExecutorService countExecutor = Executors.newSingleThreadExecutor();
 
 	public int runCount(Query query) throws InterruptedException, ExecutionException, ClassNotFoundException, FileNotFoundException, IOException {
-		return new CountProcessor().runCounts(query);
+		return countProcessor.runCounts(query);
 	}
 
 	private AsyncResult initializeResult(Query query) throws ClassNotFoundException, FileNotFoundException, IOException {
 		
-		AbstractProcessor p;
+		HpdsProcessor p;
 		switch(query.expectedResultType) {
 		case DATAFRAME :
 		case DATAFRAME_MERGED :
-			p = new QueryProcessor();
+			p = queryProcessor;
 			break;
 		case DATAFRAME_TIMESERIES :
-			p = new TimeseriesProcessor();
+			p = timeseriesProcessor;
 			break;
 		case COUNT :
 		case CATEGORICAL_CROSS_COUNT :
 		case CONTINUOUS_CROSS_COUNT :
-			p = new CountProcessor();
+			p = countProcessor;
 			break;
 		default : 
 			throw new RuntimeException("UNSUPPORTED RESULT TYPE");
@@ -137,7 +151,7 @@ public class QueryService {
 			Set<String> toBeRemoved = new TreeSet<String>();
 			for(String categoryFilter : categoryFilters) {
 				System.out.println("In : " + categoryFilter);
-				if(AbstractProcessor.pathIsVariantSpec(categoryFilter)) {
+				if(VariantUtils.pathIsVariantSpec(categoryFilter)) {
 					toBeRemoved.add(categoryFilter);
 				}
 			}
@@ -158,7 +172,7 @@ public class QueryService {
 		List<String> missingFields = new ArrayList<String>();
 		List<String> badNumericFilters = new ArrayList<String>();
 		List<String> badCategoryFilters = new ArrayList<String>();
-		Set<String> dictionaryFields = AbstractProcessor.getDictionary().keySet();
+		Set<String> dictionaryFields = abstractProcessor.getDictionary().keySet();
 
 		allFields.addAll(query.fields);
 
@@ -168,7 +182,7 @@ public class QueryService {
 		if(query.numericFilters != null) {
 			allFields.addAll(query.numericFilters.keySet());
 			for(String field : includingOnlyDictionaryFields(query.numericFilters.keySet(), dictionaryFields)) {
-				if(AbstractProcessor.getDictionary().get(field).isCategorical()) {
+				if(abstractProcessor.getDictionary().get(field).isCategorical()) {
 					badNumericFilters.add(field);
 				}
 			}
@@ -176,10 +190,10 @@ public class QueryService {
 
 		if(query.categoryFilters != null) {
 			Set<String> catFieldNames = new TreeSet<String>(query.categoryFilters.keySet());
-			catFieldNames.removeIf((field)->{return AbstractProcessor.pathIsVariantSpec(field);});
+			catFieldNames.removeIf((field)->{return VariantUtils.pathIsVariantSpec(field);});
 			allFields.addAll(catFieldNames);
 			for(String field : includingOnlyDictionaryFields(catFieldNames, dictionaryFields)) {
-				if( ! AbstractProcessor.getDictionary().get(field).isCategorical()) {
+				if( ! abstractProcessor.getDictionary().get(field).isCategorical()) {
 					badCategoryFilters.add(field);
 				}
 			}
@@ -236,10 +250,6 @@ public class QueryService {
 
 	public AsyncResult getResultFor(String queryId) {
 		return resultCache.getIfPresent(queryId);
-	}
-
-	public TreeMap<String, ColumnMeta> getDataDictionary() {
-		return AbstractProcessor.getDictionary();
 	}
 
 	private int getIntProp(String key) {

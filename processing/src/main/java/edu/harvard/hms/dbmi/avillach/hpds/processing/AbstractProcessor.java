@@ -30,47 +30,50 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query.VariantInfoFilter;
 import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
+import org.springframework.stereotype.Component;
 
-public abstract class AbstractProcessor {
+@Component
+public class AbstractProcessor {
 
 	private static Logger log = LoggerFactory.getLogger(AbstractProcessor.class);
 
-	private static boolean dataFilesLoaded = false;
-	private static BucketIndexBySample bucketIndex;
-	private static final Integer VARIANT_INDEX_BLOCK_SIZE = 1000000;
-	private static final String VARIANT_INDEX_FBBIS_STORAGE_FILE = "/opt/local/hpds/all/variantIndex_fbbis_storage.javabin";
-	private static final String VARIANT_INDEX_FBBIS_FILE = "/opt/local/hpds/all/variantIndex_fbbis.javabin";
-	private static final String BUCKET_INDEX_BY_SAMPLE_FILE = "/opt/local/hpds/all/BucketIndexBySample.javabin";
+	private boolean dataFilesLoaded = false;
+	private BucketIndexBySample bucketIndex;
+	private final Integer VARIANT_INDEX_BLOCK_SIZE = 1000000;
+	private final String VARIANT_INDEX_FBBIS_STORAGE_FILE = "/opt/local/hpds/all/variantIndex_fbbis_storage.javabin";
+	private final String VARIANT_INDEX_FBBIS_FILE = "/opt/local/hpds/all/variantIndex_fbbis.javabin";
+	private final String BUCKET_INDEX_BY_SAMPLE_FILE = "/opt/local/hpds/all/BucketIndexBySample.javabin";
 
-	private static final String HOMOZYGOUS_VARIANT = "1/1";
-	private static final String HETEROZYGOUS_VARIANT = "0/1";
-	private static final String HOMOZYGOUS_REFERENCE = "0/0";
+	private final String HOMOZYGOUS_VARIANT = "1/1";
+	private final String HETEROZYGOUS_VARIANT = "0/1";
+	private final String HOMOZYGOUS_REFERENCE = "0/0";
 
-	protected static String ID_CUBE_NAME;
-	protected static int ID_BATCH_SIZE;
-	protected static int CACHE_SIZE;
+	private final String ID_CUBE_NAME;
+	private final int ID_BATCH_SIZE;
+	private final int CACHE_SIZE;
 
-	static {
+
+
+	private List<String> infoStoreColumns;
+
+	private HashMap<String, FileBackedByteIndexedInfoStore> infoStores;
+
+	private LoadingCache<String, PhenoCube<?>> store;
+
+	//variantStore will never be null; it is initialized to an empty object.
+	// todo: make final
+	private VariantStore variantStore;
+
+	private TreeMap<String, ColumnMeta> metaStore;
+
+	private TreeSet<Integer> allIds;
+
+
+	public AbstractProcessor() throws ClassNotFoundException, IOException {
 		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
 		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
 		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
-	}
 
-
-	public static List<String> infoStoreColumns;
-
-	protected static HashMap<String, FileBackedByteIndexedInfoStore> infoStores;
-
-	protected static LoadingCache<String, PhenoCube<?>> store;
-
-	//variantStore will never be null; it is initialized to an empty object.
-	protected static VariantStore variantStore;
-
-	protected static TreeMap<String, ColumnMeta> metaStore;
-
-	protected static TreeSet<Integer> allIds;
-
-	static {
 		try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream("/opt/local/hpds/columnMeta.javabin")));){
 			TreeMap<String, ColumnMeta> _metastore = (TreeMap<String, ColumnMeta>) objectInputStream.readObject();
 			TreeMap<String, ColumnMeta> metastoreScrubbed = new TreeMap<String, ColumnMeta>();
@@ -91,9 +94,7 @@ public abstract class AbstractProcessor {
 			metaStore = new TreeMap<String, ColumnMeta>();
 			allIds = new TreeSet<Integer>();
 		}
-	}
 
-	public AbstractProcessor() throws ClassNotFoundException, FileNotFoundException, IOException {
 		// this should not run multiple times, or, everything created here should be a singleton
 		store = initializeCache();
 		synchronized(store) {
@@ -101,6 +102,14 @@ public abstract class AbstractProcessor {
 			infoStoreColumns = new ArrayList<String>(infoStores.keySet());
 			warmCaches();
 		}
+	}
+
+	public VariantStore getVariantStore() {
+		return variantStore;
+	}
+
+	public List<String> getInfoStoreColumns() {
+		return infoStoreColumns;
 	}
 
 	private void warmCaches() {
@@ -219,6 +228,10 @@ public abstract class AbstractProcessor {
 	}
 
 	public AbstractProcessor(boolean isOnlyForTests) throws ClassNotFoundException, FileNotFoundException, IOException  {
+		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
+		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
+		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
+
 		if(!isOnlyForTests) {
 			throw new IllegalArgumentException("This constructor should never be used outside tests");
 		}
@@ -344,7 +357,7 @@ public abstract class AbstractProcessor {
 		if(query.requiredFields != null && !query.requiredFields.isEmpty()) {
 			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<VariantMasks>();
 			filteredIdSets.addAll((Set<TreeSet<Integer>>)(query.requiredFields.parallelStream().map(path->{
-				if(pathIsVariantSpec(path)) {
+				if(VariantUtils.pathIsVariantSpec(path)) {
 					TreeSet<Integer> patientsInScope = new TreeSet<Integer>();
 					addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1","1/1"}, path, patientsInScope, bucketCache);
 					return patientsInScope;
@@ -363,7 +376,7 @@ public abstract class AbstractProcessor {
 				if(patientsInScope.size()<Math.max(
 						allIds.size(),
 						variantStore.getPatientIds().length)) {
-					if(pathIsVariantSpec(path)) {
+					if(VariantUtils.pathIsVariantSpec(path)) {
 						addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1","1/1"}, path, patientsInScope, bucketCache);
 					} else {
 						patientsInScope.addAll(getCube(path).keyBasedIndex());
@@ -388,7 +401,7 @@ public abstract class AbstractProcessor {
 			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<VariantMasks>();
 			Set<Set<Integer>> idsThatMatchFilters = (Set<Set<Integer>>)query.categoryFilters.keySet().parallelStream().map((String key)->{
 				Set<Integer> ids = new TreeSet<Integer>();
-				if(pathIsVariantSpec(key)) {
+				if(VariantUtils.pathIsVariantSpec(key)) {
 					addIdSetsForVariantSpecCategoryFilters(query.categoryFilters.get(key), key, ids, bucketCache);
 				} else {
 					String[] categoryFilter = query.categoryFilters.get(key);
@@ -889,17 +902,13 @@ public abstract class AbstractProcessor {
 		return patientMasks;
 	}
 
-	public static FileBackedByteIndexedInfoStore getInfoStore(String column) {
+	public FileBackedByteIndexedInfoStore getInfoStore(String column) {
 		return infoStores.get(column);
 	}
 	//
 	//	private boolean pathIsGeneName(String key) {
 	//		return new GeneLibrary().geneNameSearch(key).size()==1;
 	//	}
-
-	public static boolean pathIsVariantSpec(String key) {
-		return key.matches("rs[0-9]+.*") || key.matches(".*,[0-9\\\\.]+,[CATGcatg]*,[CATGcatg]*");
-	}
 
 	/**
 	 * If there are concepts in the list of paths which are already in the cache, push those to the
@@ -1045,25 +1054,7 @@ public abstract class AbstractProcessor {
 		}
 	}
 
-	public static TreeMap<String, ColumnMeta> getDictionary() {
+	public TreeMap<String, ColumnMeta> getDictionary() {
 		return metaStore;
-	}
-
-	/**
-	 * Execute whatever processing is required for the particular implementation of AbstractProcessor
-	 *
-	 * @param query
-	 * @param asyncResult
-	 * @throws NotEnoughMemoryException
-	 */
-	public abstract void runQuery(Query query, AsyncResult asyncResult) throws NotEnoughMemoryException;
-
-	/**
-	 * This should return a String array of the columns that will be exported in a DATAFRAME or COUNT type query.  default is NULL.
-	 * @param query
-	 * @return
-	 */
-	public String[] getHeaderRow(Query query) {
-		return null;
 	}
 }

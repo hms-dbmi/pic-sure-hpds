@@ -1,7 +1,5 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,13 +23,20 @@ import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
  * @author nchu
  *
  */
-public class QueryProcessor extends AbstractProcessor {
+public class QueryProcessor implements HpdsProcessor {
  
 	private static final byte[] EMPTY_STRING_BYTES = "".getBytes();
 	private Logger log = LoggerFactory.getLogger(QueryProcessor.class);
 
-	public QueryProcessor() throws ClassNotFoundException, FileNotFoundException, IOException {
-		super();
+	private final String ID_CUBE_NAME;
+	private final int ID_BATCH_SIZE;
+
+	private final AbstractProcessor abstractProcessor;
+
+	public QueryProcessor(AbstractProcessor abstractProcessor) {
+		this.abstractProcessor = abstractProcessor;
+		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
+		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
 	}
 	
 	@Override
@@ -42,8 +47,8 @@ public class QueryProcessor extends AbstractProcessor {
 		return header;
 	}
 
-	public void runQuery(Query query, AsyncResult result) throws NotEnoughMemoryException {
-		TreeSet<Integer> idList = getPatientSubsetForQuery(query);
+	public void runQuery(Query query, AsyncResult result) {
+		TreeSet<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
 		log.info("Processing " + idList.size() + " rows for result " + result.id);
 		for(List<Integer> list : Lists.partition(new ArrayList<>(idList), ID_BATCH_SIZE)){
 			result.stream.appendResultStore(buildResult(result, query, new TreeSet<Integer>(list)));			
@@ -51,13 +56,13 @@ public class QueryProcessor extends AbstractProcessor {
 	}
 
 	
-	private ResultStore buildResult(AsyncResult result, Query query, TreeSet<Integer> ids) throws NotEnoughMemoryException {
+	private ResultStore buildResult(AsyncResult result, Query query, TreeSet<Integer> ids) {
 		List<String> paths = query.fields;
 		int columnCount = paths.size() + 1;
 
-		ArrayList<Integer> columnIndex = useResidentCubesFirst(paths, columnCount);
+		ArrayList<Integer> columnIndex = abstractProcessor.useResidentCubesFirst(paths, columnCount);
 		ResultStore results = new ResultStore(result.id, paths.stream().map((path)->{
-			return metaStore.get(path);
+			return abstractProcessor.getDictionary().get(path);
 		}).collect(Collectors.toList()), ids);
 
 		columnIndex.parallelStream().forEach((column)->{
@@ -71,7 +76,7 @@ public class QueryProcessor extends AbstractProcessor {
 	private void clearColumn(List<String> paths, TreeSet<Integer> ids, ResultStore results, Integer x) {
 		try{
 			String path = paths.get(x-1);
-			if(pathIsVariantSpec(path)) {
+			if(VariantUtils.pathIsVariantSpec(path)) {
 				ByteBuffer doubleBuffer = ByteBuffer.allocate(Double.BYTES);
 				int idInSubsetPointer = 0;
 				for(int id : ids) {
@@ -79,7 +84,7 @@ public class QueryProcessor extends AbstractProcessor {
 					idInSubsetPointer++;
 				}
 			}else {
-				PhenoCube<?> cube = getCube(path);
+				PhenoCube<?> cube = abstractProcessor.getCube(path);
 				ByteBuffer doubleBuffer = ByteBuffer.allocate(Double.BYTES);
 				int idInSubsetPointer = 0;
 				for(int id : ids) {
@@ -97,9 +102,9 @@ public class QueryProcessor extends AbstractProcessor {
 			Integer x) {
 		try{
 			String path = paths.get(x-1);
-			if(pathIsVariantSpec(path)) {
-				VariantMasks masks = variantStore.getMasks(path, new VariantBucketHolder<VariantMasks>());
-				String[] patientIds = variantStore.getPatientIds();
+			if(VariantUtils.pathIsVariantSpec(path)) {
+				VariantMasks masks = abstractProcessor.getVariantStore().getMasks(path, new VariantBucketHolder<VariantMasks>());
+				String[] patientIds = abstractProcessor.getVariantStore().getPatientIds();
 				int idPointer = 0;
 
 				ByteBuffer doubleBuffer = ByteBuffer.allocate(Double.BYTES);
@@ -121,7 +126,7 @@ public class QueryProcessor extends AbstractProcessor {
 					idInSubsetPointer++;
 				}
 			}else {
-				PhenoCube<?> cube = getCube(path);
+				PhenoCube<?> cube = abstractProcessor.getCube(path);
 
 				KeyAndValue<?>[] cubeValues = cube.sortedByKey();
 

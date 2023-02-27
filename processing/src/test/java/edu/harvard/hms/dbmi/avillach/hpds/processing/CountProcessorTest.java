@@ -24,7 +24,7 @@ public class CountProcessorTest {
 			this(isOnlyForTests, List.of(testVariantSets));
 		}
 
-		public TestableCountProcessor(boolean isOnlyForTests, List<ArrayList<Set<Integer>>> testVariantSets)
+		/*public TestableCountProcessor(boolean isOnlyForTests, List<ArrayList<Set<Integer>>> testVariantSets)
 				throws ClassNotFoundException, FileNotFoundException, IOException {
 			super(isOnlyForTests);
 			this.testVariantSets = testVariantSets;
@@ -32,7 +32,7 @@ public class CountProcessorTest {
 			variantStore = new VariantStore();
 			variantStore.setPatientIds(new String[0]);
 			allIds = new TreeSet<>(Set.of(10001,20002));
-		}
+		}*/
 
 		public void addVariantsMatchingFilters(VariantInfoFilter filter, ArrayList<Set<Integer>> variantSets) {
 			for (Set<Integer> set : testVariantSets.get(callCount++ % testVariantSets.size())) {

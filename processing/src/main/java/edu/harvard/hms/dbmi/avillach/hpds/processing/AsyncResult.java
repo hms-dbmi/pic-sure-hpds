@@ -89,7 +89,7 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 	public ExecutorService jobQueue;
 
 	@JsonIgnore
-	public AbstractProcessor processor;
+	public HpdsProcessor processor;
 
 	public AsyncResult(Query query, String[] headerRow) {
 		this.query = query;
@@ -107,20 +107,7 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 		status = AsyncResult.Status.RUNNING;
 		long startTime = System.currentTimeMillis();
 		try {
-			try {
-				processor.runQuery(query, this);
-			} catch(NotEnoughMemoryException e) {
-				if(this.retryCount < 3) {
-					log.info("Requeueing " + this.id);
-					e.printStackTrace();
-					this.status = AsyncResult.Status.RETRY;
-					this.retryCount ++;
-					this.enqueue();
-				}else {
-					this.status = AsyncResult.Status.ERROR;
-				}
-				return;
-			}
+			processor.runQuery(query, this);
 			this.numColumns = this.headerRow.length;
 			this.numRows = stream.getNumRows();
 			log.info("Ran Query in " + (System.currentTimeMillis()-startTime) + "ms for " + stream.getNumRows() + " rows and " + this.headerRow.length + " columns");

@@ -9,8 +9,6 @@
 	<context:annotation-config />
 	<bean
 		class="org.springframework.beans.factory.config.PreferencesPlaceholderConfigurer" />
-	<bean id="queryService"
-		class="edu.harvard.hms.dbmi.avillach.hpds.service.QueryService" />
 	<bean id="picSureService"
 		class="edu.harvard.hms.dbmi.avillach.hpds.service.PicSureService" />
 	<bean id="gZipInterceptor"

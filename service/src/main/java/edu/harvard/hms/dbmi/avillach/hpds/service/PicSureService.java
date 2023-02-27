@@ -39,32 +39,32 @@ import edu.harvard.hms.dbmi.avillach.hpds.processing.*;
 @Produces("application/json")
 public class PicSureService implements IResourceRS {
 
-	public PicSureService() {
-		try {
-			countProcessor = new CountProcessor();
-			timelineProcessor = new TimelineProcessor();
-			variantListProcessor = new VariantListProcessor();
-			responseCache = Caffeine.newBuilder()
-					.maximumSize(RESPONSE_CACHE_SIZE)
-					.build();
-		} catch (ClassNotFoundException | IOException e3) {
-			log.error("ClassNotFoundException or IOException caught: ", e3);
-		}
+	@Autowired
+	public PicSureService(QueryService queryService, TimelineProcessor timelineProcessor, CountProcessor countProcessor, VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor) {
+		this.queryService = queryService;
+		this.timelineProcessor = timelineProcessor;
+		this.countProcessor = countProcessor;
+		this.variantListProcessor = variantListProcessor;
+		this.abstractProcessor = abstractProcessor;
+		responseCache = Caffeine.newBuilder()
+				.maximumSize(RESPONSE_CACHE_SIZE)
+				.build();
 		Crypto.loadDefaultKey();
 	}
 
-	@Autowired
-	private QueryService queryService;
+	private final QueryService queryService;
 
 	private final ObjectMapper mapper = new ObjectMapper();
 
 	private Logger log = LoggerFactory.getLogger(PicSureService.class);
 
-	private TimelineProcessor timelineProcessor;
+	private final TimelineProcessor timelineProcessor;
 
-	private CountProcessor countProcessor;
+	private final CountProcessor countProcessor;
 
-	private VariantListProcessor variantListProcessor;
+	private final VariantListProcessor variantListProcessor;
+
+	private final AbstractProcessor abstractProcessor;
 
 	private static final String QUERY_METADATA_FIELD = "queryMetadata";
 	private static final int RESPONSE_CACHE_SIZE = 50;
@@ -140,7 +140,7 @@ public class PicSureService implements IResourceRS {
 	@POST
 	@Path("/search")
 	public SearchResults search(QueryRequest searchJson) {
-		Set<Entry<String, ColumnMeta>> allColumns = queryService.getDataDictionary().entrySet();
+		Set<Entry<String, ColumnMeta>> allColumns = abstractProcessor.getDictionary().entrySet();
 
 		// Phenotype Values
 		Object phenotypeResults = searchJson.getQuery() != null ? allColumns.stream().filter((entry) -> {
@@ -152,8 +152,8 @@ public class PicSureService implements IResourceRS {
 
 		// Info Values
 		Map<String, Map> infoResults = new TreeMap<String, Map>();
-		AbstractProcessor.infoStoreColumns.stream().forEach((String infoColumn) -> {
-			FileBackedByteIndexedInfoStore store = AbstractProcessor.getInfoStore(infoColumn);
+		abstractProcessor.getInfoStoreColumns().stream().forEach((String infoColumn) -> {
+			FileBackedByteIndexedInfoStore store = abstractProcessor.getInfoStore(infoColumn);
 			if (store != null) {
 				String query = searchJson.getQuery().toString();
 				String lowerCase = query.toLowerCase();
@@ -304,8 +304,8 @@ public class PicSureService implements IResourceRS {
 
 		case INFO_COLUMN_LISTING:
 			ArrayList<Map> infoStores = new ArrayList<>();
-			AbstractProcessor.infoStoreColumns.stream().forEach((infoColumn) -> {
-				FileBackedByteIndexedInfoStore store = AbstractProcessor.getInfoStore(infoColumn);
+			abstractProcessor.getInfoStoreColumns().stream().forEach((infoColumn) -> {
+				FileBackedByteIndexedInfoStore store = abstractProcessor.getInfoStore(infoColumn);
 				if (store != null) {
 					infoStores.add(ImmutableMap.of("key", store.column_key, "description", store.description,
 							"isContinuous", store.isContinuous, "min", store.min, "max", store.max));

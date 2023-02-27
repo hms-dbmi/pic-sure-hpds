@@ -16,12 +16,17 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.TimelineEvent;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
-public class TimelineProcessor extends AbstractProcessor {
+@Component
+public class TimelineProcessor implements HpdsProcessor {
 
-	public TimelineProcessor() throws ClassNotFoundException, FileNotFoundException, IOException {
-		super();
-		// TODO Auto-generated constructor stub
+	private final AbstractProcessor abstractProcessor;
+
+	@Autowired
+	public TimelineProcessor(AbstractProcessor abstractProcessor) {
+		this.abstractProcessor = abstractProcessor;
 	}
 
 	@Override
@@ -40,12 +45,12 @@ public class TimelineProcessor extends AbstractProcessor {
 		query.requiredFields = new ArrayList<String>();
 
 		// list patients involved
-		Set<Integer> patientIds = getPatientSubsetForQuery(query);
+		Set<Integer> patientIds = abstractProcessor.getPatientSubsetForQuery(query);
 
 		// get start time for the timeline
 		long startTime = Long.MAX_VALUE;
 		for(String field : requiredFieldsForTimeline) {
-			PhenoCube cube = getCube(field);
+			PhenoCube cube = abstractProcessor.getCube(field);
 			List<KeyAndValue> values = cube.getValuesForKeys(patientIds);
 			for(KeyAndValue value : values) {
 				if(value.getTimestamp()!=null && value.getTimestamp() > 0 && value.getTimestamp() < startTime) {
@@ -58,7 +63,7 @@ public class TimelineProcessor extends AbstractProcessor {
 				new LinkedHashMap<>();
 		// fetch results for selected fields
 		for(String concept : fieldsForTimeline) {
-			PhenoCube cube = getCube(concept);
+			PhenoCube cube = abstractProcessor.getCube(concept);
 			List<KeyAndValue> values = cube.getValuesForKeys(patientIds);
 			timelineEvents.put(concept, 
 					values.parallelStream()
@@ -87,5 +92,9 @@ public class TimelineProcessor extends AbstractProcessor {
 				});
 
 		return timelineEvents;
+	}
+
+	public String[] getHeaderRow(Query query) {
+		return null;
 	}
 }

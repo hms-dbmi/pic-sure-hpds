@@ -12,6 +12,8 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.KeyAndValue;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 
 /**
  * A class for exporting datapoints from HPDS; this will export each individual
@@ -27,14 +29,25 @@ import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
  * @author nchu
  *
  */
-public class TimeseriesProcessor extends AbstractProcessor {
+public class TimeseriesProcessor implements HpdsProcessor {
 
 	private Logger log = LoggerFactory.getLogger(QueryProcessor.class);
 
-	public TimeseriesProcessor() throws ClassNotFoundException, FileNotFoundException, IOException {
-		super();
+	private AbstractProcessor abstractProcessor;
+
+	private final String ID_CUBE_NAME;
+	private final int ID_BATCH_SIZE;
+	private final int CACHE_SIZE;
+
+	@Autowired
+	public TimeseriesProcessor(AbstractProcessor abstractProcessor) {
+		this.abstractProcessor = abstractProcessor;
+		// todo: handle these via spring annotations
+		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
+		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
+		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
 	}
-	
+
 	/**
 	 * FOr this type of export, the header is always the same
 	 */
@@ -44,8 +57,8 @@ public class TimeseriesProcessor extends AbstractProcessor {
 	}
 
 	@Override
-	public void runQuery(Query query, AsyncResult result) throws NotEnoughMemoryException {
-		TreeSet<Integer> idList = getPatientSubsetForQuery(query);
+	public void runQuery(Query query, AsyncResult result) {
+		TreeSet<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
 
 		if (ID_BATCH_SIZE > 0) {
 			try {
@@ -88,7 +101,7 @@ public class TimeseriesProcessor extends AbstractProcessor {
 				continue;
 			}
 			ArrayList<String[]> dataEntries = new ArrayList<String[]>();
-			PhenoCube<?> cube = getCube(conceptPath);
+			PhenoCube<?> cube = abstractProcessor.getCube(conceptPath);
 			if(cube == null) {
 				log.warn("Attempting export of non-existant concept: " + conceptPath);
 				continue;
