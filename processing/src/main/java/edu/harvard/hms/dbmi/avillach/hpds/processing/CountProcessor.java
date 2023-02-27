@@ -29,13 +29,6 @@ public class CountProcessor implements HpdsProcessor {
 	public CountProcessor(AbstractProcessor abstractProcessor) {
 		this.abstractProcessor = abstractProcessor;
 	}
-
-	public CountProcessor(boolean isOnlyForTests, AbstractProcessor abstractProcessor)  {
-		this.abstractProcessor = abstractProcessor;
-		if(!isOnlyForTests) {
-			throw new IllegalArgumentException("This constructor should never be used outside tests");
-		}
-	}
 	
 	/**
 	 * Count processor always returns same headers

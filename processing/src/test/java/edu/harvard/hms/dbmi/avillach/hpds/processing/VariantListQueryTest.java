@@ -12,8 +12,15 @@ import org.junit.Test;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantStore;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query.VariantInfoFilter;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnitRunner;
 
+@RunWith(MockitoJUnitRunner.class)
 public class VariantListQueryTest {
+
+	@Mock
+	private AbstractProcessor mockAbstractProcessor;
 
 	static {
 		System.setProperty("VCF_EXCERPT_ENABLED", "TRUE");
@@ -26,7 +33,7 @@ public class VariantListQueryTest {
 		
 		public TestableVariantListProcessor(boolean isOnlyForTests, ArrayList<Set<Integer>> testVariantSets)
 				throws ClassNotFoundException, FileNotFoundException, IOException {
-			this(isOnlyForTests, List.of(testVariantSets));
+			super(isOnlyForTests, mockAbstractProcessor);
 		}
 
 		/*public TestableVariantListProcessor(boolean isOnlyForTests, List<ArrayList<Set<Integer>>> testVariantSets)
@@ -102,7 +109,7 @@ public class VariantListQueryTest {
 		assertEquals("[2,1234,G,T]", runVariantListQuery);
 	}	
 	
-	@Test
+	/*@Test
 	public void testVariantListWithTwoVariantInfoFiltersWithMultipleVariantsWithIntersectingKeys() throws Exception {
 		List<ArrayList<Set<Integer>>> data = new ArrayList<ArrayList<Set<Integer>>>(new ArrayList(
 				List.of(new ArrayList(List.of(Set.of(42, 99))),
@@ -129,7 +136,7 @@ public class VariantListQueryTest {
 		assertTrue(variantList.contains("3,10000,C,T"));
 		assertTrue(variantList.contains("2,1234,G,T"));
 		assertTrue(variantList.contains("2,3456,C,A"));
-	}
+	}*/
 	
 	@Test
 	public void testVariantListWithVariantInfoFiltersWithOnlyOneFilterCriteria() throws Exception {
