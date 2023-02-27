@@ -7,6 +7,7 @@
 	<import resource="classpath:META-INF/cxf/cxf.xml" />
 	<context:property-placeholder />
 	<context:annotation-config />
+	<context:component-scan base-package="edu.harvard.hms.dbmi.avillach.hpds" />
 	<bean
 		class="org.springframework.beans.factory.config.PreferencesPlaceholderConfigurer" />
 	<bean id="picSureService"
