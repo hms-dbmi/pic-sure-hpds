@@ -37,12 +37,13 @@ public class TimelineProcessor implements HpdsProcessor {
 	public HashMap<String/* concept path */, List<TimelineEvent> /* events */> runTimelineQuery(Query query){
 
 		// save the requiredFields and selected fields for later use
-		List<String> requiredFieldsForTimeline = query.requiredFields;
-		List<String> fieldsForTimeline = new ArrayList(query.requiredFields);
-		fieldsForTimeline.addAll(query.fields);
+		List<String> requiredFieldsForTimeline = query.getRequiredFields();
+		List<String> fieldsForTimeline = new ArrayList(query.getRequiredFields());
+		fieldsForTimeline.addAll(query.getRequiredFields());
 
+		// todo: copy the query?
 		// wipe out required fields to not limit the patients by it
-		query.requiredFields = new ArrayList<String>();
+		query.setRequiredFields(new ArrayList<>());
 
 		// list patients involved
 		Set<Integer> patientIds = abstractProcessor.getPatientSubsetForQuery(query);

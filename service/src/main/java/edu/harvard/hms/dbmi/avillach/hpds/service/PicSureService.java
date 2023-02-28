@@ -302,7 +302,7 @@ public class PicSureService implements IResourceRS {
 		Query incomingQuery;
 		incomingQuery = convertIncomingQuery(resultRequest);
 		log.info("Query Converted");
-		switch (incomingQuery.expectedResultType) {
+		switch (incomingQuery.getExpectedResultType()) {
 
 		case INFO_COLUMN_LISTING:
 			ArrayList<Map> infoStores = new ArrayList<>();

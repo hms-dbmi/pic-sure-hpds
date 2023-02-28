@@ -58,7 +58,7 @@ public class CountProcessor implements HpdsProcessor {
 	public int runObservationCount(Query query) {
 		TreeSet<Integer> patients = abstractProcessor.getPatientSubsetForQuery(query);
 		int[] observationCount = {0};
-		query.fields.stream().forEach(field -> {
+		query.getFields().stream().forEach(field -> {
 			observationCount[0] += Arrays.stream(abstractProcessor.getCube(field).sortedByKey()).filter(keyAndValue->{
 				return patients.contains(keyAndValue.getKey());
 			}).count();
@@ -76,7 +76,7 @@ public class CountProcessor implements HpdsProcessor {
 	public Map<String, Integer> runObservationCrossCounts(Query query) {
 		TreeMap<String, Integer> counts = new TreeMap<>();
 		TreeSet<Integer> baseQueryPatientSet = abstractProcessor.getPatientSubsetForQuery(query);
-		query.crossCountFields.parallelStream().forEach((String concept)->{
+		query.getCrossCountFields().parallelStream().forEach((String concept)->{
 			try {
 				//breaking these statements to allow += operator to cast long to int.
 				int observationCount = 0;
@@ -101,11 +101,10 @@ public class CountProcessor implements HpdsProcessor {
 	public Map<String, Integer> runCrossCounts(Query query) {
 		TreeMap<String, Integer> counts = new TreeMap<>();
 		TreeSet<Integer> baseQueryPatientSet = abstractProcessor.getPatientSubsetForQuery(query);
-		query.crossCountFields.parallelStream().forEach((String concept)->{
+		query.getCrossCountFields().parallelStream().forEach((String concept)->{
 			try {
 				Query safeCopy = new Query();
-				safeCopy.requiredFields = new ArrayList<String>();
-				safeCopy.requiredFields.add(concept);
+				safeCopy.setRequiredFields(List.of(concept));
 				counts.put(concept, Sets.intersection(abstractProcessor.getPatientSubsetForQuery(safeCopy), baseQueryPatientSet).size());
 			} catch (Exception e) {
 				counts.put(concept, -1);
@@ -123,7 +122,7 @@ public class CountProcessor implements HpdsProcessor {
 	public  Map<String, Map<String, Integer>> runCategoryCrossCounts(Query query) {
 		Map<String, Map<String, Integer>> categoryCounts = new TreeMap<>();
 		TreeSet<Integer> baseQueryPatientSet = abstractProcessor.getPatientSubsetForQuery(query);
-		query.requiredFields.parallelStream().forEach(concept -> {
+		query.getRequiredFields().parallelStream().forEach(concept -> {
 			Map<String, Integer> varCount = new TreeMap<>();;
 			try {
 				TreeMap<String, TreeSet<Integer>> categoryMap = abstractProcessor.getCube(concept).getCategoryMap();
@@ -153,17 +152,17 @@ public class CountProcessor implements HpdsProcessor {
 		});
 		//For categoryFilters we need to ensure the variables included in the filter are the ones included in our count
 		//map. Then we make sure that the patients who have that variable are also in our base set.
-		query.categoryFilters.keySet().parallelStream().forEach((String concept)-> {
+		query.getCategoryFilters().entrySet().parallelStream().forEach(categoryFilterEntry-> {
 			Map<String, Integer> varCount;
 			try {
-				TreeMap<String, TreeSet<Integer>> categoryMap = abstractProcessor.getCube(concept).getCategoryMap();
+				TreeMap<String, TreeSet<Integer>> categoryMap = abstractProcessor.getCube(categoryFilterEntry.getKey()).getCategoryMap();
 				varCount = new TreeMap<>();
 				categoryMap.forEach((String category, TreeSet<Integer> patientSet)->{
-					if (Arrays.asList(query.categoryFilters.get(concept)).contains(category)) {
+					if (Arrays.asList(categoryFilterEntry.getValue()).contains(category)) {
 						varCount.put(category, Sets.intersection(patientSet, baseQueryPatientSet).size());
 					}
 				});
-				categoryCounts.put(concept, varCount);
+				categoryCounts.put(categoryFilterEntry.getKey(), varCount);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -180,7 +179,7 @@ public class CountProcessor implements HpdsProcessor {
 	public Map<String, Map<Double, Integer>> runContinuousCrossCounts(Query query) {
 		TreeMap<String, Map<Double, Integer>> conceptMap = new TreeMap<>();
 		TreeSet<Integer> baseQueryPatientSet = abstractProcessor.getPatientSubsetForQuery(query);
-		query.numericFilters.forEach((String concept, Filter.DoubleFilter range)-> {
+		query.getNumericFilters().forEach((String concept, Filter.DoubleFilter range)-> {
 			KeyAndValue[] pairs = abstractProcessor.getCube(concept).getEntriesForValueRange(range.getMin(), range.getMax());
 			Map<Double, Integer> countMap = new TreeMap<>();
 			Arrays.stream(pairs).forEach(patientConceptPair -> {
@@ -217,7 +216,7 @@ public class CountProcessor implements HpdsProcessor {
 	 */
 	public Map<String, Object> runVariantCount(Query query) {
 		TreeMap<String, Object> response = new TreeMap<String, Object>();
-		if(query.variantInfoFilters != null && !query.variantInfoFilters.isEmpty()) {
+		if(!query.getVariantInfoFilters().isEmpty()) {
 			try {
 				response.put("count", abstractProcessor.getVariantList(query).size());
 			} catch (IOException e) {

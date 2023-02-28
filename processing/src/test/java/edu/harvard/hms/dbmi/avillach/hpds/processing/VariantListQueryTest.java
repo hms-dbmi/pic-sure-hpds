@@ -65,7 +65,7 @@ public class VariantListQueryTest {
 	public void testVariantListWithNullVariantInfoFiltersInQuery() throws Exception {
 		TestableVariantListProcessor t = new TestableVariantListProcessor(true, new ArrayList<Set<Integer>>());
 		Query query = new Query();
-		query.variantInfoFilters = null;
+		query.setVariantInfoFilters(null);
 		assertEquals("[]", t.runVariantListQuery(query));
 	}	
 	
@@ -85,7 +85,7 @@ public class VariantListQueryTest {
 		List<VariantInfoFilter> variantInfoFilters = List.of(variantInfoFilter);
 
 		Query q = new Query();
-		q.variantInfoFilters = variantInfoFilters;
+		q.setVariantInfoFilters(variantInfoFilters);
 		assertEquals("[]", t.runVariantListQuery(q));
 	}	
 	
@@ -104,7 +104,7 @@ public class VariantListQueryTest {
 		List<VariantInfoFilter> variantInfoFilters = new ArrayList<>();
 		variantInfoFilters.add(variantInfoFilter);
 		Query q = new Query();
-		q.variantInfoFilters = variantInfoFilters;
+		q.setVariantInfoFilters(variantInfoFilters);
 		String runVariantListQuery = t.runVariantListQuery(q);
 		assertEquals("[2,1234,G,T]", runVariantListQuery);
 	}	
@@ -152,7 +152,7 @@ public class VariantListQueryTest {
 		List<VariantInfoFilter> variantInfoFilters = new ArrayList<>();
 		variantInfoFilters.add(variantInfoFilter);
 		Query q = new Query();
-		q.variantInfoFilters = variantInfoFilters;
+		q.setVariantInfoFilters(variantInfoFilters);
 		String runVariantListQuery = t.runVariantListQuery(q);
 		assertEquals("[2,1234,G,T]", runVariantListQuery);
 	}
@@ -168,7 +168,7 @@ public class VariantListQueryTest {
 		List<VariantInfoFilter> variantInfoFilters = new ArrayList<>();
 		variantInfoFilters.add(variantInfoFilter);
 		Query q = new Query();
-		q.variantInfoFilters = variantInfoFilters;
+		q.setVariantInfoFilters(variantInfoFilters);
 		String runVariantListQuery = t.runVariantListQuery(q);
 		assertEquals("[]", runVariantListQuery);
 	}	

@@ -87,11 +87,11 @@ public class TimeseriesProcessor implements HpdsProcessor {
 		Set<String> exportedConceptPaths = new HashSet<String>();
 		//get a list of all fields mentioned in the query;  export all data associated with any included field
 		List<String> pathList = new LinkedList<String>();
-		pathList.addAll(query.anyRecordOf);
-		pathList.addAll(query.fields);
-		pathList.addAll(query.requiredFields);
-		pathList.addAll(query.categoryFilters.keySet());
-		pathList.addAll(query.numericFilters.keySet());
+		pathList.addAll(query.getAnyRecordOf());
+		pathList.addAll(query.getFields());
+		pathList.addAll(query.getRequiredFields());
+		pathList.addAll(query.getCategoryFilters().keySet());
+		pathList.addAll(query.getNumericFilters().keySet());
 		
 		addDataForConcepts(pathList, exportedConceptPaths, idList, result);
 	}

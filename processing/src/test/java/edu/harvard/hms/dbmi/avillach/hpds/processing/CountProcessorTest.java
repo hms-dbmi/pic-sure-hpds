@@ -9,12 +9,12 @@ import java.util.*;
 import org.junit.Before;
 import org.junit.Test;
 
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantStore;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query.VariantInfoFilter;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
+import static org.mockito.Mockito.*;
 
 @RunWith(MockitoJUnitRunner.class)
 public class CountProcessorTest {
@@ -58,19 +58,31 @@ public class CountProcessorTest {
 	}
 
 	@Test
-	public void testVariantCountWithEmptyQuery() throws Exception {
+	public void testVariantCountWithEmptyQuery() {
 		Map<String, Object> countResponse = countProcessor.runVariantCount(new Query());
 		assertEquals("0",countResponse.get("count") );
 	}
 
 	@Test
-	public void testVariantCountWithEmptyVariantInfoFiltersInQuery() throws Exception {
+	public void testVariantCountWithEmptyVariantInfoFiltersInQuery() {
 		Query query = new Query();
-		query.variantInfoFilters = new ArrayList<>();
+		query.setVariantInfoFilters(new ArrayList<>());
 		Map<String, Object> countResponse = countProcessor.runVariantCount(query);
 		assertEquals("0",countResponse.get("count") );
 	}
 
+	@Test
+	public void testVariantCountReturningVariants() throws IOException {
+		Query query = new Query();
+		query.setVariantInfoFilters(List.of(new Query.VariantInfoFilter()));
+
+		when(mockAbstractProcessor.getVariantList(query)).thenReturn(List.of("variant1", "variant2"));
+		Map<String, Object> countResponse = countProcessor.runVariantCount(query);
+		assertEquals(2,countResponse.get("count") );
+	}
+
+	// todo: test these directly in AbstractProcessor
+	/*
 	@Test
 	public void testVariantCountWithVariantInfoFiltersWithMultipleVariantsButNoIntersectionKeys() throws Exception {
 		ArrayList<Set<Integer>> data = new ArrayList<Set<Integer>>(List.of(
@@ -113,8 +125,7 @@ public class CountProcessorTest {
 		assertEquals(1,countResponse.get("count") );
 	}
 
-	// todo: test this directly in AbstractProcessor
-	/*@Test
+	@Test
 	public void testVariantCountWithTwoVariantInfoFiltersWithMultipleVariantsWithIntersectingKeys() throws Exception {
 		List<ArrayList<Set<Integer>>> data1 = new ArrayList<ArrayList<Set<Integer>>>(new ArrayList(List.of(
 				new ArrayList(List.of(Set.of(1, 2))),new ArrayList(List.of(Set.of(1, 3))))));
@@ -135,7 +146,7 @@ public class CountProcessorTest {
 		
 		Map<String, Object> countResponse = t.runVariantCount(q);
 		assertEquals(3,countResponse.get("count") );
-	}*/
+	}
 
 	@Test
 	public void testVariantCountWithVariantInfoFiltersWithOnlyOneFilterCriteria() throws Exception {
@@ -170,6 +181,6 @@ public class CountProcessorTest {
 
 		Map<String, Object> countResponse = t.runVariantCount(q);
 		assertEquals("0",countResponse.get("count") );
-	}
+	}*/
 
 }

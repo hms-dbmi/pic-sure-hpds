@@ -45,9 +45,9 @@ public class QueryProcessor implements HpdsProcessor {
 	
 	@Override
 	public String[] getHeaderRow(Query query) {
-		String[] header = new String[query.fields.size()+1];
+		String[] header = new String[query.getFields().size()+1];
 		header[0] = "Patient ID";
-		System.arraycopy(query.fields.toArray(), 0, header, 1, query.fields.size());
+		System.arraycopy(query.getFields().toArray(), 0, header, 1, query.getFields().size());
 		return header;
 	}
 
@@ -61,7 +61,7 @@ public class QueryProcessor implements HpdsProcessor {
 
 	
 	private ResultStore buildResult(AsyncResult result, Query query, TreeSet<Integer> ids) {
-		List<String> paths = query.fields;
+		List<String> paths = query.getFields();
 		int columnCount = paths.size() + 1;
 
 		ArrayList<Integer> columnIndex = abstractProcessor.useResidentCubesFirst(paths, columnCount);

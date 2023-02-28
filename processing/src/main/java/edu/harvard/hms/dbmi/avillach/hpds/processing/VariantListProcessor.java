@@ -106,7 +106,7 @@ public class VariantListProcessor implements HpdsProcessor {
 	 * @throws IOException 
 	 */
 	public int runVariantCount(Query query) throws IOException {
-		if(query.variantInfoFilters != null && !query.variantInfoFilters.isEmpty()) {
+		if(!query.getVariantInfoFilters().isEmpty()) {
 			return abstractProcessor.getVariantList(query).size();
 		}
 		return 0;

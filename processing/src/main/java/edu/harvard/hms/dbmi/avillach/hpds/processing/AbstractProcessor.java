@@ -32,6 +32,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
 import org.springframework.stereotype.Component;
 
+// todo: rename this class. VariantService maybe?
 @Component
 public class AbstractProcessor {
 
@@ -354,9 +355,9 @@ public class AbstractProcessor {
 	}
 
 	private void addIdSetsForRequiredFields(Query query, ArrayList<Set<Integer>> filteredIdSets) {
-		if(query.requiredFields != null && !query.requiredFields.isEmpty()) {
-			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<VariantMasks>();
-			filteredIdSets.addAll((Set<TreeSet<Integer>>)(query.requiredFields.parallelStream().map(path->{
+		if(!query.getRequiredFields().isEmpty()) {
+			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
+			filteredIdSets.addAll((Set<TreeSet<Integer>>)(query.getRequiredFields().parallelStream().map(path->{
 				if(VariantUtils.pathIsVariantSpec(path)) {
 					TreeSet<Integer> patientsInScope = new TreeSet<Integer>();
 					addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1","1/1"}, path, patientsInScope, bucketCache);
@@ -369,10 +370,10 @@ public class AbstractProcessor {
 	}
 
 	private void addIdSetsForAnyRecordOf(Query query, ArrayList<Set<Integer>> filteredIdSets) {
-		if(query.anyRecordOf != null && !query.anyRecordOf.isEmpty()) {
+		if(!query.getAnyRecordOf().isEmpty()) {
 			Set<Integer> patientsInScope = new ConcurrentSkipListSet<Integer>();
 			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<VariantMasks>();
-			query.anyRecordOf.parallelStream().forEach(path->{
+			query.getAnyRecordOf().parallelStream().forEach(path->{
 				if(patientsInScope.size()<Math.max(
 						allIds.size(),
 						variantStore.getPatientIds().length)) {
@@ -388,25 +389,24 @@ public class AbstractProcessor {
 	}
 
 	private void addIdSetsForNumericFilters(Query query, ArrayList<Set<Integer>> filteredIdSets) {
-		if(query.numericFilters != null && !query.numericFilters.isEmpty()) {
-			filteredIdSets.addAll((Set<TreeSet<Integer>>)(query.numericFilters.keySet().parallelStream().map((String key)->{
-				DoubleFilter doubleFilter = query.numericFilters.get(key);
-				return (TreeSet<Integer>)(getCube(key).getKeysForRange(doubleFilter.getMin(), doubleFilter.getMax()));
+		if(!query.getNumericFilters().isEmpty()) {
+			filteredIdSets.addAll((Set<TreeSet<Integer>>)(query.getNumericFilters().entrySet().parallelStream().map(entry->{
+				return (TreeSet<Integer>)(getCube(entry.getKey()).getKeysForRange(entry.getValue().getMin(), entry.getValue().getMax()));
 			}).collect(Collectors.toSet())));
 		}
 	}
 
 	private void addIdSetsForCategoryFilters(Query query, ArrayList<Set<Integer>> filteredIdSets) {
-		if(query.categoryFilters != null && !query.categoryFilters.isEmpty()) {
+		if(!query.getCategoryFilters().isEmpty()) {
 			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<VariantMasks>();
-			Set<Set<Integer>> idsThatMatchFilters = (Set<Set<Integer>>)query.categoryFilters.keySet().parallelStream().map((String key)->{
+			Set<Set<Integer>> idsThatMatchFilters = (Set<Set<Integer>>)query.getCategoryFilters().entrySet().parallelStream().map(entry->{
 				Set<Integer> ids = new TreeSet<Integer>();
-				if(VariantUtils.pathIsVariantSpec(key)) {
-					addIdSetsForVariantSpecCategoryFilters(query.categoryFilters.get(key), key, ids, bucketCache);
+				if(VariantUtils.pathIsVariantSpec(entry.getKey())) {
+					addIdSetsForVariantSpecCategoryFilters(entry.getValue(), entry.getKey(), ids, bucketCache);
 				} else {
-					String[] categoryFilter = query.categoryFilters.get(key);
+					String[] categoryFilter = entry.getValue();
 					for(String category : categoryFilter) {
-							ids.addAll(getCube(key).getKeysForValue(category));
+							ids.addAll(getCube(entry.getKey()).getKeysForValue(category));
 					}
 				}
 				return ids;
@@ -495,12 +495,12 @@ public class AbstractProcessor {
 	protected void addIdSetsForVariantInfoFilters(Query query, ArrayList<Set<Integer>> filteredIdSets) {
 //		log.debug("filterdIDSets START size: " + filteredIdSets.size());
 		/* VARIANT INFO FILTER HANDLING IS MESSY */
-		if(query.variantInfoFilters != null && !query.variantInfoFilters.isEmpty()) {
-			for(VariantInfoFilter filter : query.variantInfoFilters){
+		if(!query.getVariantInfoFilters().isEmpty()) {
+			for(VariantInfoFilter filter : query.getVariantInfoFilters()){
 				ArrayList<Set<Integer>> variantSets = new ArrayList<>();
 				addVariantsMatchingFilters(filter, variantSets);
 //				log.info("Found " + variantSets.size() + " groups of sets for patient identification");
-				log.info("found " + variantSets.stream().collect(Collectors.summingInt(set->set.size())) + " variants for identification");
+				log.info("found " + variantSets.stream().mapToInt(Set::size).sum() + " variants for identification");
 				if(!variantSets.isEmpty()) {
 					// INTERSECT all the variant sets.
 					Set<Integer> intersectionOfInfoFilters = variantSets.get(0);
@@ -796,31 +796,30 @@ public class AbstractProcessor {
 		}
 	}
 
-	protected Collection<String> getVariantList(Query query) throws IOException{
+	protected Collection<String> getVariantList(Query query) throws IOException {
 		return processVariantList(query);
 	}
 
 	private Collection<String> processVariantList(Query query) throws IOException {
-		if(query.variantInfoFilters != null &&
-				(!query.variantInfoFilters.isEmpty() &&
-						query.variantInfoFilters.stream().anyMatch((entry)->{
-							return ((!entry.categoryVariantInfoFilters.isEmpty())
-									|| (!entry.numericVariantInfoFilters.isEmpty()));
-						}))) {
+		boolean queryContainsVariantInfoFilters = query.getVariantInfoFilters().stream().anyMatch(variantInfoFilter ->
+				!variantInfoFilter.categoryVariantInfoFilters.isEmpty() || !variantInfoFilter.numericVariantInfoFilters.isEmpty()
+		);
+		if(queryContainsVariantInfoFilters) {
 			Set<Integer> unionOfInfoFilters = new HashSet<>();
 
-			if(query.variantInfoFilters.size()>1) {
-				for(VariantInfoFilter filter : query.variantInfoFilters){
+			// todo: are these not the same thing?
+			if(query.getVariantInfoFilters().size()>1) {
+				for(VariantInfoFilter filter : query.getVariantInfoFilters()){
 					unionOfInfoFilters = addVariantsForInfoFilter(unionOfInfoFilters, filter);
 					log.info("filter " + filter + "  sets: " + Arrays.deepToString(unionOfInfoFilters.toArray()));
 				}
 			} else {
-				unionOfInfoFilters = addVariantsForInfoFilter(unionOfInfoFilters, query.variantInfoFilters.get(0));
+				unionOfInfoFilters = addVariantsForInfoFilter(unionOfInfoFilters, query.getVariantInfoFilters().get(0));
 			}
 
 			Set<Integer> patientSubset = Sets.intersection(getPatientSubsetForQuery(query),
 					new HashSet<Integer>(
-							Arrays.asList(variantStore.getPatientIds()).stream()
+							Arrays.stream(variantStore.getPatientIds())
 							.map((id)->{return Integer.parseInt(id.trim());})
 							.collect(Collectors.toList())));
 //			log.debug("Patient subset " + Arrays.deepToString(patientSubset.toArray()));

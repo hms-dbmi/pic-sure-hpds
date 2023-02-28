@@ -95,7 +95,7 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 		this.query = query;
 		this.headerRow = headerRow;
 		try {
-			stream = new ResultStoreStream(headerRow, query.expectedResultType==ResultType.DATAFRAME_MERGED);
+			stream = new ResultStoreStream(headerRow, query.getExpectedResultType() == ResultType.DATAFRAME_MERGED);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -132,7 +132,7 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 
 	@Override
 	public int compareTo(AsyncResult o) {
-		return this.query.id.compareTo(o.query.id);
+		return this.query.getId().compareTo(o.query.getId());
 	}
 	
 }
