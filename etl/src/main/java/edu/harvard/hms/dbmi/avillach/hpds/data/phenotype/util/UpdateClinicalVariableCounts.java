@@ -40,7 +40,7 @@ public class UpdateClinicalVariableCounts {
         output.forEach(entry -> {
             System.out.println(entry.getKey() + "->" + entry.getValue());
         });
-        JSONArray updatedJson = updateCountsInJson(META_JSON_FILE, counts);
+        JSONObject updatedJson = updateCountsInJson(META_JSON_FILE, counts);
         FileWriter outputFile = new FileWriter(META_JSON_FILE);
         outputFile.write(updatedJson.toJSONString());
         outputFile.flush();
@@ -75,7 +75,7 @@ public class UpdateClinicalVariableCounts {
 
     }
 
-    protected static JSONArray updateCountsInJson(String filePath, TreeMap<String, Integer> counts)
+    protected static JSONObject updateCountsInJson(String filePath, TreeMap<String, Integer> counts)
             throws FileNotFoundException, IOException, ParseException {
         JSONParser parser = new JSONParser();
         Object fullFile = parser.parse(new FileReader(filePath));
@@ -85,19 +85,15 @@ public class UpdateClinicalVariableCounts {
             JSONObject studySegment = (JSONObject) o;
             String studyId = (String) studySegment.get("study_identifier");
             System.out.println("Start json string" + studySegment.toJSONString() + " End json string");
-            try {
-                System.out.println("Study id is" + studyId);
-                counts.containsKey(studyId);
-            } catch (NullPointerException e) {
-                e.printStackTrace();
-            }
             if (counts.containsKey(studyId)) {
                 studySegment.put("clinical_variable_count", counts.get(studyId));
                 System.out.println("Updated counts for " + studyId);
             } else {
                 System.out.println("No clinical variables found for identifier " + studyId);
+                studySegment.put("clinical_variable_count", 0);
             }
         }
-        return parsedArray;
+        fullFileJson.put("bio_data_catalyst", parsedArray);
+        return fullFileJson;
     }
 }
