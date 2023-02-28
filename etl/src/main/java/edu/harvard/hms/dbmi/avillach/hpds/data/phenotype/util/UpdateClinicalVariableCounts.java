@@ -21,8 +21,13 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 public class UpdateClinicalVariableCounts {
-    protected static final String COLUMN_META_FILE = "/opt/local/hpds/columnMeta.javabin";
-    protected static final String META_JSON_FILE = "/opt/local/hpds/metadata.json";
+
+    // protected static final String COLUMN_META_FILE =
+    // "/opt/local/hpds/columnMeta.javabin";
+    // protected static final String META_JSON_FILE =
+    // "/opt/local/hpds/metadata.json";
+    protected static final String COLUMN_META_FILE = "ToDelete/columnMeta.javabin";
+    protected static final String META_JSON_FILE = "ToDelete/metadata.json";
 
     public static void main(String[] args)
             throws ClassNotFoundException, FileNotFoundException, IOException, ParseException {
@@ -83,6 +88,13 @@ public class UpdateClinicalVariableCounts {
         for (Object o : parsedArray) {
             JSONObject studySegment = (JSONObject) o;
             String studyId = (String) studySegment.get("study_identifier");
+            System.out.println("Start json string" + studySegment.toJSONString() + " End json string");
+            try {
+                System.out.println("Study id is" + studyId);
+                counts.containsKey(studyId);
+            } catch (NullPointerException e) {
+                e.printStackTrace();
+            }
             if (counts.containsKey(studyId)) {
                 studySegment.put("clinical_variable_count", counts.get(studyId));
                 System.out.println("Updated counts for " + studyId);
