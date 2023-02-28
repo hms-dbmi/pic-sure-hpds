@@ -22,12 +22,8 @@ import org.json.simple.parser.ParseException;
 
 public class UpdateClinicalVariableCounts {
 
-    // protected static final String COLUMN_META_FILE =
-    // "/opt/local/hpds/columnMeta.javabin";
-    // protected static final String META_JSON_FILE =
-    // "/opt/local/hpds/metadata.json";
-    protected static final String COLUMN_META_FILE = "ToDelete/columnMeta.javabin";
-    protected static final String META_JSON_FILE = "ToDelete/metadata.json";
+    protected static final String COLUMN_META_FILE = "/opt/local/hpds/columnMeta.javabin";
+    protected static final String META_JSON_FILE = "/opt/local/hpds/metadata.json";
 
     public static void main(String[] args)
             throws ClassNotFoundException, FileNotFoundException, IOException, ParseException {
