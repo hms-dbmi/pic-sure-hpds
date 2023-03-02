@@ -2,7 +2,6 @@ package edu.harvard.hms.dbmi.avillach.hpds.processing;
 
 import static org.junit.Assert.assertEquals;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.*;
 
@@ -10,7 +9,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
-import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query.VariantInfoFilter;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -27,34 +25,6 @@ public class CountProcessorTest {
 	@Before
 	public void before() {
 		countProcessor = new CountProcessor(mockAbstractProcessor);
-	}
-
-	public class TestableCountProcessor extends CountProcessor {
-		private List<ArrayList<Set<Integer>>> testVariantSets;
-		private int callCount = 0;
-		
-		
-		public TestableCountProcessor(boolean isOnlyForTests, ArrayList<Set<Integer>> testVariantSets)
-				throws ClassNotFoundException, FileNotFoundException, IOException {
-			super(mockAbstractProcessor);
-		}
-
-		/*public TestableCountProcessor(boolean isOnlyForTests, List<ArrayList<Set<Integer>>> testVariantSets)
-				throws ClassNotFoundException, FileNotFoundException, IOException {
-			super(isOnlyForTests);
-			this.testVariantSets = testVariantSets;
-			//we still need an object to reference when checking the variant store, even if it's empty.
-			variantStore = new VariantStore();
-			variantStore.setPatientIds(new String[0]);
-			allIds = new TreeSet<>(Set.of(10001,20002));
-		}*/
-
-		public void addVariantsMatchingFilters(VariantInfoFilter filter, ArrayList<Set<Integer>> variantSets) {
-			for (Set<Integer> set : testVariantSets.get(callCount++ % testVariantSets.size())) {
-				System.out.println("Adding " + Arrays.deepToString(set.toArray()));
-				variantSets.add(set);
-			}
-		}
 	}
 
 	@Test
@@ -83,28 +53,6 @@ public class CountProcessorTest {
 
 	// todo: test these directly in AbstractProcessor
 	/*
-	@Test
-	public void testVariantCountWithVariantInfoFiltersWithMultipleVariantsButNoIntersectionKeys() throws Exception {
-		ArrayList<Set<Integer>> data = new ArrayList<Set<Integer>>(List.of(
-				Set.of(1),
-				Set.of(2)));
-
-		TestableCountProcessor t = new TestableCountProcessor(true, data);
-
-		Map<String, String[]> categoryVariantInfoFilters = 
-				Map.of("FILTERKEY", new String[] {"test1"});
-		VariantInfoFilter variantInfoFilter = new VariantInfoFilter();
-		variantInfoFilter.categoryVariantInfoFilters = categoryVariantInfoFilters;
-
-		List<VariantInfoFilter> variantInfoFilters = List.of(variantInfoFilter);
-
-		Query q = new Query();
-		q.variantInfoFilters = variantInfoFilters;
-		
-		Map<String, Object> countResponse = t.runVariantCount(q);
-		assertEquals(0,countResponse.get("count") );
-	}
-
 	@Test
 	public void testVariantCountWithVariantInfoFiltersWithMultipleVariantsWithIntersectingKeys() throws Exception {
 		ArrayList<Set<Integer>> data = new ArrayList<>(List.of(

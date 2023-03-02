@@ -9,7 +9,6 @@ import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-import com.google.common.collect.ConcurrentHashMultiset;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +29,10 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query.VariantInfoFilter;
 import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import javax.persistence.Column;
 
 // todo: rename this class. VariantService maybe?
 @Component
@@ -57,7 +59,7 @@ public class AbstractProcessor {
 
 	private List<String> infoStoreColumns;
 
-	private HashMap<String, FileBackedByteIndexedInfoStore> infoStores;
+	private Map<String, FileBackedByteIndexedInfoStore> infoStores;
 
 	private LoadingCache<String, PhenoCube<?>> store;
 
@@ -65,44 +67,83 @@ public class AbstractProcessor {
 	// todo: make final
 	private VariantStore variantStore;
 
-	private TreeMap<String, ColumnMeta> metaStore;
+	private final PhenotypeMetaStore phenotypeMetaStore;
 
-	private TreeSet<Integer> allIds;
+	@Autowired
+	public AbstractProcessor(PhenotypeMetaStore phenotypeMetaStore) throws ClassNotFoundException, IOException {
+		this.phenotypeMetaStore = phenotypeMetaStore;
 
-
-	public AbstractProcessor() throws ClassNotFoundException, IOException {
 		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
 		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
 		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
 
-		try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream("/opt/local/hpds/columnMeta.javabin")));){
-			TreeMap<String, ColumnMeta> _metastore = (TreeMap<String, ColumnMeta>) objectInputStream.readObject();
-			TreeMap<String, ColumnMeta> metastoreScrubbed = new TreeMap<String, ColumnMeta>();
-			for(Entry<String,ColumnMeta> entry : _metastore.entrySet()) {
-				metastoreScrubbed.put(entry.getKey().replaceAll("\\ufffd",""), entry.getValue());
-			}
-			metaStore = metastoreScrubbed;
-			allIds = (TreeSet<Integer>) objectInputStream.readObject();
-			objectInputStream.close();
-		} catch (IOException | ClassNotFoundException e) {
-			e.printStackTrace();
-			log.warn("************************************************");
-			log.warn("************************************************");
-			log.warn("Could not load metastore");
-			log.warn("If you meant to include phenotype data of any kind, please check that the file /opt/local/hpds/columnMeta.javabin exists and is readable by the service.");
-			log.warn("************************************************");
-			log.warn("************************************************");
-			metaStore = new TreeMap<String, ColumnMeta>();
-			allIds = new TreeSet<Integer>();
-		}
-
-		// this should not run multiple times, or, everything created here should be a singleton
 		store = initializeCache();
-		synchronized(store) {
-			loadAllDataFiles();
-			infoStoreColumns = new ArrayList<String>(infoStores.keySet());
-			warmCaches();
+
+		if(Crypto.hasKey(Crypto.DEFAULT_KEY_NAME)) {
+			List<String> cubes = new ArrayList<String>(phenotypeMetaStore.getColumnNames());
+			int conceptsToCache = Math.min(cubes.size(), CACHE_SIZE);
+			for(int x = 0;x<conceptsToCache;x++){
+				try {
+					if(phenotypeMetaStore.getColumnMeta(cubes.get(x)).getObservationCount() == 0){
+						log.info("Rejecting : " + cubes.get(x) + " because it has no entries.");
+					}else {
+						store.get(cubes.get(x));
+						log.debug("loaded: " + cubes.get(x));
+						// +1 offset when logging to print _after_ each 10%
+						if((x + 1) % (conceptsToCache * .1)== 0) {
+							log.info("cached: " + (x + 1) + " out of " + conceptsToCache);
+						}
+					}
+				} catch (ExecutionException e) {
+					log.error("an error occurred", e);
+				}
+
+			}
+
 		}
+		infoStores = new HashMap<>();
+		File genomicDataDirectory = new File("/opt/local/hpds/all/");
+		if(genomicDataDirectory.exists() && genomicDataDirectory.isDirectory()) {
+			Arrays.stream(genomicDataDirectory.list((file, filename)->{return filename.endsWith("infoStore.javabin");}))
+					.forEach((String filename)->{
+						try (
+								FileInputStream fis = new FileInputStream("/opt/local/hpds/all/" + filename);
+								GZIPInputStream gis = new GZIPInputStream(fis);
+								ObjectInputStream ois = new ObjectInputStream(gis)
+						){
+							log.info("loading " + filename);
+							FileBackedByteIndexedInfoStore infoStore = (FileBackedByteIndexedInfoStore) ois.readObject();
+							infoStores.put(filename.replace("_infoStore.javabin", ""), infoStore);
+							ois.close();
+						} catch (FileNotFoundException e) {
+							e.printStackTrace();
+						} catch (IOException e) {
+							e.printStackTrace();
+						} catch (ClassNotFoundException e) {
+							e.printStackTrace();
+						}
+					});
+		}
+		try {
+			loadGenomicCacheFiles();
+		} catch (Throwable e) {
+			log.error("Failed to load genomic data: " + e.getLocalizedMessage(), e);
+		}
+		infoStoreColumns = new ArrayList<String>(infoStores.keySet());
+		warmCaches();
+	}
+
+	public AbstractProcessor(PhenotypeMetaStore phenotypeMetaStore, LoadingCache<String,
+			PhenoCube<?>> store, Map<String, FileBackedByteIndexedInfoStore> infoStores, List<String> infoStoreColumns, VariantStore variantStore) {
+		this.phenotypeMetaStore = phenotypeMetaStore;
+		this.store = store;
+		this.infoStores = infoStores;
+		this.infoStoreColumns = infoStoreColumns;
+		this.variantStore = variantStore;
+
+		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
+		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
+		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
 	}
 
 	public VariantStore getVariantStore() {
@@ -228,16 +269,6 @@ public class AbstractProcessor {
 		}
 	}
 
-	public AbstractProcessor(boolean isOnlyForTests) throws ClassNotFoundException, FileNotFoundException, IOException  {
-		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
-		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
-		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
-
-		if(!isOnlyForTests) {
-			throw new IllegalArgumentException("This constructor should never be used outside tests");
-		}
-	}
-
 	/**
 	 * Merges a list of sets of patient ids by intersection. If we implemented OR semantics
 	 * this would be where the change happens.
@@ -252,46 +283,6 @@ public class AbstractProcessor {
 		});
 		return ids[0];
 	}
-	//
-	//	protected Map<String, Double> variantsOfInterestForSubset(String geneName, BigInteger caseMask, double pValueCutoff) throws IOException{
-	//		TreeSet<String> nonsynonymous_SNVs = new TreeSet<>(Arrays.asList(infoStores.get("UCG").allValues.get("nonsynonymous_SNV")));
-	//		TreeSet<String> variantsInGene = new TreeSet<>(Arrays.asList(infoStores.get("GN").allValues.get(geneName)));
-	//		TreeSet<String> nonsynVariantsInGene = new TreeSet<String>(Sets.intersection(variantsInGene, nonsynonymous_SNVs));
-	//
-	//		HashMap<String, Double> interestingVariants = new HashMap<>();
-	//
-	//		nonsynVariantsInGene.stream().forEach((variantSpec)->{
-	//			VariantMasks masks;
-	//			try {
-	//				masks = variantStore.getMasks(variantSpec);
-	//			} catch (IOException e) {
-	//				throw new RuntimeException(e);
-	//			}
-	//			BigInteger controlMask = flipMask(caseMask);
-	//			BigInteger variantAlleleMask = masks.heterozygousMask.or(masks.homozygousMask);
-	//			BigInteger referenceAlleleMask = flipMask(variantAlleleMask);
-	//			Double value = new ChiSquareTest().chiSquare(new long[][] {
-	//				{variantAlleleMask.and(caseMask).bitCount()-4, variantAlleleMask.and(controlMask).bitCount()-4},
-	//				{referenceAlleleMask.and(caseMask).bitCount()-4, referenceAlleleMask.and(controlMask).bitCount()-4}
-	//			});
-	//			if(value < pValueCutoff) {
-	//				interestingVariants.put(variantSpec, value);
-	//			}
-	//		});
-	//		return interestingVariants;
-	//	}
-//
-//	/**
-//	 * Returns a new BigInteger object where each bit except the bookend bits for the bitmask parameter have been flipped.
-//	 * @param bitmask
-//	 * @return
-//	 */
-//	private BigInteger flipMask(BigInteger bitmask) {
-//		for(int x = 2;x<bitmask.bitLength()-2;x++) {
-//			bitmask = bitmask.flipBit(x);
-//		}
-//		return bitmask;
-//	}
 
 	/**
 	 * For each filter in the query, return a set of patient ids that match. The order of these sets in the
@@ -340,13 +331,13 @@ public class AbstractProcessor {
 		if(filteredIdSets.isEmpty()) {
 			if(variantStore.getPatientIds().length > 0 ) {
 				idList = new TreeSet(
-						Sets.union(allIds,
+						Sets.union(phenotypeMetaStore.getPatientIds(),
 								new TreeSet(Arrays.asList(
 										variantStore.getPatientIds()).stream()
 										.collect(Collectors.mapping(
 												(String id)->{return Integer.parseInt(id.trim());}, Collectors.toList()))) ));
 			}else {
-				idList = allIds;
+				idList = phenotypeMetaStore.getPatientIds();
 			}
 		}else {
 			idList = new TreeSet<Integer>(applyBooleanLogic(filteredIdSets));
@@ -375,7 +366,7 @@ public class AbstractProcessor {
 			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<VariantMasks>();
 			query.getAnyRecordOf().parallelStream().forEach(path->{
 				if(patientsInScope.size()<Math.max(
-						allIds.size(),
+						phenotypeMetaStore.getPatientIds().size(),
 						variantStore.getPatientIds().length)) {
 					if(VariantUtils.pathIsVariantSpec(path)) {
 						addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1","1/1"}, path, patientsInScope, bucketCache);
@@ -594,7 +585,7 @@ public class AbstractProcessor {
 					log.debug("Calculating value for cache for key " + infoColumn_valueKey);
 					long time = System.currentTimeMillis();
 					String[] column_and_value = infoColumn_valueKey.split(COLUMN_AND_KEY_DELIMITER);
-					String[] variantArray = infoStores.get(column_and_value[0]).allValues.get(column_and_value[1]);
+					String[] variantArray = infoStores.get(column_and_value[0]).getAllValues().get(column_and_value[1]);
 					Integer[] variantIndexArray = new Integer[variantArray.length];
 					int x = 0;
 					for(String variantSpec : variantArray) {
@@ -650,14 +641,6 @@ public class AbstractProcessor {
 		});
 		return setMap.keySet();
 	}
-	private Set<String> idSetToVariantSpecSet(Set<Integer> variantIds) {
-		ConcurrentHashMap<String, String> setMap = new ConcurrentHashMap<String, String>(variantIds.size());
-		variantIds.stream().parallel().forEach((index)->{
-			String variantSpec = variantIndex[index];
-			setMap.put(variantSpec, variantSpec);
-		});
-		return setMap.keySet();
-	}
 
 	private void addVariantsMatchingCategoryFilter(ArrayList<Set<Integer>> variantSets, Entry<String, String[]> entry) {
 		String column = entry.getKey();
@@ -697,7 +680,7 @@ public class AbstractProcessor {
 	}
 
 	private List<String> filterInfoCategoryKeys(String[] values, FileBackedByteIndexedInfoStore infoStore) {
-		List<String> infoKeys = infoStore.allValues.keys().stream().filter((String key)->{
+		List<String> infoKeys = infoStore.getAllValues().keys().stream().filter((String key)->{
 
 			// iterate over the values for the specific category and find which ones match the search
 
@@ -827,12 +810,14 @@ public class AbstractProcessor {
 			// If we have all patients then no variants would be filtered, so no need to do further processing
 			if(patientSubset.size()==variantStore.getPatientIds().length) {
 				log.info("query selects all patient IDs, returning....");
-				return unionOfInfoFilters.parallelStream().map(index -> variantIndex[index]).collect(Collectors.toList());
+				return variantIdSetToVariantSpecSet(unionOfInfoFilters);
+				//return unionOfInfoFilters.parallelStream().map(index -> variantIndex[index]).collect(Collectors.toList());
 			}
 
 			BigInteger patientMasks = createMaskForPatientSet(patientSubset);
 
-			Set<String> unionOfInfoFiltersVariantSpecs = unionOfInfoFilters.parallelStream().map(index -> variantIndex[index]).collect(Collectors.toSet());
+			Set<String> unionOfInfoFiltersVariantSpecs = variantIdSetToVariantSpecSet(unionOfInfoFilters);
+			//Set<String> unionOfInfoFiltersVariantSpecs = unionOfInfoFilters.parallelStream().map(index -> variantIndex[index]).collect(Collectors.toSet());
 			Collection<String> variantsInScope = bucketIndex.filterVariantSetForPatientSet(unionOfInfoFiltersVariantSpecs, new ArrayList<>(patientSubset));
 
 			//NC - this is the original variant filtering, which checks the patient mask from each variant against the patient mask from the query
@@ -965,7 +950,7 @@ public class AbstractProcessor {
 						new CacheLoader<String, PhenoCube<?>>() {
 							public PhenoCube<?> load(String key) throws Exception {
 								try(RandomAccessFile allObservationsStore = new RandomAccessFile("/opt/local/hpds/allObservationsStore.javabin", "r");){
-									ColumnMeta columnMeta = metaStore.get(key);
+									ColumnMeta columnMeta = phenotypeMetaStore.getColumnMeta(key);
 									if(columnMeta != null) {
 										allObservationsStore.seek(columnMeta.getAllObservationsOffset());
 										int length = (int) (columnMeta.getAllObservationsLength() - columnMeta.getAllObservationsOffset());
@@ -985,65 +970,6 @@ public class AbstractProcessor {
 						});
 	}
 
-	/**
-	 * Prime the cache if we have a key already by loading PhenoCubes into the cache up to maximum CACHE_SIZE
-	 *
-	 */
-	public synchronized void loadAllDataFiles() {
-		if(!dataFilesLoaded) {
-			if(Crypto.hasKey(Crypto.DEFAULT_KEY_NAME)) {
-				List<String> cubes = new ArrayList<String>(metaStore.keySet());
-				int conceptsToCache = Math.min(metaStore.size(), CACHE_SIZE);
-				for(int x = 0;x<conceptsToCache;x++){
-					try {
-						if(metaStore.get(cubes.get(x)).getObservationCount() == 0){
-							log.info("Rejecting : " + cubes.get(x) + " because it has no entries.");
-						}else {
-							store.get(cubes.get(x));
-							log.debug("loaded: " + cubes.get(x));
-							// +1 offset when logging to print _after_ each 10%
-							if((x + 1) % (conceptsToCache * .1)== 0) {
-								log.info("cached: " + (x + 1) + " out of " + conceptsToCache);
-							}
-						}
-					} catch (ExecutionException e) {
-						log.error("an error occurred", e);
-					}
-
-				}
-
-			}
-			infoStores = new HashMap<>();
-			File genomicDataDirectory = new File("/opt/local/hpds/all/");
-			if(genomicDataDirectory.exists() && genomicDataDirectory.isDirectory()) {
-				Arrays.stream(genomicDataDirectory.list((file, filename)->{return filename.endsWith("infoStore.javabin");}))
-				.forEach((String filename)->{
-					try (
-							FileInputStream fis = new FileInputStream("/opt/local/hpds/all/" + filename);
-							GZIPInputStream gis = new GZIPInputStream(fis);
-							ObjectInputStream ois = new ObjectInputStream(gis)
-							){
-						log.info("loading " + filename);
-						FileBackedByteIndexedInfoStore infoStore = (FileBackedByteIndexedInfoStore) ois.readObject();
-						infoStores.put(filename.replace("_infoStore.javabin", ""), infoStore);
-						ois.close();
-					} catch (FileNotFoundException e) {
-						e.printStackTrace();
-					} catch (IOException e) {
-						e.printStackTrace();
-					} catch (ClassNotFoundException e) {
-						e.printStackTrace();
-					}
-				});
-			}
-			try {
-				loadGenomicCacheFiles();
-			} catch (Throwable e) {
-				log.error("Failed to load genomic data: " + e.getLocalizedMessage(), e);
-			}
-			dataFilesLoaded = true;
-		}
-	}
 
 	protected PhenoCube getCube(String path) {
 		try {
@@ -1054,6 +980,16 @@ public class AbstractProcessor {
 	}
 
 	public TreeMap<String, ColumnMeta> getDictionary() {
-		return metaStore;
+		return phenotypeMetaStore.getMetaStore();
+	}
+
+	/**
+	 * Converts a set of variant IDs to a set of String representations of variant spec. This implementation looks
+	 * wonky, but performs much better than other more obvious approaches (ex: Collectors.toSet()) on large sets.
+	 */
+	public static Set<String> variantIdSetToVariantSpecSet(Set<Integer> variantIds) {
+		ConcurrentHashMap<String, String> setMap = new ConcurrentHashMap<>(variantIds.size());
+		variantIds.stream().parallel().forEach(index-> setMap.put(variantIndex[index], ""));
+		return setMap.keySet();
 	}
 }

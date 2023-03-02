@@ -164,7 +164,7 @@ public class PicSureService implements IResourceRS {
 						|| store.column_key.toLowerCase().contains(lowerCase)) {
 					infoResults.put(infoColumn,
 							ImmutableMap.of("description", store.description, "values",
-									store.isContinuous ? new ArrayList<String>() : store.allValues.keys(), "continuous",
+									store.isContinuous ? new ArrayList<String>() : store.getAllValues().keys(), "continuous",
 									storeIsNumeric));
 				} else {
 					List<String> searchResults = store.search(query);
