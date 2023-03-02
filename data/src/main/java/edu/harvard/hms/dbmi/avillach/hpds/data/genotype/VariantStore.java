@@ -1,13 +1,13 @@
 package edu.harvard.hms.dbmi.avillach.hpds.data.genotype;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.Serializable;
+import java.io.*;
 import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.util.zip.GZIPInputStream;
 
+import com.google.errorprone.annotations.Var;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
@@ -29,6 +29,21 @@ public class VariantStore implements Serializable {
 	private String[] vcfHeaders = new String[24];
 
 	public TreeMap<String, FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage = new TreeMap<>();
+
+	public static VariantStore deserializeInstance() throws IOException, ClassNotFoundException {
+		if(new File("/opt/local/hpds/all/variantStore.javabin").exists()) {
+			ObjectInputStream ois = new ObjectInputStream(new GZIPInputStream(new FileInputStream("/opt/local/hpds/all/variantStore.javabin")));
+			VariantStore variantStore = (VariantStore) ois.readObject();
+			ois.close();
+			variantStore.open();
+			return variantStore;
+		} else {
+			//we still need an object to reference when checking the variant store, even if it's empty.
+			VariantStore variantStore = new VariantStore();
+			variantStore.setPatientIds(new String[0]);
+			return variantStore;
+		}
+	}
 
 	public ArrayList<String> listVariants() {
 		ArrayList<String> allVariants = new ArrayList<>();

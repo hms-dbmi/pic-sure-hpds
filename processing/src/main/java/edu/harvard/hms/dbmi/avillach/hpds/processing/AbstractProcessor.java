@@ -23,13 +23,12 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.*;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHolder;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
-import edu.harvard.hms.dbmi.avillach.hpds.data.query.Filter.DoubleFilter;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Filter.FloatFilter;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query.VariantInfoFilter;
-import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.persistence.Column;
@@ -40,7 +39,6 @@ public class AbstractProcessor {
 
 	private static Logger log = LoggerFactory.getLogger(AbstractProcessor.class);
 
-	private boolean dataFilesLoaded = false;
 	private BucketIndexBySample bucketIndex;
 	private final Integer VARIANT_INDEX_BLOCK_SIZE = 1000000;
 	private final String VARIANT_INDEX_FBBIS_STORAGE_FILE = "/opt/local/hpds/all/variantIndex_fbbis_storage.javabin";
@@ -51,9 +49,13 @@ public class AbstractProcessor {
 	private final String HETEROZYGOUS_VARIANT = "0/1";
 	private final String HOMOZYGOUS_REFERENCE = "0/0";
 
-	private final String ID_CUBE_NAME;
-	private final int ID_BATCH_SIZE;
-	private final int CACHE_SIZE;
+
+	@Value("{id.cube.name}")
+	private String ID_CUBE_NAME;
+	@Value("{id.batch.size}")
+	private int ID_BATCH_SIZE;
+	@Value("{cache.size}")
+	private int CACHE_SIZE;
 
 
 
@@ -64,8 +66,7 @@ public class AbstractProcessor {
 	private LoadingCache<String, PhenoCube<?>> store;
 
 	//variantStore will never be null; it is initialized to an empty object.
-	// todo: make final
-	private VariantStore variantStore;
+	private final VariantStore variantStore;
 
 	private final PhenotypeMetaStore phenotypeMetaStore;
 
@@ -73,9 +74,7 @@ public class AbstractProcessor {
 	public AbstractProcessor(PhenotypeMetaStore phenotypeMetaStore) throws ClassNotFoundException, IOException {
 		this.phenotypeMetaStore = phenotypeMetaStore;
 
-		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
-		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
-		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
+		variantStore = VariantStore.deserializeInstance();
 
 		store = initializeCache();
 
@@ -933,17 +932,6 @@ public class AbstractProcessor {
 	 * @throws IOException
 	 */
 	protected LoadingCache<String, PhenoCube<?>> initializeCache() throws ClassNotFoundException, FileNotFoundException, IOException {
-		if(new File("/opt/local/hpds/all/variantStore.javabin").exists()) {
-
-			ObjectInputStream ois = new ObjectInputStream(new GZIPInputStream(new FileInputStream("/opt/local/hpds/all/variantStore.javabin")));
-			variantStore = (VariantStore) ois.readObject();
-			ois.close();
-			variantStore.open();
-		} else {
-			//we still need an object to reference when checking the variant store, even if it's empty.
-			variantStore = new VariantStore();
-			variantStore.setPatientIds(new String[0]);
-		}
 		return CacheBuilder.newBuilder()
 				.maximumSize(CACHE_SIZE)
 				.build(
