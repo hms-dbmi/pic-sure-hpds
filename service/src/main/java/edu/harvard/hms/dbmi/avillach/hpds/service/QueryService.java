@@ -207,26 +207,10 @@ public class QueryService {
 
 	public AsyncResult getStatusFor(String queryId) {
 		throw new UnsupportedOperationException("Async Requests not supported");
-		/*AsyncResult asyncResult = null;
-		if(asyncResult == null) {
-			return null;
-		}
-		AsyncResult[] queue = asyncResult.query.getFields().size() > SMALL_JOB_LIMIT ?
-				largeTaskExecutionQueue.toArray(new AsyncResult[largeTaskExecutionQueue.size()]) : 
-					smallTaskExecutionQueue.toArray(new AsyncResult[smallTaskExecutionQueue.size()]);
-				if(asyncResult.status == Status.PENDING) {
-					List<AsyncResult> queueSnapshot = Arrays.asList(queue);
-					for(int x = 0;x<queueSnapshot.size();x++) {
-						if(queueSnapshot.get(x).id.equals(queryId)) {
-							asyncResult.positionInQueue = x;
-							break;
-						}
-					}			
-				}else {
-					asyncResult.positionInQueue = -1;
-				}
-				asyncResult.queueDepth = queue.length;
-				return asyncResult;*/
+	}
+
+	public AsyncResult getResultFor(String queryId) {
+		throw new UnsupportedOperationException("Async Requests not supported");
 	}
 
 	private int getIntProp(String key) {
