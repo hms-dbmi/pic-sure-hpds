@@ -585,7 +585,7 @@ public class AbstractProcessor {
 			long time = System.currentTimeMillis();
 			String[] column_and_value = infoColumn_valueKey.split(COLUMN_AND_KEY_DELIMITER);
 			String[] variantArray = infoStores.get(column_and_value[0]).getAllValues().get(column_and_value[1]);
-			boolean[] variantIndexArray = new boolean[variantArray.length];
+			boolean[] variantIndexArray = new boolean[variantIndex.length];
 			int x = 0;
 			for(String variantSpec : variantArray) {
 				int variantIndexArrayIndex = Arrays.binarySearch(variantIndex, variantSpec);
