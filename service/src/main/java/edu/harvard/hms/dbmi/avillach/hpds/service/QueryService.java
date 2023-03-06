@@ -45,8 +45,6 @@ public class QueryService {
 	private final CountProcessor countProcessor;
 
 
-	protected static Cache<String, AsyncResult> resultCache;
-
 	@Autowired
 	public QueryService (AbstractProcessor abstractProcessor, QueryProcessor queryProcessor, TimeseriesProcessor timeseriesProcessor, CountProcessor countProcessor) {
 		this.abstractProcessor = abstractProcessor;
@@ -67,30 +65,15 @@ public class QueryService {
 
 		largeTaskExecutor = createExecutor(largeTaskExecutionQueue, LARGE_TASK_THREADS);
 		smallTaskExecutor = createExecutor(smallTaskExecutionQueue, SMALL_TASK_THREADS);
-		
-		//set up results cache
-		resultCache = Caffeine.newBuilder()
-				.maximumSize(RESULTS_CACHE_SIZE)
-				.build();
 	}
 
 	public AsyncResult runQuery(Query query) throws ClassNotFoundException, IOException {
-		
-		String id = UUIDv5.UUIDFromString(query.toString()).toString();
-		AsyncResult cachedResult = resultCache.getIfPresent(id);
-		if(cachedResult != null) {
-			log.debug("cache hit for " + id);
-			return cachedResult;
-		}
-		
 		// Merging fields from filters into selected fields for user validation of results
 		mergeFilterFieldsIntoSelectedFields(query);
 
 		Collections.sort(query.getFields());
 
 		AsyncResult result = initializeResult(query);
-
-		resultCache.put(id, result);
 		
 		// This is all the validation we do for now.
 		Map<String, List<String>> validationResults = ensureAllFieldsExist(query);
@@ -223,7 +206,8 @@ public class QueryService {
 	}
 
 	public AsyncResult getStatusFor(String queryId) {
-		AsyncResult asyncResult = resultCache.getIfPresent(queryId);
+		throw new UnsupportedOperationException("Async Requests not supported");
+		/*AsyncResult asyncResult = null;
 		if(asyncResult == null) {
 			return null;
 		}
@@ -242,11 +226,7 @@ public class QueryService {
 					asyncResult.positionInQueue = -1;
 				}
 				asyncResult.queueDepth = queue.length;
-				return asyncResult;
-	}
-
-	public AsyncResult getResultFor(String queryId) {
-		return resultCache.getIfPresent(queryId);
+				return asyncResult;*/
 	}
 
 	private int getIntProp(String key) {

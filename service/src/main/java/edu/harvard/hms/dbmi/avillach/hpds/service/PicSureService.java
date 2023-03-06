@@ -48,9 +48,6 @@ public class PicSureService implements IResourceRS {
 		this.countProcessor = countProcessor;
 		this.variantListProcessor = variantListProcessor;
 		this.abstractProcessor = abstractProcessor;
-		responseCache = Caffeine.newBuilder()
-				.maximumSize(RESPONSE_CACHE_SIZE)
-				.build();
 		Crypto.loadDefaultKey();
 	}
 
@@ -70,9 +67,6 @@ public class PicSureService implements IResourceRS {
 
 	private static final String QUERY_METADATA_FIELD = "queryMetadata";
 	private static final int RESPONSE_CACHE_SIZE = 50;
-
-	//sync and async queries have different execution paths, so we cache them separately.
-	protected static Cache<String, Response> responseCache;
 
 	@POST
 	@Path("/info")
@@ -279,16 +273,7 @@ public class PicSureService implements IResourceRS {
 	public Response querySync(QueryRequest resultRequest) {
 		if (Crypto.hasKey(Crypto.DEFAULT_KEY_NAME)) {
 			try {
-				Query incomingQuery = convertIncomingQuery(resultRequest);
-				String queryID = UUIDv5.UUIDFromString(incomingQuery.toString()).toString();
-				Response cachedResponse = responseCache.getIfPresent(queryID);
-				if (cachedResponse != null) {
-					return cachedResponse;
-				} else {
-					Response response = _querySync(resultRequest);
-					responseCache.put(queryID, response);
-					return response;
-				}
+				return _querySync(resultRequest);
 			} catch (IOException e) {
 				log.error("IOException  caught: ", e);
 				return Response.serverError().build();
