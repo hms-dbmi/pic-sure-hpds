@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
+import com.google.errorprone.annotations.Var;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +39,8 @@ import javax.persistence.Column;
 public class AbstractProcessor {
 
 	private static Logger log = LoggerFactory.getLogger(AbstractProcessor.class);
+
+	private static final double MAX_SPARSE_INDEX_RATIO = 0.1;
 
 	private BucketIndexBySample bucketIndex;
 	private final Integer VARIANT_INDEX_BLOCK_SIZE = 1000000;
@@ -487,15 +490,15 @@ public class AbstractProcessor {
 		/* VARIANT INFO FILTER HANDLING IS MESSY */
 		if(!query.getVariantInfoFilters().isEmpty()) {
 			for(VariantInfoFilter filter : query.getVariantInfoFilters()){
-				ArrayList<boolean[]> variantSets = new ArrayList<>();
+				ArrayList<VariantIndex> variantSets = new ArrayList<>();
 				addVariantsMatchingFilters(filter, variantSets);
 				log.info("Found " + variantSets.size() + " groups of sets for patient identification");
 				//log.info("found " + variantSets.stream().mapToInt(Set::size).sum() + " variants for identification");
 				if(!variantSets.isEmpty()) {
 					// INTERSECT all the variant sets.
-					boolean[] intersectionOfInfoFilters = variantSets.get(0);
-					for(boolean[] variantSet : variantSets) {
-						intersectionOfInfoFilters = intersectBooleans(intersectionOfInfoFilters, variantSet);
+					VariantIndex intersectionOfInfoFilters = variantSets.get(0);
+					for(VariantIndex variantSet : variantSets) {
+						intersectionOfInfoFilters = intersectionOfInfoFilters.intersection(variantSet);
 					}
 					// Apparently set.size() is really expensive with large sets... I just saw it take 17 seconds for a set with 16.7M entries
 					if(log.isDebugEnabled()) {
@@ -511,10 +514,16 @@ public class AbstractProcessor {
 		/* END OF VARIANT INFO FILTER HANDLING */
 	}
 
-	Weigher<String, boolean[]> weigher = new Weigher<String, boolean[]>(){
+	Weigher<String, VariantIndex> weigher = new Weigher<String, VariantIndex>(){
 		@Override
-		public int weigh(String key, boolean[] value) {
-			return value.length;
+		public int weigh(String key, VariantIndex value) {
+			if (value instanceof DenseVariantIndex) {
+				return ((DenseVariantIndex) value).getVariantIndexMask().length;
+			} else if (value instanceof SparseVariantIndex) {
+				return ((SparseVariantIndex) value).getVariantIds().size();
+			} else {
+				throw new IllegalArgumentException("Unknown VariantIndex implementation: " + value.getClass());
+			}
 		}
 	};
 
@@ -578,29 +587,40 @@ public class AbstractProcessor {
 	// why is this not VariantSpec[]?
 	protected static String[] variantIndex = null;
 
-	CacheLoader<String, boolean[]> cacheLoader = new CacheLoader<>() {
+	CacheLoader<String, VariantIndex> cacheLoader = new CacheLoader<>() {
 		@Override
-		public boolean[] load(String infoColumn_valueKey) throws Exception {
+		public VariantIndex load(String infoColumn_valueKey) throws Exception {
 			log.debug("Calculating value for cache for key " + infoColumn_valueKey);
 			long time = System.currentTimeMillis();
 			String[] column_and_value = infoColumn_valueKey.split(COLUMN_AND_KEY_DELIMITER);
 			String[] variantArray = infoStores.get(column_and_value[0]).getAllValues().get(column_and_value[1]);
-			boolean[] variantIndexArray = new boolean[variantIndex.length];
-			int x = 0;
-			for(String variantSpec : variantArray) {
-				int variantIndexArrayIndex = Arrays.binarySearch(variantIndex, variantSpec);
-				if (variantIndexArrayIndex > 0) {
-					variantIndexArray[variantIndexArrayIndex] = true;
+
+			if ((double)variantArray.length / (double)variantIndex.length < MAX_SPARSE_INDEX_RATIO ) {
+				Set<Integer> variantIds = new HashSet<>();
+				for(String variantSpec : variantArray) {
+					int variantIndexArrayIndex = Arrays.binarySearch(variantIndex, variantSpec);
+					variantIds.add(variantIndexArrayIndex);
 				}
+				return new SparseVariantIndex(variantIds);
+			} else {
+				boolean[] variantIndexArray = new boolean[variantIndex.length];
+				int x = 0;
+				for(String variantSpec : variantArray) {
+					int variantIndexArrayIndex = Arrays.binarySearch(variantIndex, variantSpec);
+					// todo: shouldn't this be greater than or equal to 0? 0 is a valid index
+					if (variantIndexArrayIndex > 0) {
+						variantIndexArray[variantIndexArrayIndex] = true;
+					}
+				}
+				log.debug("Cache value for key " + infoColumn_valueKey + " calculated in " + (System.currentTimeMillis() - time) + " ms");
+				return new DenseVariantIndex(variantIndexArray);
 			}
-			log.debug("Cache value for key " + infoColumn_valueKey + " calculated in " + (System.currentTimeMillis() - time) + " ms");
-			return variantIndexArray;
 		}
 	};
-	LoadingCache<String, boolean[]> infoCache = CacheBuilder.newBuilder()
+	LoadingCache<String, VariantIndex> infoCache = CacheBuilder.newBuilder()
 			.weigher(weigher).maximumWeight(10000000000L).build(cacheLoader);
 
-	protected void addVariantsMatchingFilters(VariantInfoFilter filter, ArrayList<boolean[]> variantSets) {
+	protected void addVariantsMatchingFilters(VariantInfoFilter filter, ArrayList<VariantIndex> variantSets) {
 		// Add variant sets for each filter
 		if(filter.categoryVariantInfoFilters != null && !filter.categoryVariantInfoFilters.isEmpty()) {
 			filter.categoryVariantInfoFilters.entrySet().parallelStream().forEach((Entry<String,String[]> entry) ->{
@@ -614,10 +634,10 @@ public class AbstractProcessor {
 				doubleFilter.getMax();
 				Range<Float> filterRange = Range.closed(doubleFilter.getMin(), doubleFilter.getMax());
 				List<String> valuesInRange = infoStore.continuousValueIndex.getValuesInRange(filterRange);
-				boolean[] variants = new boolean[variantIndex.length];
+				VariantIndex variants = new SparseVariantIndex(Set.of());
 				for(String value : valuesInRange) {
 					try {
-						variants = unionBooleans(variants, infoCache.get(columnAndKey(column, value)));
+						variants = variants.union(infoCache.get(columnAndKey(column, value)));
 					} catch (ExecutionException e) {
 						log.error("an error occurred", e);
 					}
@@ -654,7 +674,7 @@ public class AbstractProcessor {
 		return result;
 	}
 
-	private void addVariantsMatchingCategoryFilter(ArrayList<boolean[]> variantSets, Entry<String, String[]> entry) {
+	private void addVariantsMatchingCategoryFilter(ArrayList<VariantIndex> variantSets, Entry<String, String[]> entry) {
 		String column = entry.getKey();
 		String[] values = entry.getValue();
 		Arrays.sort(values);
@@ -664,13 +684,13 @@ public class AbstractProcessor {
 		/*
 		 * We want to union all the variants for each selected key, so we need an intermediate set
 		 */
-		boolean[][] categoryVariantSets = new boolean[1][variantIndex.length];
+		VariantIndex[] categoryVariantSets = new VariantIndex[] {new SparseVariantIndex(Set.of())};
 
 		if(infoKeys.size()>1) {
 			infoKeys.stream().forEach((key)->{
 				try {
-					boolean[] variantsForColumnAndValue = infoCache.get(columnAndKey(column, key));
-					categoryVariantSets[0] = unionBooleans(categoryVariantSets[0], variantsForColumnAndValue);
+					VariantIndex variantsForColumnAndValue = infoCache.get(columnAndKey(column, key));
+					categoryVariantSets[0] = categoryVariantSets[0].union(variantsForColumnAndValue);
 				} catch (ExecutionException e) {
 					log.error("an error occurred", e);
 				}
@@ -703,7 +723,7 @@ public class AbstractProcessor {
 	}
 
 	private void addPatientIdsForIntersectionOfVariantSets(ArrayList<Set<Integer>> filteredIdSets,
-			boolean[] intersectionOfInfoFilters) {
+			VariantIndex intersectionOfInfoFilters) {
 		if(/*!intersectionOfInfoFilters.isEmpty()*/true) {
 			Set<Integer> patientsInScope;
 			Set<Integer> patientIds = Arrays.asList(
@@ -718,12 +738,7 @@ public class AbstractProcessor {
 
 			BigInteger[] matchingPatients = new BigInteger[] {variantStore.emptyBitmask()};
 
-			Set<String> variantsInScope = new HashSet<>();
-			for (int i = 0; i < intersectionOfInfoFilters.length; i++) {
-				if (intersectionOfInfoFilters[i]) {
-					variantsInScope.add(variantIndex[i]);
-				}
-			}
+			Set<String> variantsInScope = intersectionOfInfoFilters.mapToVariantSpec(variantIndex);
 
 			Collection<List<String>> values = variantsInScope.stream()
 					.collect(Collectors.groupingByConcurrent((variantSpec) -> {
@@ -801,7 +816,7 @@ public class AbstractProcessor {
 				!variantInfoFilter.categoryVariantInfoFilters.isEmpty() || !variantInfoFilter.numericVariantInfoFilters.isEmpty()
 		);
 		if(queryContainsVariantInfoFilters) {
-			boolean[] unionOfInfoFilters = new boolean[variantIndex.length];
+			VariantIndex unionOfInfoFilters = new SparseVariantIndex(Set.of());
 
 			// todo: are these not the same thing?
 			if(query.getVariantInfoFilters().size()>1) {
@@ -823,13 +838,13 @@ public class AbstractProcessor {
 			// If we have all patients then no variants would be filtered, so no need to do further processing
 			if(patientSubset.size()==variantStore.getPatientIds().length) {
 				log.info("query selects all patient IDs, returning....");
-				return variantIdSetToVariantSpecSet(unionOfInfoFilters);
+				return unionOfInfoFilters.mapToVariantSpec(variantIndex);
 				//return unionOfInfoFilters.parallelStream().map(index -> variantIndex[index]).collect(Collectors.toList());
 			}
 
 			BigInteger patientMasks = createMaskForPatientSet(patientSubset);
 
-			Set<String> unionOfInfoFiltersVariantSpecs = variantIdSetToVariantSpecSet(unionOfInfoFilters);
+			Set<String> unionOfInfoFiltersVariantSpecs = unionOfInfoFilters.mapToVariantSpec(variantIndex);
 			//Set<String> unionOfInfoFiltersVariantSpecs = unionOfInfoFilters.parallelStream().map(index -> variantIndex[index]).collect(Collectors.toSet());
 			Collection<String> variantsInScope = bucketIndex.filterVariantSetForPatientSet(unionOfInfoFiltersVariantSpecs, new ArrayList<>(patientSubset));
 
@@ -860,21 +875,17 @@ public class AbstractProcessor {
 		return new ArrayList<>();
 	}
 
-	private boolean[] addVariantsForInfoFilter(boolean[] unionOfInfoFilters, VariantInfoFilter filter) {
-		ArrayList<boolean[]> variantSets = new ArrayList<>();
+	private VariantIndex addVariantsForInfoFilter(VariantIndex unionOfInfoFilters, VariantInfoFilter filter) {
+		ArrayList<VariantIndex> variantSets = new ArrayList<>();
 		addVariantsMatchingFilters(filter, variantSets);
 
 		if(!variantSets.isEmpty()) {
-			if(variantSets.size()>1) {
-				boolean[] intersectionOfInfoFilters = variantSets.get(0);
-				for(boolean[] variantSet : variantSets) {
-					//						log.info("Variant Set : " + Arrays.deepToString(variantSet.toArray()));
-					intersectionOfInfoFilters = intersectBooleans(intersectionOfInfoFilters, variantSet);
-				}
-				unionOfInfoFilters = unionBooleans(unionOfInfoFilters, intersectionOfInfoFilters);
-			} else {
-				unionOfInfoFilters = unionBooleans(unionOfInfoFilters, variantSets.get(0));
+			VariantIndex intersectionOfInfoFilters = variantSets.get(0);
+			for(VariantIndex variantSet : variantSets) {
+				//						log.info("Variant Set : " + Arrays.deepToString(variantSet.toArray()));
+				intersectionOfInfoFilters = intersectionOfInfoFilters.intersection(variantSet);
 			}
+			unionOfInfoFilters = unionOfInfoFilters.union(intersectionOfInfoFilters);
 		} else {
 			log.warn("No info filters included in query.");
 		}
