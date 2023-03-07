@@ -9,7 +9,6 @@ import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-import com.google.errorprone.annotations.Var;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,10 +28,8 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query.VariantInfoFilter;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import javax.persistence.Column;
 
 // todo: rename this class. VariantService maybe?
 @Component
@@ -40,6 +37,9 @@ public class AbstractProcessor {
 
 	private static Logger log = LoggerFactory.getLogger(AbstractProcessor.class);
 
+	/**
+	 * The maximum percentage of variants to use a sparse index vs a dense index. See {@link VariantIndex}
+	 */
 	private static final double MAX_SPARSE_INDEX_RATIO = 0.1;
 
 	private BucketIndexBySample bucketIndex;
@@ -724,7 +724,7 @@ public class AbstractProcessor {
 
 	private void addPatientIdsForIntersectionOfVariantSets(ArrayList<Set<Integer>> filteredIdSets,
 			VariantIndex intersectionOfInfoFilters) {
-		if(/*!intersectionOfInfoFilters.isEmpty()*/true) {
+		if(!intersectionOfInfoFilters.isEmpty()) {
 			Set<Integer> patientsInScope;
 			Set<Integer> patientIds = Arrays.asList(
 					variantStore.getPatientIds()).stream().map((String id)->{

@@ -18,7 +18,7 @@ public class SparseVariantIndex extends VariantIndex {
     }
 
     @Override
-    protected VariantIndex union(VariantIndex variantIndex) {
+    public VariantIndex union(VariantIndex variantIndex) {
         if (variantIndex instanceof SparseVariantIndex) {
             return new SparseVariantIndex(Sets.union(((SparseVariantIndex) variantIndex).variantIds, variantIds));
         } else if (variantIndex instanceof DenseVariantIndex) {
@@ -29,7 +29,7 @@ public class SparseVariantIndex extends VariantIndex {
     }
 
     @Override
-    protected VariantIndex intersection(VariantIndex variantIndex) {
+    public VariantIndex intersection(VariantIndex variantIndex) {
         if (variantIndex instanceof SparseVariantIndex) {
             return new SparseVariantIndex(Sets.intersection(((SparseVariantIndex) variantIndex).variantIds, variantIds));
         } else if (variantIndex instanceof DenseVariantIndex) {
@@ -40,9 +40,14 @@ public class SparseVariantIndex extends VariantIndex {
     }
 
     @Override
-    protected Set<String> mapToVariantSpec(String[] variantIndex) {
+    public Set<String> mapToVariantSpec(String[] variantIndex) {
         ConcurrentHashMap<String, String> setMap = new ConcurrentHashMap<>(variantIds.size());
         variantIds.stream().parallel().forEach(index-> setMap.put(variantIndex[index], ""));
         return setMap.keySet();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return variantIds.isEmpty();
     }
 }

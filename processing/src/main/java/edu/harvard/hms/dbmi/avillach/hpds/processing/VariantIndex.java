@@ -7,10 +7,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public abstract class VariantIndex {
-    protected abstract VariantIndex union(VariantIndex variantIndex);
-    protected abstract VariantIndex intersection(VariantIndex variantIndex);
+    public abstract VariantIndex union(VariantIndex variantIndex);
+    public abstract VariantIndex intersection(VariantIndex variantIndex);
 
-    protected abstract Set<String> mapToVariantSpec(String[] variantIndex);
+    public abstract Set<String> mapToVariantSpec(String[] variantIndex);
+
+    public abstract boolean isEmpty();
 
     protected VariantIndex union(SparseVariantIndex sparseVariantIndex, DenseVariantIndex denseVariantIndex) {
         boolean[] copy = new boolean[denseVariantIndex.getVariantIndexMask().length];

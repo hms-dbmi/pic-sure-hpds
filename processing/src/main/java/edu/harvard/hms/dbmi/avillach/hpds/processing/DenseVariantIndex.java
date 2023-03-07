@@ -7,6 +7,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class DenseVariantIndex extends VariantIndex {
 
+    /**
+     * Todo: this could more efficiently be represented as an array of bit-encoded bytes, although it would not be as simple to use.
+     */
     private final boolean[] variantIndexMask;
 
     public DenseVariantIndex(boolean[] variantIndexMask) {
@@ -18,7 +21,7 @@ public class DenseVariantIndex extends VariantIndex {
     }
 
     @Override
-    protected VariantIndex union(VariantIndex variantIndex) {
+    public VariantIndex union(VariantIndex variantIndex) {
         if (variantIndex instanceof SparseVariantIndex) {
             return union((SparseVariantIndex) variantIndex, this);
         } else if (variantIndex instanceof DenseVariantIndex) {
@@ -34,7 +37,7 @@ public class DenseVariantIndex extends VariantIndex {
     }
 
     @Override
-    protected VariantIndex intersection(VariantIndex variantIndex) {
+    public VariantIndex intersection(VariantIndex variantIndex) {
         if (variantIndex instanceof SparseVariantIndex) {
             return intersection((SparseVariantIndex) variantIndex, this);
         } else if (variantIndex instanceof DenseVariantIndex) {
@@ -51,12 +54,22 @@ public class DenseVariantIndex extends VariantIndex {
     }
 
     @Override
-    protected Set<String> mapToVariantSpec(String[] variantIndex) {
+    public Set<String> mapToVariantSpec(String[] variantIndex) {
         ConcurrentHashMap<String, String> setMap = new ConcurrentHashMap<>(variantIndexMask.length / 10);
         for (int i = 0; i < variantIndexMask.length; i++) {
             if (variantIndexMask[i])
                 setMap.put(variantIndex[i], "");
         }
         return setMap.keySet();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        for (boolean b : variantIndexMask) {
+            if (b) {
+                return false;
+            }
+        }
+        return true;
     }
 }
