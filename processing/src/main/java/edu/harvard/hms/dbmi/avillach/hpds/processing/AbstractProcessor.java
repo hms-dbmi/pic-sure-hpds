@@ -37,11 +37,6 @@ public class AbstractProcessor {
 
 	private static Logger log = LoggerFactory.getLogger(AbstractProcessor.class);
 
-	/**
-	 * The maximum percentage of variants to use a sparse index vs a dense index. See {@link VariantIndex}
-	 */
-	private static final double MAX_SPARSE_INDEX_RATIO = 0.1;
-
 	private BucketIndexBySample bucketIndex;
 	private final Integer VARIANT_INDEX_BLOCK_SIZE = 1000000;
 	private final String VARIANT_INDEX_FBBIS_STORAGE_FILE = "/opt/local/hpds/all/variantIndex_fbbis_storage.javabin";
@@ -68,6 +63,8 @@ public class AbstractProcessor {
 	private final VariantStore variantStore;
 
 	private final PhenotypeMetaStore phenotypeMetaStore;
+
+	private final VariantIndexCache variantIndexCache;
 
 	@Autowired
 	public AbstractProcessor(PhenotypeMetaStore phenotypeMetaStore) throws ClassNotFoundException, IOException {
@@ -132,16 +129,20 @@ public class AbstractProcessor {
 			log.error("Failed to load genomic data: " + e.getLocalizedMessage(), e);
 		}
 		infoStoreColumns = new ArrayList<String>(infoStores.keySet());
+
+		variantIndexCache = new VariantIndexCache(variantIndex, infoStores);
 		warmCaches();
 	}
 
-	public AbstractProcessor(PhenotypeMetaStore phenotypeMetaStore, LoadingCache<String,
-			PhenoCube<?>> store, Map<String, FileBackedByteIndexedInfoStore> infoStores, List<String> infoStoreColumns, VariantStore variantStore) {
+	public AbstractProcessor(PhenotypeMetaStore phenotypeMetaStore, LoadingCache<String, PhenoCube<?>> store,
+							 Map<String, FileBackedByteIndexedInfoStore> infoStores, List<String> infoStoreColumns,
+							 VariantStore variantStore, VariantIndexCache variantIndexCache) {
 		this.phenotypeMetaStore = phenotypeMetaStore;
 		this.store = store;
 		this.infoStores = infoStores;
 		this.infoStoreColumns = infoStoreColumns;
 		this.variantStore = variantStore;
+		this.variantIndexCache = variantIndexCache;
 
 		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
 		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
@@ -514,19 +515,6 @@ public class AbstractProcessor {
 		/* END OF VARIANT INFO FILTER HANDLING */
 	}
 
-	Weigher<String, VariantIndex> weigher = new Weigher<String, VariantIndex>(){
-		@Override
-		public int weigh(String key, VariantIndex value) {
-			if (value instanceof DenseVariantIndex) {
-				return ((DenseVariantIndex) value).getVariantIndexMask().length;
-			} else if (value instanceof SparseVariantIndex) {
-				return ((SparseVariantIndex) value).getVariantIds().size();
-			} else {
-				throw new IllegalArgumentException("Unknown VariantIndex implementation: " + value.getClass());
-			}
-		}
-	};
-
 	private void populateVariantIndex() throws InterruptedException {
 		int[] numVariants = {0};
 		HashMap<String, String[]> contigMap = new HashMap<>();
@@ -587,38 +575,6 @@ public class AbstractProcessor {
 	// why is this not VariantSpec[]?
 	protected static String[] variantIndex = null;
 
-	CacheLoader<String, VariantIndex> cacheLoader = new CacheLoader<>() {
-		@Override
-		public VariantIndex load(String infoColumn_valueKey) throws Exception {
-			log.debug("Calculating value for cache for key " + infoColumn_valueKey);
-			long time = System.currentTimeMillis();
-			String[] column_and_value = infoColumn_valueKey.split(COLUMN_AND_KEY_DELIMITER);
-			String[] variantArray = infoStores.get(column_and_value[0]).getAllValues().get(column_and_value[1]);
-
-			if ((double)variantArray.length / (double)variantIndex.length < MAX_SPARSE_INDEX_RATIO ) {
-				Set<Integer> variantIds = new HashSet<>();
-				for(String variantSpec : variantArray) {
-					int variantIndexArrayIndex = Arrays.binarySearch(variantIndex, variantSpec);
-					variantIds.add(variantIndexArrayIndex);
-				}
-				return new SparseVariantIndex(variantIds);
-			} else {
-				boolean[] variantIndexArray = new boolean[variantIndex.length];
-				int x = 0;
-				for(String variantSpec : variantArray) {
-					int variantIndexArrayIndex = Arrays.binarySearch(variantIndex, variantSpec);
-					// todo: shouldn't this be greater than or equal to 0? 0 is a valid index
-					if (variantIndexArrayIndex > 0) {
-						variantIndexArray[variantIndexArrayIndex] = true;
-					}
-				}
-				log.debug("Cache value for key " + infoColumn_valueKey + " calculated in " + (System.currentTimeMillis() - time) + " ms");
-				return new DenseVariantIndex(variantIndexArray);
-			}
-		}
-	};
-	LoadingCache<String, VariantIndex> infoCache = CacheBuilder.newBuilder()
-			.weigher(weigher).maximumWeight(10000000000L).build(cacheLoader);
 
 	protected void addVariantsMatchingFilters(VariantInfoFilter filter, ArrayList<VariantIndex> variantSets) {
 		// Add variant sets for each filter
@@ -636,42 +592,11 @@ public class AbstractProcessor {
 				List<String> valuesInRange = infoStore.continuousValueIndex.getValuesInRange(filterRange);
 				VariantIndex variants = new SparseVariantIndex(Set.of());
 				for(String value : valuesInRange) {
-					try {
-						variants = variants.union(infoCache.get(columnAndKey(column, value)));
-					} catch (ExecutionException e) {
-						log.error("an error occurred", e);
-					}
+					variants = variants.union(variantIndexCache.get(column, value));
 				}
 				variantSets.add(variants);
 			});
 		}
-	}
-
-	private Set<String> arrayToSet(int[] variantSpecs) {
-		ConcurrentHashMap<String, String> setMap = new ConcurrentHashMap<String, String>(variantSpecs.length);
-		Arrays.stream(variantSpecs).parallel().forEach((index)->{
-			String variantSpec = variantIndex[index];
-			setMap.put(variantSpec, variantSpec);
-		});
-		return setMap.keySet();
-	}
-
-	private boolean[] unionBooleans(boolean[] array1, boolean[] array2) {
-		// todo: validate length
-		boolean[] result = new boolean[array1.length];
-		for (int i = 0; i < array1.length; i++) {
-			result[i] = array1[i] || array2[i];
-		}
-		return result;
-	}
-
-	private boolean[] intersectBooleans(boolean[] array1, boolean[] array2) {
-		// todo: validate length
-		boolean[] result = new boolean[array1.length];
-		for (int i = 0; i < array1.length; i++) {
-			result[i] = array1[i] && array2[i];
-		}
-		return result;
 	}
 
 	private void addVariantsMatchingCategoryFilter(ArrayList<VariantIndex> variantSets, Entry<String, String[]> entry) {
@@ -688,19 +613,11 @@ public class AbstractProcessor {
 
 		if(infoKeys.size()>1) {
 			infoKeys.stream().forEach((key)->{
-				try {
-					VariantIndex variantsForColumnAndValue = infoCache.get(columnAndKey(column, key));
-					categoryVariantSets[0] = categoryVariantSets[0].union(variantsForColumnAndValue);
-				} catch (ExecutionException e) {
-					log.error("an error occurred", e);
-				}
+				VariantIndex variantsForColumnAndValue = variantIndexCache.get(column, key);
+				categoryVariantSets[0] = categoryVariantSets[0].union(variantsForColumnAndValue);
 			});
 		} else {
-			try {
-				categoryVariantSets[0] = infoCache.get(columnAndKey(column, infoKeys.get(0)));
-			} catch (ExecutionException e) {
-				log.error("an error occurred", e);
-			}
+			categoryVariantSets[0] = variantIndexCache.get(column, infoKeys.get(0));
 		}
 		variantSets.add(categoryVariantSets[0]);
 	}
@@ -715,11 +632,6 @@ public class AbstractProcessor {
 		}).collect(Collectors.toList());
 		log.info("found " + infoKeys.size() + " keys");
 		return infoKeys;
-	}
-
-	private static final String COLUMN_AND_KEY_DELIMITER = "_____";
-	private String columnAndKey(String column, String key) {
-		return column + COLUMN_AND_KEY_DELIMITER + key;
 	}
 
 	private void addPatientIdsForIntersectionOfVariantSets(ArrayList<Set<Integer>> filteredIdSets,
@@ -1003,15 +915,6 @@ public class AbstractProcessor {
 	public static Set<String> variantIdSetToVariantSpecSet(Set<Integer> variantIds) {
 		ConcurrentHashMap<String, String> setMap = new ConcurrentHashMap<>(variantIds.size());
 		variantIds.stream().parallel().forEach(index-> setMap.put(variantIndex[index], ""));
-		return setMap.keySet();
-	}
-	public static Set<String> variantIdSetToVariantSpecSet(boolean[] variantIds) {
-		ConcurrentHashMap<String, String> setMap = new ConcurrentHashMap<>();
-		for (int i = 0; i < variantIds.length; i++) {
-			if (variantIds[i]) {
-				setMap.put(variantIndex[i], "");
-			}
-		}
 		return setMap.keySet();
 	}
 }

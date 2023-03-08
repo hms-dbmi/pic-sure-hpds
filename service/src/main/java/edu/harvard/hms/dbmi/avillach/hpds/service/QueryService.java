@@ -7,8 +7,6 @@ import java.util.concurrent.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,6 +41,8 @@ public class QueryService {
 	private final QueryProcessor queryProcessor;
 	private final TimeseriesProcessor timeseriesProcessor;
 	private final CountProcessor countProcessor;
+
+	HashMap<String, AsyncResult> results = new HashMap<>();
 
 
 	@Autowired
@@ -123,6 +123,7 @@ public class QueryService {
 		result.id = UUIDv5.UUIDFromString(query.toString()).toString();
 		result.processor = p;
 		query.setId(result.id);
+		results.put(result.id, result);
 		return result;
 	}
 	
@@ -206,11 +207,27 @@ public class QueryService {
 	}
 
 	public AsyncResult getStatusFor(String queryId) {
-		throw new UnsupportedOperationException("Async Requests not supported");
+		AsyncResult asyncResult = results.get(queryId);
+		AsyncResult[] queue = asyncResult.query.getFields().size() > SMALL_JOB_LIMIT ?
+				largeTaskExecutionQueue.toArray(new AsyncResult[largeTaskExecutionQueue.size()]) :
+					smallTaskExecutionQueue.toArray(new AsyncResult[smallTaskExecutionQueue.size()]);
+				if(asyncResult.status == Status.PENDING) {
+					ArrayList<AsyncResult> queueSnapshot = new ArrayList<AsyncResult>();
+					for(int x = 0;x<queueSnapshot.size();x++) {
+						if(queueSnapshot.get(x).id.equals(queryId)) {
+							asyncResult.positionInQueue = x;
+							break;
+						}
+					}
+				}else {
+					asyncResult.positionInQueue = -1;
+				}
+				asyncResult.queueDepth = queue.length;
+				return asyncResult;
 	}
 
 	public AsyncResult getResultFor(String queryId) {
-		throw new UnsupportedOperationException("Async Requests not supported");
+		return results.get(queryId);
 	}
 
 	private int getIntProp(String key) {

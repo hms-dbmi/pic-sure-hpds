@@ -38,6 +38,9 @@ public class AbstractProcessorTest {
     @Mock
     private VariantStore variantStore;
 
+    @Mock
+    private VariantIndexCache variantIndexCache;
+
 
     @Before
     public void setup() throws IOException {
@@ -56,7 +59,8 @@ public class AbstractProcessorTest {
                 store,
                 infoStores,
                 infoStoreColumns,
-                variantStore
+                variantStore,
+                variantIndexCache
         );
     }
 
