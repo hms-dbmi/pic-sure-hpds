@@ -16,7 +16,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-@Component
 public class VariantIndexCache {
 
     private static Logger log = LoggerFactory.getLogger(VariantIndexCache.class);
@@ -33,7 +32,6 @@ public class VariantIndexCache {
      */
     private static final double MAX_SPARSE_INDEX_RATIO = 0.1;
 
-    @Autowired
     public VariantIndexCache(String[] variantIndex, Map<String, FileBackedByteIndexedInfoStore> infoStores) {
         this.variantIndex = variantIndex;
         this.infoStores = infoStores;
