@@ -107,8 +107,8 @@ public class QueryProcessor implements HpdsProcessor {
 		try{
 			String path = paths.get(x-1);
 			if(VariantUtils.pathIsVariantSpec(path)) {
-				VariantMasks masks = abstractProcessor.getVariantStore().getMasks(path, new VariantBucketHolder<VariantMasks>());
-				String[] patientIds = abstractProcessor.getVariantStore().getPatientIds();
+				VariantMasks masks = abstractProcessor.getMasks(path, new VariantBucketHolder<VariantMasks>());
+				String[] patientIds = abstractProcessor.getPatientIds();
 				int idPointer = 0;
 
 				ByteBuffer doubleBuffer = ByteBuffer.allocate(Double.BYTES);

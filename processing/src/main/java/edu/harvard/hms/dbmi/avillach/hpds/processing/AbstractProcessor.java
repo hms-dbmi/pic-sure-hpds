@@ -7,7 +7,6 @@ import java.util.Map.Entry;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,22 +25,14 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Filter.FloatFilter;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query.VariantInfoFilter;
-import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 
-// todo: rename this class. VariantService maybe?
 @Component
 public class AbstractProcessor {
 
 	private static Logger log = LoggerFactory.getLogger(AbstractProcessor.class);
-
-	private BucketIndexBySample bucketIndex;
-	private final Integer VARIANT_INDEX_BLOCK_SIZE = 1000000;
-	private final String VARIANT_INDEX_FBBIS_STORAGE_FILE = "/opt/local/hpds/all/variantIndex_fbbis_storage.javabin";
-	private final String VARIANT_INDEX_FBBIS_FILE = "/opt/local/hpds/all/variantIndex_fbbis.javabin";
-	private final String BUCKET_INDEX_BY_SAMPLE_FILE = "/opt/local/hpds/all/BucketIndexBySample.javabin";
 
 	private final String HOMOZYGOUS_VARIANT = "1/1";
 	private final String HETEROZYGOUS_VARIANT = "0/1";
@@ -59,22 +50,23 @@ public class AbstractProcessor {
 
 	private LoadingCache<String, PhenoCube<?>> store;
 
-	//variantStore will never be null; it is initialized to an empty object.
-	private final VariantStore variantStore;
+	private final VariantService variantService;
 
 	private final PhenotypeMetaStore phenotypeMetaStore;
 
 	private final VariantIndexCache variantIndexCache;
 
+	private final PatientVariantJoinHandler patientVariantJoinHandler;
+
 	@Autowired
-	public AbstractProcessor(PhenotypeMetaStore phenotypeMetaStore) throws ClassNotFoundException, IOException {
+	public AbstractProcessor(PhenotypeMetaStore phenotypeMetaStore, VariantService variantService, PatientVariantJoinHandler patientVariantJoinHandler) throws ClassNotFoundException, IOException, InterruptedException {
 		this.phenotypeMetaStore = phenotypeMetaStore;
+		this.variantService = variantService;
+		this.patientVariantJoinHandler = patientVariantJoinHandler;
 
 		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
 		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
 		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
-
-		variantStore = VariantStore.deserializeInstance();
 
 		store = initializeCache();
 
@@ -114,43 +106,31 @@ public class AbstractProcessor {
 							FileBackedByteIndexedInfoStore infoStore = (FileBackedByteIndexedInfoStore) ois.readObject();
 							infoStores.put(filename.replace("_infoStore.javabin", ""), infoStore);
 							ois.close();
-						} catch (FileNotFoundException e) {
-							e.printStackTrace();
-						} catch (IOException e) {
-							e.printStackTrace();
-						} catch (ClassNotFoundException e) {
+						} catch (IOException | ClassNotFoundException e) {
 							e.printStackTrace();
 						}
 					});
 		}
-		try {
-			loadGenomicCacheFiles();
-		} catch (Throwable e) {
-			log.error("Failed to load genomic data: " + e.getLocalizedMessage(), e);
-		}
-		infoStoreColumns = new ArrayList<String>(infoStores.keySet());
+		infoStoreColumns = new ArrayList<>(infoStores.keySet());
 
-		variantIndexCache = new VariantIndexCache(variantIndex, infoStores);
+		variantIndexCache = new VariantIndexCache(variantService.getVariantIndex(), infoStores);
 		warmCaches();
 	}
 
 	public AbstractProcessor(PhenotypeMetaStore phenotypeMetaStore, LoadingCache<String, PhenoCube<?>> store,
 							 Map<String, FileBackedByteIndexedInfoStore> infoStores, List<String> infoStoreColumns,
-							 VariantStore variantStore, VariantIndexCache variantIndexCache) {
+							 VariantService variantService, VariantIndexCache variantIndexCache, PatientVariantJoinHandler patientVariantJoinHandler) {
 		this.phenotypeMetaStore = phenotypeMetaStore;
 		this.store = store;
 		this.infoStores = infoStores;
 		this.infoStoreColumns = infoStoreColumns;
-		this.variantStore = variantStore;
+		this.variantService = variantService;
 		this.variantIndexCache = variantIndexCache;
+		this.patientVariantJoinHandler = patientVariantJoinHandler;
 
 		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
 		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
 		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
-	}
-
-	public VariantStore getVariantStore() {
-		return variantStore;
 	}
 
 	public List<String> getInfoStoreColumns() {
@@ -165,121 +145,13 @@ public class AbstractProcessor {
 
 
 	/**
-	 * This process takes a while (even after the cache is built), so let's spin it out into it's own thread. (not done yet)
-	 * @throws FileNotFoundException
-	 * @throws IOException
-	 * @throws InterruptedException
-	 */
-	private synchronized void loadGenomicCacheFiles() throws FileNotFoundException, IOException, InterruptedException {
-		//skip if we have no variants
-		if(variantStore.getPatientIds().length == 0) {
-			variantIndex = new String[0];
-			log.warn("No Genomic Data found.  Skipping variant Indexing");
-			return;
-		}
-
-		if(bucketIndex==null) {
-			if(variantIndex==null) {
-				if(!new File(VARIANT_INDEX_FBBIS_FILE).exists()) {
-					log.info("Creating new " + VARIANT_INDEX_FBBIS_FILE);
-					populateVariantIndex();
-					FileBackedByteIndexedStorage<Integer, String[]> fbbis =
-							new FileBackedByteIndexedStorage<Integer, String[]>(Integer.class, String[].class, new File(VARIANT_INDEX_FBBIS_STORAGE_FILE));
-							try (ObjectOutputStream oos = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(VARIANT_INDEX_FBBIS_FILE)));
-									){
-
-								log.info("Writing Cache Object in blocks of " + VARIANT_INDEX_BLOCK_SIZE);
-
-								int bucketCount = (variantIndex.length / VARIANT_INDEX_BLOCK_SIZE) + 1;  //need to handle overflow
-								int index = 0;
-								for( int i = 0; i < bucketCount; i++) {
-									int blockSize = i == (bucketCount - 1) ? (variantIndex.length % VARIANT_INDEX_BLOCK_SIZE) : VARIANT_INDEX_BLOCK_SIZE;
-
-									String[] variantArrayBlock = new String[blockSize];
-									System.arraycopy(variantIndex, index, variantArrayBlock, 0, blockSize);
-									fbbis.put(i, variantArrayBlock);
-
-									index += blockSize;
-									log.info("saved " + index + " variants");
-								}
-								fbbis.complete();
-								oos.writeObject("" + variantIndex.length);
-								oos.writeObject(fbbis);
-								oos.flush();oos.close();
-							}
-				}else {
-					ExecutorService ex = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-					try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream(VARIANT_INDEX_FBBIS_FILE)));){
-						Integer variantCount = Integer.parseInt((String) objectInputStream.readObject());
-						FileBackedByteIndexedStorage<Integer, String[]> indexStore = (FileBackedByteIndexedStorage<Integer, String[]>) objectInputStream.readObject();
-						log.info("loading " + VARIANT_INDEX_FBBIS_FILE);
-
-						variantIndex = new String[variantCount];
-						String[] _varaiantIndex2 = variantIndex;
-
-						//variant index has to be a single array (we use a binary search for lookups)
-						//but reading/writing to disk should be batched for performance
-						int bucketCount = (variantCount / VARIANT_INDEX_BLOCK_SIZE) + 1;  //need to handle overflow
-
-						for( int i = 0; i < bucketCount; i++) {
-							final int _i = i;
-							ex.submit(new Runnable() {
-								@Override
-								public void run() {
-									try {
-										String[] variantIndexBucket = indexStore.get(_i);
-										System.arraycopy(variantIndexBucket, 0, _varaiantIndex2, (_i * VARIANT_INDEX_BLOCK_SIZE), variantIndexBucket.length);
-										log.info("loaded " + (_i * VARIANT_INDEX_BLOCK_SIZE) + " block");
-									} catch (IOException e) {
-										// TODO Auto-generated catch block
-										e.printStackTrace();
-									}
-								}
-							});
-						}
-						objectInputStream.close();
-						ex.shutdown();
-						while(! ex.awaitTermination(60, TimeUnit.SECONDS)) {
-							System.out.println("Waiting for tasks to complete");
-							Thread.sleep(10000);
-						}
-					} catch (IOException | ClassNotFoundException | NumberFormatException e) {
-						log.error("an error occurred", e);
-					}
-					log.info("Found " + variantIndex.length + " total variants.");
-				}
-			}
-			if(variantStore.getPatientIds().length > 0 && !new File(BUCKET_INDEX_BY_SAMPLE_FILE).exists()) {
-				log.info("creating new " + BUCKET_INDEX_BY_SAMPLE_FILE);
-				bucketIndex = new BucketIndexBySample(variantStore);
-				try (
-						FileOutputStream fos = new FileOutputStream(BUCKET_INDEX_BY_SAMPLE_FILE);
-						GZIPOutputStream gzos = new GZIPOutputStream(fos);
-						ObjectOutputStream oos = new ObjectOutputStream(gzos);
-						){
-					oos.writeObject(bucketIndex);
-					oos.flush();oos.close();
-				}
-			}else {
-				try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream(BUCKET_INDEX_BY_SAMPLE_FILE)));){
-					log.info("loading " + BUCKET_INDEX_BY_SAMPLE_FILE);
-					bucketIndex = (BucketIndexBySample) objectInputStream.readObject();
-					objectInputStream.close();
-				} catch (IOException | ClassNotFoundException e) {
-					log.error("an error occurred", e);
-				}
-			}
-		}
-	}
-
-	/**
 	 * Merges a list of sets of patient ids by intersection. If we implemented OR semantics
 	 * this would be where the change happens.
 	 *
 	 * @param filteredIdSets
 	 * @return
 	 */
-	protected Set<Integer> applyBooleanLogic(ArrayList<Set<Integer>> filteredIdSets) {
+	protected Set<Integer> applyBooleanLogic(List<Set<Integer>> filteredIdSets) {
 		Set<Integer>[] ids = new Set[] {filteredIdSets.get(0)};
 		filteredIdSets.forEach((keySet)->{
 			ids[0] = Sets.intersection(ids[0], keySet);
@@ -295,7 +167,7 @@ public class AbstractProcessor {
 	 * @param query
 	 * @return
 	 */
-	protected ArrayList<Set<Integer>> idSetsForEachFilter(Query query) {
+	protected List<Set<Integer>> idSetsForEachFilter(Query query) {
 		ArrayList<Set<Integer>> filteredIdSets = new ArrayList<Set<Integer>>();
 
 		try {
@@ -313,9 +185,7 @@ public class AbstractProcessor {
 			filteredIdSets = new ArrayList<Set<Integer>>(List.of(applyBooleanLogic(filteredIdSets)));
 		}
 
-		addIdSetsForVariantInfoFilters(query, filteredIdSets);
-
-		return filteredIdSets;
+		return addIdSetsForVariantInfoFilters(query, filteredIdSets);
 	}
 
 	/**
@@ -326,24 +196,24 @@ public class AbstractProcessor {
 	 * @return
 	 */
 	protected TreeSet<Integer> getPatientSubsetForQuery(Query query) {
-		ArrayList<Set<Integer>> filteredIdSets;
+		List<Set<Integer>> filteredIdSets;
 
 		filteredIdSets = idSetsForEachFilter(query);
 
 		TreeSet<Integer> idList;
 		if(filteredIdSets.isEmpty()) {
-			if(variantStore.getPatientIds().length > 0 ) {
+			if(variantService.getPatientIds().length > 0 ) {
 				idList = new TreeSet(
 						Sets.union(phenotypeMetaStore.getPatientIds(),
 								new TreeSet(Arrays.asList(
-										variantStore.getPatientIds()).stream()
+										variantService.getPatientIds()).stream()
 										.collect(Collectors.mapping(
 												(String id)->{return Integer.parseInt(id.trim());}, Collectors.toList()))) ));
 			}else {
 				idList = phenotypeMetaStore.getPatientIds();
 			}
 		}else {
-			idList = new TreeSet<Integer>(applyBooleanLogic(filteredIdSets));
+			idList = new TreeSet<>(applyBooleanLogic(filteredIdSets));
 		}
 		return idList;
 	}
@@ -351,15 +221,15 @@ public class AbstractProcessor {
 	private void addIdSetsForRequiredFields(Query query, ArrayList<Set<Integer>> filteredIdSets) {
 		if(!query.getRequiredFields().isEmpty()) {
 			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
-			filteredIdSets.addAll((Set<TreeSet<Integer>>)(query.getRequiredFields().parallelStream().map(path->{
+			filteredIdSets.addAll(query.getRequiredFields().parallelStream().map(path->{
 				if(VariantUtils.pathIsVariantSpec(path)) {
-					TreeSet<Integer> patientsInScope = new TreeSet<Integer>();
+					TreeSet<Integer> patientsInScope = new TreeSet<>();
 					addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1","1/1"}, path, patientsInScope, bucketCache);
 					return patientsInScope;
 				} else {
 					return new TreeSet<Integer>(getCube(path).keyBasedIndex());
 				}
-			}).collect(Collectors.toSet())));
+			}).collect(Collectors.toSet()));
 		}
 	}
 
@@ -370,7 +240,7 @@ public class AbstractProcessor {
 			query.getAnyRecordOf().parallelStream().forEach(path->{
 				if(patientsInScope.size()<Math.max(
 						phenotypeMetaStore.getPatientIds().size(),
-						variantStore.getPatientIds().length)) {
+						variantService.getPatientIds().length)) {
 					if(VariantUtils.pathIsVariantSpec(path)) {
 						addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1","1/1"}, path, patientsInScope, bucketCache);
 					} else {
@@ -423,7 +293,7 @@ public class AbstractProcessor {
 			// TODO : This is much less efficient than using bitmask.testBit(x)
 			for(int x = 2;x < bitmaskString.length()-2;x++) {
 				if('1'==bitmaskString.charAt(x)) {
-					String patientId = variantStore.getPatientIds()[x-2];
+					String patientId = variantService.getPatientIds()[x-2];
 					try{
 						ids.add(Integer.parseInt(patientId));
 					}catch(NullPointerException | NoSuchElementException e) {
@@ -439,31 +309,27 @@ public class AbstractProcessor {
 		variantName = variantName.replaceAll(",\\d/\\d$", "");
 		log.debug("looking up mask for : " + variantName);
 		VariantMasks masks;
-		try {
-			masks = variantStore.getMasks(variantName, bucketCache);
-			Arrays.stream(zygosities).forEach((zygosity) -> {
-				if(masks!=null) {
-					if(zygosity.equals(HOMOZYGOUS_REFERENCE)) {
-						BigInteger homozygousReferenceBitmask = calculateIndiscriminateBitmask(masks);
-						for(int x = 2;x<homozygousReferenceBitmask.bitLength()-2;x++) {
-							homozygousReferenceBitmask = homozygousReferenceBitmask.flipBit(x);
-						}
-						variantBitmasks.add(homozygousReferenceBitmask);
-					} else if(masks.heterozygousMask != null && zygosity.equals(HETEROZYGOUS_VARIANT)) {
-						variantBitmasks.add(masks.heterozygousMask);
-					}else if(masks.homozygousMask != null && zygosity.equals(HOMOZYGOUS_VARIANT)) {
-						variantBitmasks.add(masks.homozygousMask);
-					}else if(zygosity.equals("")) {
-						variantBitmasks.add(calculateIndiscriminateBitmask(masks));
+		masks = variantService.getMasks(variantName, bucketCache);
+		Arrays.stream(zygosities).forEach((zygosity) -> {
+			if(masks!=null) {
+				if(zygosity.equals(HOMOZYGOUS_REFERENCE)) {
+					BigInteger homozygousReferenceBitmask = calculateIndiscriminateBitmask(masks);
+					for(int x = 2;x<homozygousReferenceBitmask.bitLength()-2;x++) {
+						homozygousReferenceBitmask = homozygousReferenceBitmask.flipBit(x);
 					}
-				} else {
-					variantBitmasks.add(variantStore.emptyBitmask());
+					variantBitmasks.add(homozygousReferenceBitmask);
+				} else if(masks.heterozygousMask != null && zygosity.equals(HETEROZYGOUS_VARIANT)) {
+					variantBitmasks.add(masks.heterozygousMask);
+				}else if(masks.homozygousMask != null && zygosity.equals(HOMOZYGOUS_VARIANT)) {
+					variantBitmasks.add(masks.homozygousMask);
+				}else if(zygosity.equals("")) {
+					variantBitmasks.add(calculateIndiscriminateBitmask(masks));
 				}
+			} else {
+				variantBitmasks.add(variantService.emptyBitmask());
+			}
 
-			});
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		});
 		return variantBitmasks;
 	}
 
@@ -481,12 +347,12 @@ public class AbstractProcessor {
 		}else if(masks.homozygousMask != null && masks.heterozygousMask != null) {
 			indiscriminateVariantBitmask = masks.heterozygousMask.or(masks.homozygousMask);
 		}else {
-			indiscriminateVariantBitmask = variantStore.emptyBitmask();
+			indiscriminateVariantBitmask = variantService.emptyBitmask();
 		}
 		return indiscriminateVariantBitmask;
 	}
 
-	protected void addIdSetsForVariantInfoFilters(Query query, ArrayList<Set<Integer>> filteredIdSets) {
+	protected List<Set<Integer>> addIdSetsForVariantInfoFilters(Query query, List<Set<Integer>> filteredIdSets) {
 //		log.debug("filterdIDSets START size: " + filteredIdSets.size());
 		/* VARIANT INFO FILTER HANDLING IS MESSY */
 		if(!query.getVariantInfoFilters().isEmpty()) {
@@ -508,73 +374,13 @@ public class AbstractProcessor {
 						//log.debug("Number of matching variants for intersection of sets : " + intersectionOfInfoFilters.size());
 					}
 					// add filteredIdSet for patients who have matching variants, heterozygous or homozygous for now.
-					addPatientIdsForIntersectionOfVariantSets(filteredIdSets, intersectionOfInfoFilters);
+					return patientVariantJoinHandler.addPatientIdsForIntersectionOfVariantSets(filteredIdSets, intersectionOfInfoFilters);
 				}
 			}
 		}
+		return filteredIdSets;
 		/* END OF VARIANT INFO FILTER HANDLING */
 	}
-
-	private void populateVariantIndex() throws InterruptedException {
-		int[] numVariants = {0};
-		HashMap<String, String[]> contigMap = new HashMap<>();
-
-		ExecutorService ex = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-		variantStore.variantMaskStorage.entrySet().forEach(entry->{
-			ex.submit(()->{
-				int numVariantsInContig = 0;
-				FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>> storage = entry.getValue();
-				HashMap<Integer, String[]> bucketMap = new HashMap<>();
-				log.info("Creating bucketMap for contig " + entry.getKey());
-				for(Integer bucket: storage.keys()){
-					try {
-						ConcurrentHashMap<String, VariantMasks> bucketStorage = storage.get(bucket);
-						numVariantsInContig += bucketStorage.size();
-						bucketMap.put(bucket, bucketStorage.keySet().toArray(new String[0]));
-					} catch (IOException e) {
-						log.error("an error occurred", e);
-					}
-				};
-				log.info("Completed bucketMap for contig " + entry.getKey());
-				String[] variantsInContig = new String[numVariantsInContig];
-				int current = 0;
-				for(String[] bucketList  : bucketMap.values()) {
-					System.arraycopy(bucketList, 0, variantsInContig, current, bucketList.length);
-					current = current + bucketList.length;
-				}
-				bucketMap.clear();
-				synchronized(numVariants) {
-					log.info("Found " + variantsInContig.length + " variants in contig " + entry.getKey() + ".");
-					contigMap.put(entry.getKey(), variantsInContig);
-					numVariants[0] += numVariantsInContig;
-				}
-			});
-		});
-		ex.shutdown();
-		while(!ex.awaitTermination(10, TimeUnit.SECONDS)) {
-			Thread.sleep(20000);
-			log.info("Awaiting completion of variant index");
-		}
-
-		log.info("Found " + numVariants[0] + " total variants.");
-
-		variantIndex = new String[numVariants[0]];
-
-		int current = 0;
-		for(String[] contigList  : contigMap.values()) {
-			System.arraycopy(contigList, 0, variantIndex, current, contigList.length);
-			current = current + contigList.length;
-		}
-		contigMap.clear();
-
-		Arrays.sort(variantIndex);
-		log.info("Index created with " + variantIndex.length + " total variants.");
-
-	}
-
-	// why is this not VariantSpec[]?
-	protected static String[] variantIndex = null;
-
 
 	protected void addVariantsMatchingFilters(VariantInfoFilter filter, ArrayList<VariantIndex> variantSets) {
 		// Add variant sets for each filter
@@ -624,99 +430,12 @@ public class AbstractProcessor {
 
 	private List<String> filterInfoCategoryKeys(String[] values, FileBackedByteIndexedInfoStore infoStore) {
 		List<String> infoKeys = infoStore.getAllValues().keys().stream().filter((String key)->{
-
 			// iterate over the values for the specific category and find which ones match the search
-
 			int insertionIndex = Arrays.binarySearch(values, key);
 			return insertionIndex > -1 && insertionIndex < values.length;
 		}).collect(Collectors.toList());
 		log.info("found " + infoKeys.size() + " keys");
 		return infoKeys;
-	}
-
-	private void addPatientIdsForIntersectionOfVariantSets(ArrayList<Set<Integer>> filteredIdSets,
-			VariantIndex intersectionOfInfoFilters) {
-		if(!intersectionOfInfoFilters.isEmpty()) {
-			Set<Integer> patientsInScope;
-			Set<Integer> patientIds = Arrays.asList(
-					variantStore.getPatientIds()).stream().map((String id)->{
-						return Integer.parseInt(id);}).collect(Collectors.toSet());
-			if(!filteredIdSets.isEmpty()) {
-				// shouldn't we intersect all of these?
-				patientsInScope = Sets.intersection(patientIds, filteredIdSets.get(0));
-			} else {
-				patientsInScope = patientIds;
-			}
-
-			BigInteger[] matchingPatients = new BigInteger[] {variantStore.emptyBitmask()};
-
-			Set<String> variantsInScope = intersectionOfInfoFilters.mapToVariantSpec(variantIndex);
-
-			Collection<List<String>> values = variantsInScope.stream()
-					.collect(Collectors.groupingByConcurrent((variantSpec) -> {
-						return new VariantSpec(variantSpec).metadata.offset / 1000;
-					})).values();
-			ArrayList<List<String>> variantBucketsInScope = new ArrayList<List<String>>(values);
-
-			log.info("found " + variantBucketsInScope.size() + " buckets");
-
-			//don't error on small result sets (make sure we have at least one element in each partition)
-			int partitionSize = variantBucketsInScope.size() / Runtime.getRuntime().availableProcessors();
-			List<List<List<String>>> variantBucketPartitions = Lists.partition(variantBucketsInScope, partitionSize > 0 ? partitionSize : 1);
-
-			log.info("and partitioned those into " + variantBucketPartitions.size() + " groups");
-
-			int patientsInScopeSize = patientsInScope.size();
-			BigInteger patientsInScopeMask = createMaskForPatientSet(patientsInScope);
-			for(int x = 0;
-					x < variantBucketPartitions.size() && matchingPatients[0].bitCount() < patientsInScopeSize + 4;
-					x++) {
-				List<List<String>> variantBuckets = variantBucketPartitions.get(x);
-				variantBuckets.parallelStream().forEach((variantBucket)->{
-					VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<VariantMasks>();
-					variantBucket.stream().forEach((variantSpec)->{
-						VariantMasks masks;
-						BigInteger heteroMask = variantStore.emptyBitmask();
-						BigInteger homoMask = variantStore.emptyBitmask();
-						try {
-							masks = variantStore.getMasks(variantSpec, bucketCache);
-							if(masks != null) {
-//								if(log.isDebugEnabled()) {
-//									log.debug("checking variant " + variantSpec + " for patients: " + ( masks.heterozygousMask == null ? "null" :(masks.heterozygousMask.bitCount() - 4))
-//											+ "/" + (masks.homozygousMask == null ? "null" : (masks.homozygousMask.bitCount() - 4)) + "    "
-//											+ ( masks.heterozygousNoCallMask == null ? "null" :(masks.heterozygousNoCallMask.bitCount() - 4))
-//											+ "/" + (masks.homozygousNoCallMask == null ? "null" : (masks.homozygousNoCallMask.bitCount() - 4)));
-//								}
-
-								heteroMask = masks.heterozygousMask == null ? variantStore.emptyBitmask() : masks.heterozygousMask;
-								homoMask = masks.homozygousMask == null ? variantStore.emptyBitmask() : masks.homozygousMask;
-								BigInteger orMasks = heteroMask.or(homoMask);
-								BigInteger andMasks = orMasks.and(patientsInScopeMask);
-								synchronized(matchingPatients) {
-									matchingPatients[0] = matchingPatients[0].or(andMasks);
-								}
-							}
-						} catch (IOException e) {
-							log.error("an error occurred", e);
-						}
-					});
-				});
-			}
-			Set<Integer> ids = new TreeSet<Integer>();
-			String bitmaskString = matchingPatients[0].toString(2);
-//			log.debug("or'd masks : " + bitmaskString);
-			for(int x = 2;x < bitmaskString.length()-2;x++) {
-				if('1'==bitmaskString.charAt(x)) {
-					String patientId = variantStore.getPatientIds()[x-2].trim();
-					ids.add(Integer.parseInt(patientId));
-				}
-			}
-			filteredIdSets.add(ids);
-
-		}else {
-			log.error("No matches found for info filters.");
-			filteredIdSets.add(new TreeSet<>());
-		}
 	}
 
 	protected Collection<String> getVariantList(Query query) throws IOException {
@@ -740,43 +459,40 @@ public class AbstractProcessor {
 				unionOfInfoFilters = addVariantsForInfoFilter(unionOfInfoFilters, query.getVariantInfoFilters().get(0));
 			}
 
-			Set<Integer> patientSubset = Sets.intersection(getPatientSubsetForQuery(query),
-					new HashSet<Integer>(
-							Arrays.stream(variantStore.getPatientIds())
-							.map((id)->{return Integer.parseInt(id.trim());})
-							.collect(Collectors.toList())));
+			TreeSet<Integer> patientSubsetForQuery = getPatientSubsetForQuery(query);
+			HashSet<Integer> allPatients = new HashSet<>(
+					Arrays.stream(variantService.getPatientIds())
+							.map((id) -> {
+								return Integer.parseInt(id.trim());
+							})
+							.collect(Collectors.toList()));
+			Set<Integer> patientSubset = Sets.intersection(patientSubsetForQuery, allPatients);
 //			log.debug("Patient subset " + Arrays.deepToString(patientSubset.toArray()));
 
 			// If we have all patients then no variants would be filtered, so no need to do further processing
-			if(patientSubset.size()==variantStore.getPatientIds().length) {
+			if(patientSubset.size()==variantService.getPatientIds().length) {
 				log.info("query selects all patient IDs, returning....");
-				return unionOfInfoFilters.mapToVariantSpec(variantIndex);
-				//return unionOfInfoFilters.parallelStream().map(index -> variantIndex[index]).collect(Collectors.toList());
+				return unionOfInfoFilters.mapToVariantSpec(variantService.getVariantIndex());
 			}
 
+			// todo: continue testing from here. Also, hasn't this been done in PatientVarientJoinHandler?
 			BigInteger patientMasks = createMaskForPatientSet(patientSubset);
 
-			Set<String> unionOfInfoFiltersVariantSpecs = unionOfInfoFilters.mapToVariantSpec(variantIndex);
-			//Set<String> unionOfInfoFiltersVariantSpecs = unionOfInfoFilters.parallelStream().map(index -> variantIndex[index]).collect(Collectors.toSet());
-			Collection<String> variantsInScope = bucketIndex.filterVariantSetForPatientSet(unionOfInfoFiltersVariantSpecs, new ArrayList<>(patientSubset));
+			Set<String> unionOfInfoFiltersVariantSpecs = unionOfInfoFilters.mapToVariantSpec(variantService.getVariantIndex());
+			Collection<String> variantsInScope = variantService.filterVariantSetForPatientSet(unionOfInfoFiltersVariantSpecs, new ArrayList<>(patientSubset));
 
 			//NC - this is the original variant filtering, which checks the patient mask from each variant against the patient mask from the query
 			if(variantsInScope.size()<100000) {
 				ConcurrentSkipListSet<String> variantsWithPatients = new ConcurrentSkipListSet<String>();
 				variantsInScope.parallelStream().forEach((String variantKey)->{
-					VariantMasks masks;
-					try {
-						masks = variantStore.getMasks(variantKey, new VariantBucketHolder<VariantMasks>());
-						if ( masks.heterozygousMask != null && masks.heterozygousMask.and(patientMasks).bitCount()>4) {
-							variantsWithPatients.add(variantKey);
-						} else if ( masks.homozygousMask != null && masks.homozygousMask.and(patientMasks).bitCount()>4) {
-							variantsWithPatients.add(variantKey);
-						} else if ( masks.heterozygousNoCallMask != null && masks.heterozygousNoCallMask.and(patientMasks).bitCount()>4) {
-							//so heterozygous no calls we want, homozygous no calls we don't
-							variantsWithPatients.add(variantKey);
-						}
-					} catch (IOException e) {
-						log.error("an error occurred", e);
+					VariantMasks masks = variantService.getMasks(variantKey, new VariantBucketHolder<VariantMasks>());
+					if ( masks.heterozygousMask != null && masks.heterozygousMask.and(patientMasks).bitCount()>4) {
+						variantsWithPatients.add(variantKey);
+					} else if ( masks.homozygousMask != null && masks.homozygousMask.and(patientMasks).bitCount()>4) {
+						variantsWithPatients.add(variantKey);
+					} else if ( masks.heterozygousNoCallMask != null && masks.heterozygousNoCallMask.and(patientMasks).bitCount()>4) {
+						//so heterozygous no calls we want, homozygous no calls we don't
+						variantsWithPatients.add(variantKey);
 					}
 				});
 				return variantsWithPatients;
@@ -805,21 +521,7 @@ public class AbstractProcessor {
 	}
 
 	protected BigInteger createMaskForPatientSet(Set<Integer> patientSubset) {
-		StringBuilder builder = new StringBuilder("11"); //variant bitmasks are bookended with '11'
-		for(String patientId : variantStore.getPatientIds()) {
-			Integer idInt = Integer.parseInt(patientId);
-			if(patientSubset.contains(idInt)){
-				builder.append("1");
-			} else {
-				builder.append("0");
-			}
-		}
-		builder.append("11"); // masks are bookended with '11' set this so we don't count those
-
-//		log.debug("PATIENT MASK: " + builder.toString());
-
-		BigInteger patientMasks = new BigInteger(builder.toString(), 2);
-		return patientMasks;
+		return patientVariantJoinHandler.createMaskForPatientSet(patientSubset);
 	}
 
 	public FileBackedByteIndexedInfoStore getInfoStore(String column) {
@@ -864,11 +566,8 @@ public class AbstractProcessor {
 	 * Load the variantStore object from disk and build the PhenoCube cache.
 	 *
 	 * @return
-	 * @throws ClassNotFoundException
-	 * @throws FileNotFoundException
-	 * @throws IOException
 	 */
-	protected LoadingCache<String, PhenoCube<?>> initializeCache() throws ClassNotFoundException, FileNotFoundException, IOException {
+	protected LoadingCache<String, PhenoCube<?>> initializeCache() {
 		return CacheBuilder.newBuilder()
 				.maximumSize(CACHE_SIZE)
 				.build(
@@ -908,13 +607,11 @@ public class AbstractProcessor {
 		return phenotypeMetaStore.getMetaStore();
 	}
 
-	/**
-	 * Converts a set of variant IDs to a set of String representations of variant spec. This implementation looks
-	 * wonky, but performs much better than other more obvious approaches (ex: Collectors.toSet()) on large sets.
-	 */
-	public static Set<String> variantIdSetToVariantSpecSet(Set<Integer> variantIds) {
-		ConcurrentHashMap<String, String> setMap = new ConcurrentHashMap<>(variantIds.size());
-		variantIds.stream().parallel().forEach(index-> setMap.put(variantIndex[index], ""));
-		return setMap.keySet();
+	public String[] getPatientIds() {
+		return variantService.getPatientIds();
+	}
+
+	public VariantMasks getMasks(String path, VariantBucketHolder<VariantMasks> variantMasksVariantBucketHolder) {
+		return variantService.getMasks(path, variantMasksVariantBucketHolder);
 	}
 }

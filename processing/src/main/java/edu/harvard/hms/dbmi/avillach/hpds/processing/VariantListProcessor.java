@@ -4,14 +4,10 @@ package edu.harvard.hms.dbmi.avillach.hpds.processing;
 import java.io.*;
 import java.math.BigInteger;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import java.util.zip.GZIPInputStream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.cache.CacheLoader.InvalidCacheLoadException;
 
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMasks;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMetadataIndex;
@@ -193,7 +189,7 @@ public class VariantListProcessor implements HpdsProcessor {
 		int index = 2; //variant bitmasks are bookended with '11'
 
 		
-		for(String patientId : abstractProcessor.getVariantStore().getPatientIds()) {
+		for(String patientId : abstractProcessor.getPatientIds()) {
 			Integer idInt = Integer.parseInt(patientId);
 			if(patientSubset.contains(idInt)){
 				patientIndexMap.put(patientId, index);
@@ -265,57 +261,52 @@ public class VariantListProcessor implements HpdsProcessor {
 				}
 			}
 
-			//Now put the patient zygosities in the right columns
-			try {
-				VariantMasks masks = abstractProcessor.getVariantStore().getMasks(variantSpec, variantMaskBucketHolder);
+			VariantMasks masks = abstractProcessor.getMasks(variantSpec, variantMaskBucketHolder);
 
-				//make strings of 000100 so we can just check 'char at'
-				//so heterozygous no calls we want, homozygous no calls we don't
-				BigInteger heteroMask = masks.heterozygousMask != null? masks.heterozygousMask : masks.heterozygousNoCallMask != null ? masks.heterozygousNoCallMask : null;
-				BigInteger homoMask = masks.homozygousMask != null? masks.homozygousMask : null;
-
-				
-				String heteroMaskString = heteroMask != null ? heteroMask.toString(2) : null;
-				String homoMaskString = homoMask != null ? homoMask.toString(2) : null;
-
-				// Patient count = (hetero mask | homo mask) & patient mask
-				BigInteger heteroOrHomoMask = orNullableMasks(heteroMask, homoMask);
-				int patientCount = heteroOrHomoMask == null ? 0 :  (heteroOrHomoMask.and(patientMasks).bitCount() - 4);
-
-				int bitCount = masks.heterozygousMask == null? 0 : (masks.heterozygousMask.bitCount() - 4);
-				bitCount += masks.homozygousMask == null? 0 : (masks.homozygousMask.bitCount() - 4);
-
-				//count how many patients have genomic data available
-				Integer patientsWithVariantsCount = null;
-				if(heteroMaskString != null) {
-					patientsWithVariantsCount = heteroMaskString.length() - 4;
-				} else if (homoMaskString != null ) {
-					patientsWithVariantsCount = homoMaskString.length() - 4;
-				} else {
-					patientsWithVariantsCount = -1;
-				}
+			//make strings of 000100 so we can just check 'char at'
+			//so heterozygous no calls we want, homozygous no calls we don't
+			BigInteger heteroMask = masks.heterozygousMask != null? masks.heterozygousMask : masks.heterozygousNoCallMask != null ? masks.heterozygousNoCallMask : null;
+			BigInteger homoMask = masks.homozygousMask != null? masks.homozygousMask : null;
 
 
-				// (patients with/total) in subset   \t   (patients with/total) out of subset.
-				builder.append("\t"+ patientCount + "/" + patientIndexMap.size() + "\t" + (bitCount - patientCount) + "/" + (patientsWithVariantsCount - patientIndexMap.size()));
+			String heteroMaskString = heteroMask != null ? heteroMask.toString(2) : null;
+			String homoMaskString = homoMask != null ? homoMask.toString(2) : null;
 
-				if (includePatientData) {
-					//track the number of subjects without the variant; use a second builder to keep the column order
-					StringBuilder patientListBuilder = new StringBuilder();
+			// Patient count = (hetero mask | homo mask) & patient mask
+			BigInteger heteroOrHomoMask = orNullableMasks(heteroMask, homoMask);
+			int patientCount = heteroOrHomoMask == null ? 0 :  (heteroOrHomoMask.and(patientMasks).bitCount() - 4);
 
-					for(Integer patientIndex : patientIndexMap.values()) {
-						if(heteroMaskString != null && '1' == heteroMaskString.charAt(patientIndex)) {
-							patientListBuilder.append("\t0/1");
-						}else if(homoMaskString != null && '1' == homoMaskString.charAt(patientIndex)) {
-							patientListBuilder.append("\t1/1");
-						}else {
-							patientListBuilder.append("\t0/0");
-						}
+			int bitCount = masks.heterozygousMask == null? 0 : (masks.heterozygousMask.bitCount() - 4);
+			bitCount += masks.homozygousMask == null? 0 : (masks.homozygousMask.bitCount() - 4);
+
+			//count how many patients have genomic data available
+			Integer patientsWithVariantsCount = null;
+			if(heteroMaskString != null) {
+				patientsWithVariantsCount = heteroMaskString.length() - 4;
+			} else if (homoMaskString != null ) {
+				patientsWithVariantsCount = homoMaskString.length() - 4;
+			} else {
+				patientsWithVariantsCount = -1;
+			}
+
+
+			// (patients with/total) in subset   \t   (patients with/total) out of subset.
+			builder.append("\t"+ patientCount + "/" + patientIndexMap.size() + "\t" + (bitCount - patientCount) + "/" + (patientsWithVariantsCount - patientIndexMap.size()));
+
+			if (includePatientData) {
+				//track the number of subjects without the variant; use a second builder to keep the column order
+				StringBuilder patientListBuilder = new StringBuilder();
+
+				for(Integer patientIndex : patientIndexMap.values()) {
+					if(heteroMaskString != null && '1' == heteroMaskString.charAt(patientIndex)) {
+						patientListBuilder.append("\t0/1");
+					}else if(homoMaskString != null && '1' == homoMaskString.charAt(patientIndex)) {
+						patientListBuilder.append("\t1/1");
+					}else {
+						patientListBuilder.append("\t0/0");
 					}
-					builder.append(patientListBuilder.toString());
 				}
-			} catch (IOException e) {
-				log.error("error getting masks", e);
+				builder.append(patientListBuilder.toString());
 			}
 
 			builder.append("\n");

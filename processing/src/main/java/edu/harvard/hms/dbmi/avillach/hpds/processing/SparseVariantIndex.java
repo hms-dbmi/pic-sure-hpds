@@ -2,6 +2,7 @@ package edu.harvard.hms.dbmi.avillach.hpds.processing;
 
 import com.google.common.collect.Sets;
 
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -39,6 +40,10 @@ public class SparseVariantIndex extends VariantIndex {
         }
     }
 
+    /**
+     * Converts a set of variant IDs to a set of String representations of variant spec. This implementation looks
+     * wonky, but performs much better than other more obvious approaches (ex: Collectors.toSet()) on large sets.
+     */
     @Override
     public Set<String> mapToVariantSpec(String[] variantIndex) {
         ConcurrentHashMap<String, String> setMap = new ConcurrentHashMap<>(variantIds.size());
@@ -49,5 +54,18 @@ public class SparseVariantIndex extends VariantIndex {
     @Override
     public boolean isEmpty() {
         return variantIds.isEmpty();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        SparseVariantIndex that = (SparseVariantIndex) o;
+        return Objects.equals(variantIds, that.variantIds);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(variantIds);
     }
 }

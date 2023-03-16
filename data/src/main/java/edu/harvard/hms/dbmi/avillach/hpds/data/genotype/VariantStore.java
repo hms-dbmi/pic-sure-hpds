@@ -4,8 +4,12 @@ import java.io.*;
 import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 import com.google.errorprone.annotations.Var;
 import org.slf4j.Logger;
@@ -18,9 +22,10 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHol
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
 
 public class VariantStore implements Serializable {
+	private static final long serialVersionUID = -6970128712587609414L;
 	private static Logger log = LoggerFactory.getLogger(VariantStore.class);
 	public static final int BUCKET_SIZE = 1000;
-	private static final long serialVersionUID = -6970128712587609414L;
+
 	private BigInteger emptyBitmask;
 	private String[] patientIds;
 
@@ -28,9 +33,17 @@ public class VariantStore implements Serializable {
 
 	private String[] vcfHeaders = new String[24];
 
-	public TreeMap<String, FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage = new TreeMap<>();
+	private TreeMap<String, FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage = new TreeMap<>();
 
-	public static VariantStore deserializeInstance() throws IOException, ClassNotFoundException {
+	public TreeMap<String, FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> getVariantMaskStorage() {
+		return variantMaskStorage;
+	}
+
+	public void setVariantMaskStorage(TreeMap<String, FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage) {
+		this.variantMaskStorage = variantMaskStorage;
+	}
+
+	public static VariantStore deserializeInstance() throws IOException, ClassNotFoundException, InterruptedException {
 		if(new File("/opt/local/hpds/all/variantStore.javabin").exists()) {
 			ObjectInputStream ois = new ObjectInputStream(new GZIPInputStream(new FileInputStream("/opt/local/hpds/all/variantStore.javabin")));
 			VariantStore variantStore = (VariantStore) ois.readObject();
