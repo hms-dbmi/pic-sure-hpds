@@ -51,11 +51,11 @@ public class VariantService {
         }
     }
 
-    public VariantService() throws IOException, ClassNotFoundException, InterruptedException {
-        variantStore = VariantStore.deserializeInstance();
+    public VariantService() {
         try {
+            variantStore = VariantStore.deserializeInstance();
             loadGenomicCacheFiles();
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
             log.error("Failed to load genomic data: " + e.getLocalizedMessage(), e);
         }
     }
