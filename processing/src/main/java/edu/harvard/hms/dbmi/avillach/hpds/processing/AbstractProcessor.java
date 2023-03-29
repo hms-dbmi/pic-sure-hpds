@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.*;
 import com.google.common.cache.CacheLoader.InvalidCacheLoadException;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 
@@ -374,7 +373,7 @@ public class AbstractProcessor {
 						//log.debug("Number of matching variants for intersection of sets : " + intersectionOfInfoFilters.size());
 					}
 					// add filteredIdSet for patients who have matching variants, heterozygous or homozygous for now.
-					return patientVariantJoinHandler.addPatientIdsForIntersectionOfVariantSets(filteredIdSets, intersectionOfInfoFilters);
+					return patientVariantJoinHandler.getPatientIdsForIntersectionOfVariantSets(filteredIdSets, intersectionOfInfoFilters);
 				}
 			}
 		}

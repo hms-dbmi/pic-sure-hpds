@@ -26,15 +26,16 @@ public class PatientVariantJoinHandler {
         this.variantService = variantService;
     }
 
-    public List<Set<Integer>> addPatientIdsForIntersectionOfVariantSets(List<Set<Integer>> filteredIdSets,
-                                                          VariantIndex intersectionOfInfoFilters) {
+    public List<Set<Integer>> getPatientIdsForIntersectionOfVariantSets(List<Set<Integer>> filteredIdSets,
+                                                                        VariantIndex intersectionOfInfoFilters) {
+
+        List<Set<Integer>> returnList = new ArrayList<>(filteredIdSets);
         if(!intersectionOfInfoFilters.isEmpty()) {
             Set<Integer> patientsInScope;
             Set<Integer> patientIds = Arrays.asList(
                     variantService.getPatientIds()).stream().map((String id)->{
                 return Integer.parseInt(id);}).collect(Collectors.toSet());
             if(!filteredIdSets.isEmpty()) {
-                // shouldn't we intersect all of these?
                 patientsInScope = Sets.intersection(patientIds, filteredIdSets.get(0));
             } else {
                 patientsInScope = patientIds;
@@ -89,13 +90,14 @@ public class PatientVariantJoinHandler {
                     ids.add(Integer.parseInt(patientId));
                 }
             }
-            filteredIdSets.add(ids);
+            returnList.add(ids);
+            return returnList;
 
         }else {
             log.error("No matches found for info filters.");
-            filteredIdSets.add(new TreeSet<>());
+            returnList.add(new TreeSet<>());
+            return returnList;
         }
-        return filteredIdSets;
     }
 
     public BigInteger createMaskForPatientSet(Set<Integer> patientSubset) {
