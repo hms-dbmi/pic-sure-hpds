@@ -1,16 +1,20 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing;
 
-import java.io.*;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import de.siegmar.fastcsv.writer.CsvWriter;
+import edu.harvard.dbmi.avillach.util.exception.NotAuthorizedException;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.KeyAndValue;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 /**
  * A class for exporting datapoints from HPDS; this will export each individual
@@ -26,16 +30,26 @@ import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
  * @author nchu
  *
  */
-public class TimeseriesProcessor extends AbstractProcessor {
+@Component
+public class TimeseriesProcessor implements HpdsProcessor {
 
 	private Logger log = LoggerFactory.getLogger(QueryProcessor.class);
 
-//	private static final String[] headers = { "PATIENT_NUM", "CONCEPT_PATH", "NVAL_NUM", "TVAL_CHAR", "TIMESTAMP" };
+	private AbstractProcessor abstractProcessor;
 
-	public TimeseriesProcessor() throws ClassNotFoundException, FileNotFoundException, IOException {
-		super();
+	private final String ID_CUBE_NAME;
+	private final int ID_BATCH_SIZE;
+	private final int CACHE_SIZE;
+
+	@Autowired
+	public TimeseriesProcessor(AbstractProcessor abstractProcessor) {
+		this.abstractProcessor = abstractProcessor;
+		// todo: handle these via spring annotations
+		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
+		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
+		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
 	}
-	
+
 	/**
 	 * FOr this type of export, the header is always the same
 	 */
@@ -45,8 +59,8 @@ public class TimeseriesProcessor extends AbstractProcessor {
 	}
 
 	@Override
-	public void runQuery(Query query, AsyncResult result) throws NotEnoughMemoryException {
-		TreeSet<Integer> idList = getPatientSubsetForQuery(query);
+	public void runQuery(Query query, AsyncResult result) {
+		TreeSet<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
 
 		if (ID_BATCH_SIZE > 0) {
 			try {
@@ -54,6 +68,8 @@ public class TimeseriesProcessor extends AbstractProcessor {
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
+		} else {
+			throw new NotAuthorizedException("Data Export is not authorized for this system");
 		}
 		return;
 	}
@@ -69,25 +85,15 @@ public class TimeseriesProcessor extends AbstractProcessor {
 	private void exportTimeData(Query query, AsyncResult result, TreeSet<Integer> idList) throws IOException {
 
 		Set<String> exportedConceptPaths = new HashSet<String>();
-
-		File tempFile = File.createTempFile("result-" + System.nanoTime(), ".sstmp");
-		CsvWriter writer = new CsvWriter();
-
-		try (FileWriter out = new FileWriter(tempFile);) {
-//			writer.write(out, headerEntries);
-
-			//fields, requiredFields, and AnyRecordOf entries should all be added in the same way
-			List<String> pathList = new LinkedList<String>();
-			pathList.addAll(query.anyRecordOf);
-			pathList.addAll(query.fields);
-			pathList.addAll(query.requiredFields);
-			
-			addDataForConcepts(pathList, exportedConceptPaths, idList, result);
-			addDataForConcepts(query.categoryFilters.keySet(), exportedConceptPaths, idList, result);
-			addDataForConcepts(query.numericFilters.keySet(), exportedConceptPaths, idList, result);
-		}
+		//get a list of all fields mentioned in the query;  export all data associated with any included field
+		List<String> pathList = new LinkedList<String>();
+		pathList.addAll(query.getAnyRecordOf());
+		pathList.addAll(query.getFields());
+		pathList.addAll(query.getRequiredFields());
+		pathList.addAll(query.getCategoryFilters().keySet());
+		pathList.addAll(query.getNumericFilters().keySet());
 		
-		
+		addDataForConcepts(pathList, exportedConceptPaths, idList, result);
 	}
 
 	private void addDataForConcepts(Collection<String> pathList, Set<String> exportedConceptPaths, TreeSet<Integer> idList, AsyncResult result) throws IOException {
@@ -97,28 +103,31 @@ public class TimeseriesProcessor extends AbstractProcessor {
 				continue;
 			}
 			ArrayList<String[]> dataEntries = new ArrayList<String[]>();
-			PhenoCube<?> cube = getCube(conceptPath);
+			PhenoCube<?> cube = abstractProcessor.getCube(conceptPath);
 			if(cube == null) {
 				log.warn("Attempting export of non-existant concept: " + conceptPath);
 				continue;
 			}
 			log.debug("Exporting " + conceptPath);
 			List<?> valuesForKeys = cube.getValuesForKeys(idList);
-			if (cube.isStringType()) {
-				for (Object kvObj : valuesForKeys) {
+			for (Object kvObj : valuesForKeys) {
+				if (cube.isStringType()) {
 					KeyAndValue<String> keyAndValue = (KeyAndValue) kvObj;
 					// "PATIENT_NUM","CONCEPT_PATH","NVAL_NUM","TVAL_CHAR","TIMESTAMP"
 					String[] entryData = { keyAndValue.getKey().toString(), conceptPath, "", keyAndValue.getValue(),
 							keyAndValue.getTimestamp().toString() };
 					dataEntries.add(entryData);
-				}
-			} else { // numeric
-				for (Object kvObj : valuesForKeys) {
+				} else { // numeric
 					KeyAndValue<Double> keyAndValue = (KeyAndValue) kvObj;
 					// "PATIENT_NUM","CONCEPT_PATH","NVAL_NUM","TVAL_CHAR","TIMESTAMP"
 					String[] entryData = { keyAndValue.getKey().toString(), conceptPath,
 							keyAndValue.getValue().toString(), "", keyAndValue.getTimestamp().toString() };
 					dataEntries.add(entryData);
+				}
+				//batch exports so we don't take double memory (valuesForKeys + dataEntries could be a lot of data points)
+				if(dataEntries.size() >= ID_BATCH_SIZE) {
+					result.stream.appendResults(dataEntries);
+					dataEntries = new ArrayList<String[]>();
 				}
 			}
 			result.stream.appendResults(dataEntries);

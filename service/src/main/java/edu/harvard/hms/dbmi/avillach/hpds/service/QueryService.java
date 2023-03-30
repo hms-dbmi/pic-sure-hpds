@@ -2,23 +2,9 @@ package edu.harvard.hms.dbmi.avillach.hpds.service;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
-import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.PriorityBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -26,31 +12,46 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableMap;
 
-import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
+import edu.harvard.dbmi.avillach.util.UUIDv5;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
-import edu.harvard.hms.dbmi.avillach.hpds.exception.ValidationException;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.*;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.AsyncResult.Status;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
+@Service
 public class QueryService {
 
+	private static final int RESULTS_CACHE_SIZE = 50;
 	private final int SMALL_JOB_LIMIT;
 	private final int LARGE_TASK_THREADS;
 	private final int SMALL_TASK_THREADS;
 
-	Logger log = LoggerFactory.getLogger(this.getClass());
+	private final Logger log = LoggerFactory.getLogger(this.getClass());
 	
-	private BlockingQueue<Runnable> largeTaskExecutionQueue;
+	private final BlockingQueue<Runnable> largeTaskExecutionQueue;
 
-	ExecutorService largeTaskExecutor;
+	private final ExecutorService largeTaskExecutor;
 
-	private BlockingQueue<Runnable> smallTaskExecutionQueue;
+	private final BlockingQueue<Runnable> smallTaskExecutionQueue;
 
-	ExecutorService smallTaskExecutor;
+	private final ExecutorService smallTaskExecutor;
+
+	private final AbstractProcessor abstractProcessor;
+	private final QueryProcessor queryProcessor;
+	private final TimeseriesProcessor timeseriesProcessor;
+	private final CountProcessor countProcessor;
 
 	HashMap<String, AsyncResult> results = new HashMap<>();
 
-	public QueryService () throws ClassNotFoundException, FileNotFoundException, IOException{
+
+	@Autowired
+	public QueryService (AbstractProcessor abstractProcessor, QueryProcessor queryProcessor, TimeseriesProcessor timeseriesProcessor, CountProcessor countProcessor) {
+		this.abstractProcessor = abstractProcessor;
+		this.queryProcessor = queryProcessor;
+		this.timeseriesProcessor = timeseriesProcessor;
+		this.countProcessor = countProcessor;
+
 		SMALL_JOB_LIMIT = getIntProp("SMALL_JOB_LIMIT");
 		SMALL_TASK_THREADS = getIntProp("SMALL_TASK_THREADS");
 		LARGE_TASK_THREADS = getIntProp("LARGE_TASK_THREADS");
@@ -66,20 +67,20 @@ public class QueryService {
 		smallTaskExecutor = createExecutor(smallTaskExecutionQueue, SMALL_TASK_THREADS);
 	}
 
-	public AsyncResult runQuery(Query query) throws ValidationException, ClassNotFoundException, FileNotFoundException, IOException {
+	public AsyncResult runQuery(Query query) throws ClassNotFoundException, IOException {
 		// Merging fields from filters into selected fields for user validation of results
 		mergeFilterFieldsIntoSelectedFields(query);
 
-		Collections.sort(query.fields);
+		Collections.sort(query.getFields());
 
 		AsyncResult result = initializeResult(query);
-
+		
 		// This is all the validation we do for now.
 		Map<String, List<String>> validationResults = ensureAllFieldsExist(query);
 		if(validationResults != null) {
 			result.status = Status.ERROR;
 		}else {
-			if(query.fields.size() > SMALL_JOB_LIMIT) {
+			if(query.getFields().size() > SMALL_JOB_LIMIT) {
 				result.jobQueue = largeTaskExecutor;
 			} else {
 				result.jobQueue = smallTaskExecutor;
@@ -92,23 +93,25 @@ public class QueryService {
 
 	ExecutorService countExecutor = Executors.newSingleThreadExecutor();
 
-	public int runCount(Query query) throws ValidationException, InterruptedException, ExecutionException, ClassNotFoundException, FileNotFoundException, IOException {
-		return new CountProcessor().runCounts(query);
+	public int runCount(Query query) throws InterruptedException, ExecutionException, ClassNotFoundException, FileNotFoundException, IOException {
+		return countProcessor.runCounts(query);
 	}
 
 	private AsyncResult initializeResult(Query query) throws ClassNotFoundException, FileNotFoundException, IOException {
 		
-		AbstractProcessor p;
-		switch(query.expectedResultType) {
+		HpdsProcessor p;
+		switch(query.getExpectedResultType()) {
 		case DATAFRAME :
 		case DATAFRAME_MERGED :
-			p = new QueryProcessor();
+			p = queryProcessor;
 			break;
 		case DATAFRAME_TIMESERIES :
-			p = new TimeseriesProcessor();
+			p = timeseriesProcessor;
 			break;
 		case COUNT :
-			p = new CountProcessor();
+		case CATEGORICAL_CROSS_COUNT :
+		case CONTINUOUS_CROSS_COUNT :
+			p = countProcessor;
 			break;
 		default : 
 			throw new RuntimeException("UNSUPPORTED RESULT TYPE");
@@ -117,9 +120,9 @@ public class QueryService {
 		AsyncResult result = new AsyncResult(query, p.getHeaderRow(query));
 		result.status = AsyncResult.Status.PENDING;
 		result.queuedTime = System.currentTimeMillis();
-		result.id = UUID.randomUUID().toString();
+		result.id = UUIDv5.UUIDFromString(query.toString()).toString();
 		result.processor = p;
-		query.id = result.id;
+		query.setId(result.id);
 		results.put(result.id, result);
 		return result;
 	}
@@ -127,13 +130,13 @@ public class QueryService {
 	
 	private void mergeFilterFieldsIntoSelectedFields(Query query) {
 		LinkedHashSet<String> fields = new LinkedHashSet<>();
-		if(query.fields != null)fields.addAll(query.fields);
-		if(query.categoryFilters != null) {
-			Set<String> categoryFilters = new TreeSet<String>(query.categoryFilters.keySet());
+		fields.addAll(query.getFields());
+		if(!query.getCategoryFilters().isEmpty()) {
+			Set<String> categoryFilters = new TreeSet<String>(query.getCategoryFilters().keySet());
 			Set<String> toBeRemoved = new TreeSet<String>();
 			for(String categoryFilter : categoryFilters) {
 				System.out.println("In : " + categoryFilter);
-				if(AbstractProcessor.pathIsVariantSpec(categoryFilter)) {
+				if(VariantUtils.pathIsVariantSpec(categoryFilter)) {
 					toBeRemoved.add(categoryFilter);
 				}
 			}
@@ -143,41 +146,37 @@ public class QueryService {
 			}
 			fields.addAll(categoryFilters);
 		}
-		if(query.anyRecordOf != null)fields.addAll(query.anyRecordOf);
-		if(query.requiredFields != null)fields.addAll(query.requiredFields);
-		if(query.numericFilters != null)fields.addAll(query.numericFilters.keySet());
-		query.fields = new ArrayList<String>(fields);
+		fields.addAll(query.getAnyRecordOf());
+		fields.addAll(query.getRequiredFields());
+		fields.addAll(query.getNumericFilters().keySet());
+		query.setFields(fields);
 	}
 
-	private Map<String, List<String>> ensureAllFieldsExist(Query query) throws ValidationException {
+	private Map<String, List<String>> ensureAllFieldsExist(Query query) {
 		TreeSet<String> allFields = new TreeSet<>();
 		List<String> missingFields = new ArrayList<String>();
 		List<String> badNumericFilters = new ArrayList<String>();
 		List<String> badCategoryFilters = new ArrayList<String>();
-		Set<String> dictionaryFields = AbstractProcessor.getDictionary().keySet();
+		Set<String> dictionaryFields = abstractProcessor.getDictionary().keySet();
 
-		allFields.addAll(query.fields);
+		allFields.addAll(query.getFields());
+		allFields.addAll(query.getRequiredFields());
 
-		if(query.requiredFields != null) {
-			allFields.addAll(query.requiredFields);
-		}
-		if(query.numericFilters != null) {
-			allFields.addAll(query.numericFilters.keySet());
-			for(String field : includingOnlyDictionaryFields(query.numericFilters.keySet(), dictionaryFields)) {
-				if(AbstractProcessor.getDictionary().get(field).isCategorical()) {
-					badNumericFilters.add(field);
-				}
+		allFields.addAll(query.getNumericFilters().keySet());
+		for(String field : includingOnlyDictionaryFields(query.getNumericFilters().keySet(), dictionaryFields)) {
+			if(abstractProcessor.getDictionary().get(field).isCategorical()) {
+				badNumericFilters.add(field);
 			}
 		}
 
-		if(query.categoryFilters != null) {
-			Set<String> catFieldNames = new TreeSet<String>(query.categoryFilters.keySet());
-			catFieldNames.removeIf((field)->{return AbstractProcessor.pathIsVariantSpec(field);});
-			allFields.addAll(catFieldNames);
-			for(String field : includingOnlyDictionaryFields(catFieldNames, dictionaryFields)) {
-				if( ! AbstractProcessor.getDictionary().get(field).isCategorical()) {
-					badCategoryFilters.add(field);
-				}
+		Set<String> catFieldNames = query.getCategoryFilters().keySet().stream()
+				.filter(Predicate.not(VariantUtils::pathIsVariantSpec))
+				.collect(Collectors.toSet());
+		//catFieldNames.removeIf((field)->{return VariantUtils.pathIsVariantSpec(field);});
+		allFields.addAll(catFieldNames);
+		for(String field : includingOnlyDictionaryFields(catFieldNames, dictionaryFields)) {
+			if( ! abstractProcessor.getDictionary().get(field).isCategorical()) {
+				badCategoryFilters.add(field);
 			}
 		}
 
@@ -191,7 +190,7 @@ public class QueryService {
 			System.out.println("All fields passed validation");
 			return null;
 		} else {
-			log.info("Query failed due to field validation : " + query.id);
+			log.info("Query failed due to field validation : " + query.getId());
 			log.info("Non-existant fields : " + String.join(",", missingFields));
 			log.info("Bad numeric fields : " + String.join(",", badNumericFilters));
 			log.info("Bad category fields : " + String.join(",", badCategoryFilters));
@@ -209,8 +208,8 @@ public class QueryService {
 
 	public AsyncResult getStatusFor(String queryId) {
 		AsyncResult asyncResult = results.get(queryId);
-		AsyncResult[] queue = asyncResult.query.fields.size() > SMALL_JOB_LIMIT ? 
-				largeTaskExecutionQueue.toArray(new AsyncResult[largeTaskExecutionQueue.size()]) : 
+		AsyncResult[] queue = asyncResult.query.getFields().size() > SMALL_JOB_LIMIT ?
+				largeTaskExecutionQueue.toArray(new AsyncResult[largeTaskExecutionQueue.size()]) :
 					smallTaskExecutionQueue.toArray(new AsyncResult[smallTaskExecutionQueue.size()]);
 				if(asyncResult.status == Status.PENDING) {
 					ArrayList<AsyncResult> queueSnapshot = new ArrayList<AsyncResult>();
@@ -219,7 +218,7 @@ public class QueryService {
 							asyncResult.positionInQueue = x;
 							break;
 						}
-					}			
+					}
 				}else {
 					asyncResult.positionInQueue = -1;
 				}
@@ -229,10 +228,6 @@ public class QueryService {
 
 	public AsyncResult getResultFor(String queryId) {
 		return results.get(queryId);
-	}
-
-	public TreeMap<String, ColumnMeta> getDataDictionary() {
-		return AbstractProcessor.getDictionary();
 	}
 
 	private int getIntProp(String key) {
