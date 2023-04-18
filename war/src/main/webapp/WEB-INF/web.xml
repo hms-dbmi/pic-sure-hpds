@@ -25,6 +25,7 @@
         <servlet-name>CXFServlet</servlet-name>
         <url-pattern>/*</url-pattern>
     </servlet-mapping>
+    <!-- https://owasp.org/www-community/HttpOnly -->
     <session-config>
         <cookie-config>
             <http-only>true</http-only>
