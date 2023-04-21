@@ -35,6 +35,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.*;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 @Path("PIC-SURE")
 @Produces("application/json")
@@ -281,6 +282,18 @@ public class PicSureService implements IResourceRS {
 		} else {
 			return Response.status(403).entity("Resource is locked").build();
 		}
+	}
+
+	@GET
+	@Path("/variable/{conceptPath}/values/")
+	public PaginatedSearchResult<?> values(
+			@PathParam("conceptPath") String conceptPath,
+			@QueryParam("query") String query
+	) {
+		final FileBackedByteIndexedInfoStore store = abstractProcessor.getInfoStore(conceptPath);
+		final List<String> allValues = new ArrayList<>(store.getAllValues().keys());
+		final List<String> matchingValues = allValues.stream().filter(variableValue -> variableValue.toUpperCase().contains(query.toUpperCase())).collect(Collectors.toList())
+		return new PaginatedSearchResult<>(matchingValues, matchingValues.size(), 1);
 	}
 
 	private Response _querySync(QueryRequest resultRequest) throws IOException {
