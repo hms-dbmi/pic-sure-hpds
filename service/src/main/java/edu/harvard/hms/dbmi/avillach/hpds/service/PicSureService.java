@@ -285,15 +285,22 @@ public class PicSureService implements IResourceRS {
 	}
 
 	@GET
-	@Path("/variable/{conceptPath}/values/")
-	public PaginatedSearchResult<?> values(
+	@Path("/info/{conceptPath}/values/")
+	@Override
+	public PaginatedSearchResult<?> infoConceptValues(
 			@PathParam("conceptPath") String conceptPath,
-			@QueryParam("query") String query
+			@QueryParam("query") String query,
+			@QueryParam("page") Integer page,
+			@QueryParam("size") Integer size
 	) {
-		final FileBackedByteIndexedInfoStore store = abstractProcessor.getInfoStore(conceptPath);
-		final List<String> allValues = new ArrayList<>(store.getAllValues().keys());
-		final List<String> matchingValues = allValues.stream().filter(variableValue -> variableValue.toUpperCase().contains(query.toUpperCase())).collect(Collectors.toList())
-		return new PaginatedSearchResult<>(matchingValues, matchingValues.size(), 1);
+		final List<String> matchingValues = abstractProcessor.searchInfoConceptValues(conceptPath, query);
+		return new PaginatedSearchResult<>(getPage(matchingValues, page, size), page, matchingValues.size());
+	}
+
+	public static <T> List<T> getPage(List<T> list, int page, int size) {
+		int start = Math.min((page - 1) * size, list.size());
+		int end = Math.min(page * size, list.size());
+		return list.subList(start, end);
 	}
 
 	private Response _querySync(QueryRequest resultRequest) throws IOException {

@@ -41,6 +41,9 @@ public class AbstractProcessor {
 	private final int ID_BATCH_SIZE;
 	private final int CACHE_SIZE;
 
+	private final String hpdsDataDirectory;
+	private final String genomicDataDirectory;
+
 
 
 	private List<String> infoStoreColumns;
@@ -67,6 +70,9 @@ public class AbstractProcessor {
 		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
 		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
 
+		hpdsDataDirectory = System.getProperty("HPDS_DATA_DIRECTORY", "/opt/local/hpds/");
+		genomicDataDirectory = System.getProperty("HPDS_GENOMIC_DATA_DIRECTORY", "/opt/local/hpds/all/");
+
 		store = initializeCache();
 
 		if(Crypto.hasKey(Crypto.DEFAULT_KEY_NAME)) {
@@ -92,12 +98,12 @@ public class AbstractProcessor {
 
 		}
 		infoStores = new HashMap<>();
-		File genomicDataDirectory = new File("/opt/local/hpds/all/");
+		File genomicDataDirectory = new File(this.genomicDataDirectory);
 		if(genomicDataDirectory.exists() && genomicDataDirectory.isDirectory()) {
 			Arrays.stream(genomicDataDirectory.list((file, filename)->{return filename.endsWith("infoStore.javabin");}))
 					.forEach((String filename)->{
 						try (
-								FileInputStream fis = new FileInputStream("/opt/local/hpds/all/" + filename);
+								FileInputStream fis = new FileInputStream(this.genomicDataDirectory + filename);
 								GZIPInputStream gis = new GZIPInputStream(fis);
 								ObjectInputStream ois = new ObjectInputStream(gis)
 						){
@@ -130,6 +136,9 @@ public class AbstractProcessor {
 		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
 		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
 		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
+
+		hpdsDataDirectory = System.getProperty("HPDS_DATA_DIRECTORY", "/opt/local/hpds/");
+		genomicDataDirectory = System.getProperty("HPDS_GENOMIC_DATA_DIRECTORY", "/opt/local/hpds/all/");
 	}
 
 	public List<String> getInfoStoreColumns() {
@@ -194,7 +203,7 @@ public class AbstractProcessor {
 	 * @param query
 	 * @return
 	 */
-	protected TreeSet<Integer> getPatientSubsetForQuery(Query query) {
+	public TreeSet<Integer> getPatientSubsetForQuery(Query query) {
 		List<Set<Integer>> filteredIdSets;
 
 		filteredIdSets = idSetsForEachFilter(query);
@@ -526,6 +535,15 @@ public class AbstractProcessor {
 	public FileBackedByteIndexedInfoStore getInfoStore(String column) {
 		return infoStores.get(column);
 	}
+
+	public List<String> searchInfoConceptValues(String conceptPath, String query) {
+		final FileBackedByteIndexedInfoStore store = getInfoStore(conceptPath);
+		final List<String> allValues = new ArrayList<>(store.getAllValues().keys());
+		return allValues.stream()
+				.sorted(String::compareToIgnoreCase)
+				.filter(variableValue -> variableValue.toUpperCase().contains(query.toUpperCase()))
+				.collect(Collectors.toList());
+	}
 	//
 	//	private boolean pathIsGeneName(String key) {
 	//		return new GeneLibrary().geneNameSearch(key).size()==1;
@@ -572,7 +590,7 @@ public class AbstractProcessor {
 				.build(
 						new CacheLoader<String, PhenoCube<?>>() {
 							public PhenoCube<?> load(String key) throws Exception {
-								try(RandomAccessFile allObservationsStore = new RandomAccessFile("/opt/local/hpds/allObservationsStore.javabin", "r");){
+								try(RandomAccessFile allObservationsStore = new RandomAccessFile(hpdsDataDirectory + "allObservationsStore.javabin", "r");){
 									ColumnMeta columnMeta = phenotypeMetaStore.getColumnMeta(key);
 									if(columnMeta != null) {
 										allObservationsStore.seek(columnMeta.getAllObservationsOffset());
