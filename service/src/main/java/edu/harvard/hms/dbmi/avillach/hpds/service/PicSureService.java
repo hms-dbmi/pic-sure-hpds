@@ -285,10 +285,10 @@ public class PicSureService implements IResourceRS {
 	}
 
 	@GET
-	@Path("/info/{conceptPath}/values/")
+	@Path("/search/values/")
 	@Override
-	public PaginatedSearchResult<?> infoConceptValues(
-			@PathParam("conceptPath") String conceptPath,
+	public PaginatedSearchResult<?> searchConceptValues(
+			@QueryParam("conceptPath") String conceptPath,
 			@QueryParam("query") String query,
 			@QueryParam("page") Integer page,
 			@QueryParam("size") Integer size
