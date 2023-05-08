@@ -539,9 +539,10 @@ public class AbstractProcessor {
 	public List<String> searchInfoConceptValues(String conceptPath, String query) {
 		final FileBackedByteIndexedInfoStore store = getInfoStore(conceptPath);
 		final List<String> allValues = new ArrayList<>(store.getAllValues().keys());
+		// todo add cache for sorted values
 		return allValues.stream()
-				.sorted(String::compareToIgnoreCase)
 				.filter(variableValue -> variableValue.toUpperCase().contains(query.toUpperCase()))
+				.sorted(String::compareToIgnoreCase)
 				.collect(Collectors.toList());
 	}
 	//
