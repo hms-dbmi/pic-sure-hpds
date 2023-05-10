@@ -538,8 +538,11 @@ public class AbstractProcessor {
 
 	public List<String> searchInfoConceptValues(String conceptPath, String query) {
 		final FileBackedByteIndexedInfoStore store = getInfoStore(conceptPath);
+		if (store == null) {
+			throw new IllegalArgumentException("Concept path: " + conceptPath + " not found");
+		}
 		final List<String> allValues = new ArrayList<>(store.getAllValues().keys());
-		// todo add cache for sorted values
+		// todo: add cache for sorted values if performance is an issue
 		return allValues.stream()
 				.filter(variableValue -> variableValue.toUpperCase().contains(query.toUpperCase()))
 				.sorted(String::compareToIgnoreCase)

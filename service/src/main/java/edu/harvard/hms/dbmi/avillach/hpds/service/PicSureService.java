@@ -287,12 +287,18 @@ public class PicSureService implements IResourceRS {
 	@GET
 	@Path("/search/values/")
 	@Override
-	public PaginatedSearchResult<?> searchConceptValues(
+	public PaginatedSearchResult<String> searchConceptValues(
 			@QueryParam("conceptPath") String conceptPath,
 			@QueryParam("query") String query,
 			@QueryParam("page") Integer page,
 			@QueryParam("size") Integer size
 	) {
+		if (page < 1) {
+			throw new IllegalArgumentException("Page must be greater than 0");
+		}
+		if (size < 1) {
+			throw new IllegalArgumentException("Size must be greater than 0");
+		}
 		final List<String> matchingValues = abstractProcessor.searchInfoConceptValues(conceptPath, query);
 		return new PaginatedSearchResult<>(getPage(matchingValues, page, size), page, matchingValues.size());
 	}
