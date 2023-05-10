@@ -35,14 +35,14 @@ public class CSVLoader {
 
 	public static void main(String[] args) throws IOException {
 		if (args.length > 0) {
-			HPDS_DIRECTORY = args[1];
+			HPDS_DIRECTORY = args[0];
 			if (!HPDS_DIRECTORY.endsWith("/")) {
 				HPDS_DIRECTORY += "/";
 			}
 		}
 		store.allObservationsStore = new RandomAccessFile(HPDS_DIRECTORY + "allObservationsStore.javabin", "rw");
 		initialLoad();
-		store.saveStore();
+		store.saveStore(HPDS_DIRECTORY);
 	}
 
 	private static void initialLoad() throws IOException {
