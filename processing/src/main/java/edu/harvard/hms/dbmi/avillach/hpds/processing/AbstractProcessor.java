@@ -541,9 +541,8 @@ public class AbstractProcessor {
 		if (store == null) {
 			throw new IllegalArgumentException("Concept path: " + conceptPath + " not found");
 		}
-		final List<String> allValues = new ArrayList<>(store.getAllValues().keys());
 		// todo: add cache for sorted values if performance is an issue
-		return allValues.stream()
+		return store.getAllValues().keys().stream()
 				.filter(variableValue -> variableValue.toUpperCase().contains(query.toUpperCase()))
 				.sorted(String::compareToIgnoreCase)
 				.collect(Collectors.toList());
