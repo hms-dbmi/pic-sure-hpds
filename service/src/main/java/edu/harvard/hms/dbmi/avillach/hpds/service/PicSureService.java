@@ -287,8 +287,8 @@ public class PicSureService implements IResourceRS {
 	@GET
 	@Path("/search/values/")
 	@Override
-	public PaginatedSearchResult<String> searchConceptValues(
-			@QueryParam("conceptPath") String conceptPath,
+	public PaginatedSearchResult<String> searchGenomicConceptValues(
+			@QueryParam("genomicConceptPath") String genomicConceptPath,
 			@QueryParam("query") String query,
 			@QueryParam("page") int page,
 			@QueryParam("size") int size
@@ -299,7 +299,7 @@ public class PicSureService implements IResourceRS {
 		if (size < 1) {
 			throw new IllegalArgumentException("Size must be greater than 0");
 		}
-		final List<String> matchingValues = abstractProcessor.searchInfoConceptValues(conceptPath, query);
+		final List<String> matchingValues = abstractProcessor.searchInfoConceptValues(genomicConceptPath, query);
 		return new PaginatedSearchResult<>(getPage(matchingValues, page, size), page, matchingValues.size());
 	}
 
