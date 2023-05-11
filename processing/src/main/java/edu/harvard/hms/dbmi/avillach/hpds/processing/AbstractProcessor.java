@@ -8,6 +8,7 @@ import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -537,16 +538,34 @@ public class AbstractProcessor {
 	}
 
 	public List<String> searchInfoConceptValues(String conceptPath, String query) {
-		final FileBackedByteIndexedInfoStore store = getInfoStore(conceptPath);
-		if (store == null) {
-			throw new IllegalArgumentException("Concept path: " + conceptPath + " not found");
+		try {
+			return infoStoreValuesCache.getUnchecked(conceptPath).stream()
+					.filter(variableValue -> variableValue.toUpperCase().contains(query.toUpperCase()))
+					.sorted(String::compareToIgnoreCase)
+					.collect(Collectors.toList());
+		} catch (UncheckedExecutionException e) {
+			if(e.getCause() instanceof RuntimeException) {
+				throw (RuntimeException) e.getCause();
+			}
+			throw e;
 		}
-		// todo: add cache for sorted values if performance is an issue
-		return store.getAllValues().keys().stream()
-				.filter(variableValue -> variableValue.toUpperCase().contains(query.toUpperCase()))
-				.sorted(String::compareToIgnoreCase)
-				.collect(Collectors.toList());
 	}
+	private final LoadingCache<String, List<String>> infoStoreValuesCache = CacheBuilder.newBuilder().build(new CacheLoader<>() {
+		@Override
+		public List<String> load(String conceptPath) {
+			FileBackedByteIndexedInfoStore store = getInfoStore(conceptPath);
+			if (store == null) {
+				throw new IllegalArgumentException("Concept path: " + conceptPath + " not found");
+			} else if (store.isContinuous) {
+				throw new IllegalArgumentException("Concept path: " + conceptPath + " is not categorical");
+			}
+			return store.getAllValues().keys()
+					.stream()
+					.sorted()
+					.collect(Collectors.toList());
+		}
+	});
+
 	//
 	//	private boolean pathIsGeneName(String key) {
 	//		return new GeneLibrary().geneNameSearch(key).size()==1;
