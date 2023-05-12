@@ -61,6 +61,22 @@ public class AbstractProcessor {
 
 	private final PatientVariantJoinHandler patientVariantJoinHandler;
 
+	private final LoadingCache<String, List<String>> infoStoreValuesCache = CacheBuilder.newBuilder().build(new CacheLoader<>() {
+		@Override
+		public List<String> load(String conceptPath) {
+			FileBackedByteIndexedInfoStore store = getInfoStore(conceptPath);
+			if (store == null) {
+				throw new IllegalArgumentException("Concept path: " + conceptPath + " not found");
+			} else if (store.isContinuous) {
+				throw new IllegalArgumentException("Concept path: " + conceptPath + " is not categorical");
+			}
+			return store.getAllValues().keys()
+					.stream()
+					.sorted(String::compareToIgnoreCase)
+					.collect(Collectors.toList());
+		}
+	});
+
 	@Autowired
 	public AbstractProcessor(PhenotypeMetaStore phenotypeMetaStore, VariantService variantService, PatientVariantJoinHandler patientVariantJoinHandler) throws ClassNotFoundException, IOException, InterruptedException {
 		this.phenotypeMetaStore = phenotypeMetaStore;
@@ -549,21 +565,6 @@ public class AbstractProcessor {
 			throw e;
 		}
 	}
-	private final LoadingCache<String, List<String>> infoStoreValuesCache = CacheBuilder.newBuilder().build(new CacheLoader<>() {
-		@Override
-		public List<String> load(String conceptPath) {
-			FileBackedByteIndexedInfoStore store = getInfoStore(conceptPath);
-			if (store == null) {
-				throw new IllegalArgumentException("Concept path: " + conceptPath + " not found");
-			} else if (store.isContinuous) {
-				throw new IllegalArgumentException("Concept path: " + conceptPath + " is not categorical");
-			}
-			return store.getAllValues().keys()
-					.stream()
-					.sorted(String::compareToIgnoreCase)
-					.collect(Collectors.toList());
-		}
-	});
 
 	//
 	//	private boolean pathIsGeneName(String key) {

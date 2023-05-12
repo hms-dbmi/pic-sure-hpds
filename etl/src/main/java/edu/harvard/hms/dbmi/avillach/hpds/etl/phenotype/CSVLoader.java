@@ -35,10 +35,7 @@ public class CSVLoader {
 
 	public static void main(String[] args) throws IOException {
 		if (args.length > 0) {
-			HPDS_DIRECTORY = args[0];
-			if (!HPDS_DIRECTORY.endsWith("/")) {
-				HPDS_DIRECTORY += "/";
-			}
+			HPDS_DIRECTORY = args[0] + "/";
 		}
 		store.allObservationsStore = new RandomAccessFile(HPDS_DIRECTORY + "allObservationsStore.javabin", "rw");
 		initialLoad();
