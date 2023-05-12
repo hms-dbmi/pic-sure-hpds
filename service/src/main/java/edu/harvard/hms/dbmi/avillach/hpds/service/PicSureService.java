@@ -11,8 +11,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
+import edu.harvard.hms.dbmi.avillach.hpds.service.util.Paginator;
 import org.apache.http.entity.ContentType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +34,6 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.*;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 @Path("PIC-SURE")
 @Produces("application/json")
@@ -43,12 +41,14 @@ import org.springframework.util.StringUtils;
 public class PicSureService implements IResourceRS {
 
 	@Autowired
-	public PicSureService(QueryService queryService, TimelineProcessor timelineProcessor, CountProcessor countProcessor, VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor) {
+	public PicSureService(QueryService queryService, TimelineProcessor timelineProcessor, CountProcessor countProcessor,
+						  VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor, Paginator paginator) {
 		this.queryService = queryService;
 		this.timelineProcessor = timelineProcessor;
 		this.countProcessor = countProcessor;
 		this.variantListProcessor = variantListProcessor;
 		this.abstractProcessor = abstractProcessor;
+		this.paginator = paginator;
 		Crypto.loadDefaultKey();
 	}
 
@@ -65,6 +65,8 @@ public class PicSureService implements IResourceRS {
 	private final VariantListProcessor variantListProcessor;
 
 	private final AbstractProcessor abstractProcessor;
+
+	private final Paginator paginator;
 
 	private static final String QUERY_METADATA_FIELD = "queryMetadata";
 	private static final int RESPONSE_CACHE_SIZE = 50;
@@ -300,13 +302,7 @@ public class PicSureService implements IResourceRS {
 			throw new IllegalArgumentException("Size must be greater than 0");
 		}
 		final List<String> matchingValues = abstractProcessor.searchInfoConceptValues(genomicConceptPath, query);
-		return new PaginatedSearchResult<>(getPage(matchingValues, page, size), page, matchingValues.size());
-	}
-
-	public static <T> List<T> getPage(List<T> list, int page, int size) {
-		int start = Math.min((page - 1) * size, list.size());
-		int end = Math.min(page * size, list.size());
-		return list.subList(start, end);
+		return paginator.paginate(matchingValues, page, size);
 	}
 
 	private Response _querySync(QueryRequest resultRequest) throws IOException {

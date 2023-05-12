@@ -541,7 +541,6 @@ public class AbstractProcessor {
 		try {
 			return infoStoreValuesCache.getUnchecked(conceptPath).stream()
 					.filter(variableValue -> variableValue.toUpperCase().contains(query.toUpperCase()))
-					.sorted(String::compareToIgnoreCase)
 					.collect(Collectors.toList());
 		} catch (UncheckedExecutionException e) {
 			if(e.getCause() instanceof RuntimeException) {
@@ -561,7 +560,7 @@ public class AbstractProcessor {
 			}
 			return store.getAllValues().keys()
 					.stream()
-					.sorted()
+					.sorted(String::compareToIgnoreCase)
 					.collect(Collectors.toList());
 		}
 	});
