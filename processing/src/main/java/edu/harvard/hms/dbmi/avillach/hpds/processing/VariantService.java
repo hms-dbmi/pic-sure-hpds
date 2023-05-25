@@ -31,6 +31,7 @@ public class VariantService {
     private final String VARIANT_INDEX_FBBIS_STORAGE_FILE;
     private final String VARIANT_INDEX_FBBIS_FILE;
     private final String BUCKET_INDEX_BY_SAMPLE_FILE;
+    private final String VARIANT_SPEC_INDEX_FILE;
 
 
     private final VariantStore variantStore;
@@ -59,6 +60,7 @@ public class VariantService {
         VARIANT_INDEX_FBBIS_STORAGE_FILE = genomicDataDirectory + "variantIndex_fbbis_storage.javabin";
         VARIANT_INDEX_FBBIS_FILE = genomicDataDirectory + "variantIndex_fbbis.javabin";
         BUCKET_INDEX_BY_SAMPLE_FILE = genomicDataDirectory + "BucketIndexBySample.javabin";
+        VARIANT_SPEC_INDEX_FILE = genomicDataDirectory + "variantSpecIndex.javabin";
 
         variantStore = VariantStore.deserializeInstance(genomicDataDirectory);
         try {
@@ -75,58 +77,21 @@ public class VariantService {
             log.warn("No Genomic Data found.  Skipping variant Indexing");
             return;
         }
-        int[] numVariants = {0};
-        HashMap<String, String[]> contigMap = new HashMap<>();
 
-        ExecutorService ex = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-        variantStore.getVariantMaskStorage().entrySet().forEach(entry->{
-            ex.submit(()->{
-                int numVariantsInContig = 0;
-                FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>> storage = entry.getValue();
-                HashMap<Integer, String[]> bucketMap = new HashMap<>();
-                log.info("Creating bucketMap for contig " + entry.getKey());
-                for(Integer bucket: storage.keys()){
-                    try {
-                        ConcurrentHashMap<String, VariantMasks> bucketStorage = storage.get(bucket);
-                        numVariantsInContig += bucketStorage.size();
-                        bucketMap.put(bucket, bucketStorage.keySet().toArray(new String[0]));
-                    } catch (IOException e) {
-                        log.error("an error occurred", e);
-                    }
-                };
-                log.info("Completed bucketMap for contig " + entry.getKey());
-                String[] variantsInContig = new String[numVariantsInContig];
-                int current = 0;
-                for(String[] bucketList  : bucketMap.values()) {
-                    System.arraycopy(bucketList, 0, variantsInContig, current, bucketList.length);
-                    current = current + bucketList.length;
-                }
-                bucketMap.clear();
-                synchronized(numVariants) {
-                    log.info("Found " + variantsInContig.length + " variants in contig " + entry.getKey() + ".");
-                    contigMap.put(entry.getKey(), variantsInContig);
-                    numVariants[0] += numVariantsInContig;
-                }
-            });
-        });
-        ex.shutdown();
-        while(!ex.awaitTermination(10, TimeUnit.SECONDS)) {
-            Thread.sleep(20000);
-            log.info("Awaiting completion of variant index");
+
+        try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream(VARIANT_SPEC_INDEX_FILE)));){
+
+            List<String> variants = (List<String>) objectInputStream.readObject();
+            variantIndex = variants.toArray(new String[0]);
+
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
         }
 
-        log.info("Found " + numVariants[0] + " total variants.");
-
-        variantIndex = new String[numVariants[0]];
-
-        int current = 0;
-        for(String[] contigList  : contigMap.values()) {
-            System.arraycopy(contigList, 0, variantIndex, current, contigList.length);
-            current = current + contigList.length;
-        }
-        contigMap.clear();
-
-        Arrays.sort(variantIndex);
         log.info("Index created with " + variantIndex.length + " total variants.");
     }
 
