@@ -26,6 +26,8 @@ public class NewVCFLoader {
 	private static File storageDir = null;
 	private static String storageDirStr = "/opt/local/hpds/all";
 	private static String mergedDirStr = "/opt/local/hpds/merged";
+
+	private static VariantIndexBuilder variantIndexBuilder = new VariantIndexBuilder();
 	
 	// DO NOT CHANGE THIS unless you want to reload all the data everywhere.
 	private static int CHUNK_SIZE = 1000;
@@ -235,6 +237,8 @@ public class NewVCFLoader {
 				}
 			}
 		}
+
+		saveVariantIndex();
 	}
 
 	private static String sampleIdsForMask(String[] sampleIds, BigInteger heterozygousMask) {
@@ -368,6 +372,14 @@ public class NewVCFLoader {
 		}
 	}
 
+	private static void saveVariantIndex() throws IOException {
+		try (FileOutputStream fos = new FileOutputStream(new File(storageDir, "variantSpecIndex.javabin"));
+			 GZIPOutputStream gzos = new GZIPOutputStream(fos);
+			 ObjectOutputStream oos = new ObjectOutputStream(gzos);) {
+			oos.writeObject(variantIndexBuilder.getVariantSpecIndex());
+		}
+	}
+
 	private static ConcurrentHashMap<String, VariantMasks> convertLoadingMapToMaskMap(
 			HashMap<String, char[][]> zygosityMaskStrings_f) {
 		ConcurrentHashMap<String, VariantMasks> maskMap = new ConcurrentHashMap<>();
@@ -459,8 +471,9 @@ public class NewVCFLoader {
 			}
 			String[] infoColumns = currentLineSplit[7].split("[;&]");
 			String currentSpecNotation = currentSpecNotation();
+			int variantIndex = variantIndexBuilder.getIndex(currentSpecNotation);
 			infoStores.values().parallelStream().forEach(infoStore -> {
-				infoStore.processRecord(currentSpecNotation, infoColumns);
+				infoStore.processRecord(Integer.toString(variantIndex), infoColumns);
 			});
 		}
 
