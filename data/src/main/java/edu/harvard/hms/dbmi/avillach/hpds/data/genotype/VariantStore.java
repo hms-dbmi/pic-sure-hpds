@@ -25,13 +25,13 @@ public class VariantStore implements Serializable {
 
 	private String[] vcfHeaders = new String[24];
 
-	private TreeMap<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage = new TreeMap<>();
+	private Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage = new TreeMap<>();
 
-	public TreeMap<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> getVariantMaskStorage() {
+	public Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> getVariantMaskStorage() {
 		return variantMaskStorage;
 	}
 
-	public void setVariantMaskStorage(TreeMap<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage) {
+	public void setVariantMaskStorage(Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage) {
 		this.variantMaskStorage = variantMaskStorage;
 	}
 
