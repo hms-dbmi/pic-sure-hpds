@@ -5,6 +5,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMasks;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantStore;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHolder;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
+import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedJavaIndexedStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -12,7 +13,6 @@ import org.springframework.stereotype.Service;
 import java.io.*;
 import java.math.BigInteger;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -70,19 +70,24 @@ public class VariantService {
         }
     }
 
-    public void populateVariantIndex() throws InterruptedException {
+    public String[] loadVariantIndex() {
         //skip if we have no variants
         if(variantStore.getPatientIds().length == 0) {
-            variantIndex = new String[0];
             log.warn("No Genomic Data found.  Skipping variant Indexing");
-            return;
+            return new String[0];
         }
 
+        String[] variantIndex = loadVariantIndexFromFile(VARIANT_SPEC_INDEX_FILE);
 
-        try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream(VARIANT_SPEC_INDEX_FILE)));){
+        log.info("Index created with " + variantIndex.length + " total variants.");
+        return variantIndex;
+    }
+
+    public static String[] loadVariantIndexFromFile(String variantSpecIndexFile) {
+        try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream(variantSpecIndexFile)));){
 
             List<String> variants = (List<String>) objectInputStream.readObject();
-            variantIndex = variants.toArray(new String[0]);
+            return variants.toArray(new String[0]);
 
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
@@ -91,8 +96,6 @@ public class VariantService {
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
-
-        log.info("Index created with " + variantIndex.length + " total variants.");
     }
 
     /**
@@ -106,9 +109,9 @@ public class VariantService {
             if(variantIndex==null) {
                 if(!new File(VARIANT_INDEX_FBBIS_FILE).exists()) {
                     log.info("Creating new " + VARIANT_INDEX_FBBIS_FILE);
-                    populateVariantIndex();
+                    this.variantIndex = loadVariantIndex();
                     FileBackedByteIndexedStorage<Integer, String[]> fbbis =
-                            new FileBackedByteIndexedStorage<Integer, String[]>(Integer.class, String[].class, new File(VARIANT_INDEX_FBBIS_STORAGE_FILE));
+                            new FileBackedJavaIndexedStorage<>(Integer.class, String[].class, new File(VARIANT_INDEX_FBBIS_STORAGE_FILE));
                     try (ObjectOutputStream oos = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(VARIANT_INDEX_FBBIS_FILE)));
                     ){
 

@@ -8,9 +8,13 @@ import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
 
+import edu.harvard.hms.dbmi.avillach.hpds.data.storage.FileBackedStorageVariantMasksImpl;
+import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedJavaIndexedStorage;
+import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedJsonIndexStorage;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,7 +62,7 @@ public class NewVCFLoader {
 
 	private static HashMap<String, char[][]> zygosityMaskStrings;
 
-	private static TreeMap<String, FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage = new TreeMap<>();
+	private static TreeMap<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage = new TreeMap<>();
 
 	private static long startTime;
 
@@ -283,7 +287,7 @@ public class NewVCFLoader {
 		}
 		if (!currentContig.contentEquals(lastContigProcessed) || currentChunk > lastChunkProcessed || isLastChunk) {
 			// flip chunk
-			TreeMap<String, FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage_f = variantMaskStorage;
+			TreeMap<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage_f = variantMaskStorage;
 			HashMap<String, char[][]> zygosityMaskStrings_f = zygosityMaskStrings;
 			String lastContigProcessed_f = lastContigProcessed;
 			int lastChunkProcessed_f = lastChunkProcessed;
@@ -294,9 +298,9 @@ public class NewVCFLoader {
 						if ("chr".startsWith(fileName)) {
 							fileName = "chr" + fileName;
 						}
+
 						variantMaskStorage_f.put(lastContigProcessed_f,
-								new FileBackedByteIndexedStorage(Integer.class, ConcurrentHashMap.class,
-										new File(storageDir, fileName)));
+								new FileBackedStorageVariantMasksImpl(new File(storageDir, fileName)));
 					}
 					variantMaskStorage_f.get(lastContigProcessed_f).put(lastChunkProcessed_f,
 							convertLoadingMapToMaskMap(zygosityMaskStrings_f));
@@ -313,7 +317,7 @@ public class NewVCFLoader {
 	}
 
 	private static void saveVariantStore(VariantStore store,
-			TreeMap<String, FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage)
+			TreeMap<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage)
 			throws IOException, FileNotFoundException {
 		store.setVariantMaskStorage(variantMaskStorage);
 		for (FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>> storage : variantMaskStorage

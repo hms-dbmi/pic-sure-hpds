@@ -6,6 +6,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedJavaIndexedStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -121,7 +122,7 @@ public class BucketIndexBySample implements Serializable {
 		});
 		
 		// populate patientBucketMasks with bucketMasks for each patient 
-		patientBucketMasks = new FileBackedByteIndexedStorage<Integer, BigInteger>(Integer.class, BigInteger.class, new File(storageFileStr));
+		patientBucketMasks = new FileBackedJavaIndexedStorage(Integer.class, BigInteger.class, new File(storageFileStr));
 		
 		//the process to write out the bucket masks takes a very long time.  
 		//Lets spin up another thread that occasionally logs progress

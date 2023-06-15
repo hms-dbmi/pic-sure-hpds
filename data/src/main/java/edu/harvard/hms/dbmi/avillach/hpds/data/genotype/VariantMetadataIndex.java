@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 
+import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedJavaIndexedStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -161,7 +162,7 @@ public class VariantMetadataIndex implements Serializable {
 			if(contigFbbis == null) {
 				log.info("creating new file for " + contig);
 				String filePath = fileStoragePrefix + "_" + contig + ".bin";
-				contigFbbis = new FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>>(Integer.class, (Class<ConcurrentHashMap<String, String[]>>)(Class<?>) ConcurrentHashMap.class, new File(filePath));
+				contigFbbis = new FileBackedJavaIndexedStorage(Integer.class, (Class<ConcurrentHashMap<String, String[]>>)(Class<?>) ConcurrentHashMap.class, new File(filePath));
 				indexMap.put(contig, contigFbbis);
 			}
 			

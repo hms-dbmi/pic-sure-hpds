@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
+import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedJavaIndexedStorage;
 
 public class FileBackedByteIndexedInfoStore implements Serializable {
 
@@ -51,7 +52,7 @@ public class FileBackedByteIndexedInfoStore implements Serializable {
 	}
 
 	public FileBackedByteIndexedInfoStore(File storageFolder, InfoStore infoStore) throws IOException {
-		this.allValues = new FileBackedByteIndexedStorage(String.class, String[].class, 
+		this.allValues = new FileBackedJavaIndexedStorage<>(String.class, String[].class,
 				new File(storageFolder, infoStore.column_key + "_infoStoreStorage.javabin"));
 		this.description = infoStore.description;
 		this.column_key = infoStore.column_key;

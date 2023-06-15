@@ -1,25 +1,17 @@
 package edu.harvard.hms.dbmi.avillach.hpds.data.genotype;
 
+import com.google.common.collect.RangeSet;
+import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHolder;
+import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedJsonIndexStorage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.*;
 import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
-
-import com.google.errorprone.annotations.Var;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.event.Level;
-
-import com.google.common.collect.RangeSet;
-
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHolder;
-import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
 
 public class VariantStore implements Serializable {
 	private static final long serialVersionUID = -6970128712587609414L;
@@ -33,13 +25,13 @@ public class VariantStore implements Serializable {
 
 	private String[] vcfHeaders = new String[24];
 
-	private TreeMap<String, FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage = new TreeMap<>();
+	private TreeMap<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage = new TreeMap<>();
 
-	public TreeMap<String, FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> getVariantMaskStorage() {
+	public TreeMap<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> getVariantMaskStorage() {
 		return variantMaskStorage;
 	}
 
-	public void setVariantMaskStorage(TreeMap<String, FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage) {
+	public void setVariantMaskStorage(TreeMap<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage) {
 		this.variantMaskStorage = variantMaskStorage;
 	}
 
@@ -61,7 +53,7 @@ public class VariantStore implements Serializable {
 	public ArrayList<String> listVariants() {
 		ArrayList<String> allVariants = new ArrayList<>();
 		for (String key : variantMaskStorage.keySet()) {
-			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>> storage = variantMaskStorage
+			FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>> storage = variantMaskStorage
 					.get(key);
 			storage.keys().stream().forEach((Integer bucket) -> {
 				try {
@@ -82,7 +74,7 @@ public class VariantStore implements Serializable {
 		TreeMap<String, int[]> counts = new TreeMap<>();
 		for (String contig : variantMaskStorage.keySet()) {
 			counts.put(contig, new int[5]);
-			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>> storage = variantMaskStorage
+			FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>> storage = variantMaskStorage
 					.get(contig);
 			storage.keys().stream().forEach((Integer key) -> {
 				int[] contigCounts = counts.get(contig);
@@ -181,7 +173,7 @@ public class VariantStore implements Serializable {
 
 	public List<VariantMasks> getMasksForRangesOfChromosome(String contigForGene, List<Integer> offsetsForGene,
 			RangeSet<Integer> rangeSetsForGene) throws IOException {
-		FileBackedByteIndexedStorage masksForChromosome = variantMaskStorage.get(contigForGene);
+		FileBackedJsonIndexStorage masksForChromosome = variantMaskStorage.get(contigForGene);
 		Set<Integer> bucketsForGene = offsetsForGene.stream().map((offset) -> {
 			return offset / BUCKET_SIZE;
 		}).collect(Collectors.toSet());
