@@ -49,8 +49,22 @@ public class GenomicDatasetMerger {
         }
     }
 
+    /**
+     * args[0]: directory containing genomic dataset 1
+     * args[1]: directory containing genomic dataset 2
+     * args[2]: output directory
+     */
     public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
+        long time = System.currentTimeMillis();
+        GenomicDatasetMerger genomicDatasetMerger = new GenomicDatasetMerger(args[0], args[1], args[2]);
+        genomicDatasetMerger.merge();
+        log.info("Finished in " + (System.currentTimeMillis() - time) + " + ms");
+    }
 
+    public void merge() throws IOException {
+        Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergedChromosomeMasks = mergeChromosomeMasks();
+        mergeVariantStore(mergedChromosomeMasks);
+        Map<String, FileBackedByteIndexedInfoStore> mergedVariantIndexes = mergeVariantIndexes();
     }
 
     public void mergeVariantStore(Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergedChromosomeMasks) {
