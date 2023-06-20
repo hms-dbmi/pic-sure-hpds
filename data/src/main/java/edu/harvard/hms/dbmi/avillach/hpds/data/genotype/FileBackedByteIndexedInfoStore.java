@@ -140,5 +140,9 @@ public class FileBackedByteIndexedInfoStore implements Serializable {
 		return x>1;
 	}
 
+	public void updateStorageDirectory(File storageDirectory) {
+		allValues.updateStorageDirectory(storageDirectory);
+	}
+
 }
 

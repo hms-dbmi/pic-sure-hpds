@@ -1,19 +1,9 @@
 package edu.harvard.hms.dbmi.avillach.hpds.storage;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.RandomAccessFile;
-import java.io.Serializable;
+import java.io.*;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import java.util.zip.GZIPInputStream;
-
-import org.apache.commons.io.output.ByteArrayOutputStream;
-import org.codehaus.jackson.map.ObjectMapper;
 
 public abstract class FileBackedByteIndexedStorage <K, V extends Serializable> implements Serializable {
 	private static final long serialVersionUID = -7297090745384302635L;
@@ -28,6 +18,14 @@ public abstract class FileBackedByteIndexedStorage <K, V extends Serializable> i
 		this.index = new ConcurrentHashMap<K, Long[]>();
 		this.storageFile = storageFile;
 		this.storage = new RandomAccessFile(this.storageFile, "rw");
+	}
+
+	public void updateStorageDirectory(File storageDirectory) {
+		if (!storageDirectory.isDirectory()) {
+			throw new IllegalArgumentException("storageDirectory is not a directory");
+		}
+		String currentStoreageFilename = storageFile.getName();
+		storageFile = new File(storageDirectory, currentStoreageFilename);
 	}
 
 	public Set<K> keys(){

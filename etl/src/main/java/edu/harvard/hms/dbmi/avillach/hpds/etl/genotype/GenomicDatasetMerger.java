@@ -182,6 +182,7 @@ public class GenomicDatasetMerger {
                         ){
                             log.info("loading " + filename);
                             FileBackedByteIndexedInfoStore infoStore = (FileBackedByteIndexedInfoStore) ois.readObject();
+                            infoStore.updateStorageDirectory(genomicDataDirectory);
                             infoStores.put(filename.replace("_infoStore.javabin", ""), infoStore);
                             ois.close();
                         } catch (IOException | ClassNotFoundException e) {
