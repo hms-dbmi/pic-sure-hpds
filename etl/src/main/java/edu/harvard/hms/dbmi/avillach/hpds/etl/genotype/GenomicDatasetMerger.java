@@ -184,10 +184,14 @@ public class GenomicDatasetMerger {
     }
 
     public Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergeChromosomeMasks() throws FileNotFoundException {
-        Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergedMaskStorage = new HashMap<>();
-        for (String chromosome : variantStore1.getVariantMaskStorage().keySet()) {
-            mergedMaskStorage.put(chromosome, mergeChromosomeMask(chromosome));
-        }
+        Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergedMaskStorage = new ConcurrentHashMap<>();
+        variantStore1.getVariantMaskStorage().keySet().parallelStream().forEach(chromosome -> {
+            try {
+                mergedMaskStorage.put(chromosome, mergeChromosomeMask(chromosome));
+            } catch (FileNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        });
         return mergedMaskStorage;
     }
 
