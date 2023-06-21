@@ -1,8 +1,6 @@
 package edu.harvard.hms.dbmi.avillach.hpds.data.genotype;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.Serializable;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
@@ -10,6 +8,7 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
+import java.util.zip.GZIPOutputStream;
 
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedJavaIndexedStorage;
@@ -144,5 +143,18 @@ public class FileBackedByteIndexedInfoStore implements Serializable {
 		allValues.updateStorageDirectory(storageDirectory);
 	}
 
+	public void write(File outputFile)
+			throws IOException {
+		FileOutputStream fos = new FileOutputStream(outputFile);
+		GZIPOutputStream gzos = new GZIPOutputStream(fos);
+		ObjectOutputStream oos = new ObjectOutputStream(gzos);
+		oos.writeObject(this);
+		oos.flush();
+		oos.close();
+		gzos.flush();
+		gzos.close();
+		fos.flush();
+		fos.close();
+	}
 }
 

@@ -84,8 +84,8 @@ public class GenomicDatasetMerger {
     }
 
     public Map<String, FileBackedByteIndexedInfoStore> mergeVariantIndexes() throws IOException {
-        String[] variantIndex1 = loadVariantIndexFromFile(genomicDirectory1 + "variantSpecIndex.javabin");
-        String[] variantIndex2 = loadVariantIndexFromFile(genomicDirectory2 + "variantSpecIndex.javabin");
+        String[] variantIndex1 = VariantStore.loadVariantIndexFromFile(genomicDirectory1);
+        String[] variantIndex2 = VariantStore.loadVariantIndexFromFile(genomicDirectory2);
 
         Map<String, Integer> variantSpecToIndexMap = new HashMap<>();
         LinkedList<String> variantSpecList = new LinkedList<>(Arrays.asList(variantIndex1));
@@ -142,7 +142,7 @@ public class GenomicDatasetMerger {
             infoStore.allValues = mergedInfoStoreValues;
             FileBackedByteIndexedInfoStore mergedStore = new FileBackedByteIndexedInfoStore(new File(outputDirectory), infoStore);
             mergedInfoStores.put(infoStores1Entry.getKey(), mergedStore);
-            writeStore(new File(outputDirectory + infoStore.column_key + "_infoStore.javabin"), mergedStore);
+            mergedStore.write(new File(outputDirectory + infoStore.column_key + "_infoStore.javabin"));
         }
 
         try (FileOutputStream fos = new FileOutputStream(new File(outputDirectory, "variantSpecIndex.javabin"));
@@ -152,21 +152,6 @@ public class GenomicDatasetMerger {
         }
 
         return mergedInfoStores;
-    }
-
-    // todo: this is duplicated from VCFPerPatientInfoStoreToFBBIISConverter, refactor to common location
-    private void writeStore(File outputFile, FileBackedByteIndexedInfoStore fbbiis)
-            throws FileNotFoundException, IOException {
-        FileOutputStream fos = new FileOutputStream(outputFile);
-        GZIPOutputStream gzos = new GZIPOutputStream(fos);
-        ObjectOutputStream oos = new ObjectOutputStream(gzos);
-        oos.writeObject(fbbiis);
-        oos.flush();
-        oos.close();
-        gzos.flush();
-        gzos.close();
-        fos.flush();
-        fos.close();
     }
 
     private Map<String, FileBackedByteIndexedInfoStore> loadInfoStores(String directory) {
@@ -286,21 +271,5 @@ public class GenomicDatasetMerger {
         String appendedString = binaryMask1.substring(0, binaryMask1.length() - 2) +
                 binaryMask2.substring(2);
         return new BigInteger(appendedString, 2);
-    }
-
-    // todo: duplicaed from variant service, refactor
-    public String[] loadVariantIndexFromFile(String variantSpecIndexFile) {
-        try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream(variantSpecIndexFile)));){
-
-            List<String> variants = (List<String>) objectInputStream.readObject();
-            return variants.toArray(new String[0]);
-
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
     }
 }

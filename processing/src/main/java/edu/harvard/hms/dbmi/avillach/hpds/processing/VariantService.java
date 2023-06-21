@@ -31,7 +31,6 @@ public class VariantService {
     private final String VARIANT_INDEX_FBBIS_STORAGE_FILE;
     private final String VARIANT_INDEX_FBBIS_FILE;
     private final String BUCKET_INDEX_BY_SAMPLE_FILE;
-    private final String VARIANT_SPEC_INDEX_FILE;
 
 
     private final VariantStore variantStore;
@@ -56,11 +55,10 @@ public class VariantService {
     }
 
     public VariantService() throws IOException, ClassNotFoundException, InterruptedException {
-        genomicDataDirectory = System.getProperty("HPDS_DATA_HOME", "/opt/local/hpds/all/");
+        genomicDataDirectory = System.getProperty("HPDS_GENOMIC_DATA_DIRECTORY", "/opt/local/hpds/all/");
         VARIANT_INDEX_FBBIS_STORAGE_FILE = genomicDataDirectory + "variantIndex_fbbis_storage.javabin";
         VARIANT_INDEX_FBBIS_FILE = genomicDataDirectory + "variantIndex_fbbis.javabin";
         BUCKET_INDEX_BY_SAMPLE_FILE = genomicDataDirectory + "BucketIndexBySample.javabin";
-        VARIANT_SPEC_INDEX_FILE = genomicDataDirectory + "variantSpecIndex.javabin";
 
         variantStore = VariantStore.deserializeInstance(genomicDataDirectory);
         try {
@@ -77,25 +75,10 @@ public class VariantService {
             return new String[0];
         }
 
-        String[] variantIndex = loadVariantIndexFromFile(VARIANT_SPEC_INDEX_FILE);
+        String[] variantIndex = VariantStore.loadVariantIndexFromFile(genomicDataDirectory);
 
         log.info("Index created with " + variantIndex.length + " total variants.");
         return variantIndex;
-    }
-
-    public static String[] loadVariantIndexFromFile(String variantSpecIndexFile) {
-        try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream(variantSpecIndexFile)));){
-
-            List<String> variants = (List<String>) objectInputStream.readObject();
-            return variants.toArray(new String[0]);
-
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     /**

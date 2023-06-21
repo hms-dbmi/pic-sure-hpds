@@ -295,7 +295,7 @@ public class NewVCFLoader {
 				try {
 					if (variantMaskStorage_f.get(lastContigProcessed_f) == null) {
 						String fileName = lastContigProcessed_f + "masks.bin";
-						if ("chr".startsWith(fileName)) {
+						if (!fileName.startsWith("chr")) {
 							fileName = "chr" + fileName;
 						}
 
@@ -386,7 +386,7 @@ public class NewVCFLoader {
 
 	private static ConcurrentHashMap<String, VariantMasks> convertLoadingMapToMaskMap(
 			HashMap<String, char[][]> zygosityMaskStrings_f) {
-		ConcurrentHashMap<String, VariantMasks> maskMap = new ConcurrentHashMap<>();
+		ConcurrentHashMap<String, VariantMasks> maskMap = new ConcurrentHashMap<>(zygosityMaskStrings_f.size());
 		zygosityMaskStrings_f.entrySet().parallelStream().forEach((entry) -> {
 			maskMap.put(entry.getKey(), new VariantMasks(entry.getValue()));
 		});

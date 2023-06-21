@@ -18,6 +18,8 @@ public class VariantStore implements Serializable {
 	private static Logger log = LoggerFactory.getLogger(VariantStore.class);
 	public static final int BUCKET_SIZE = 1000;
 
+	public static final String VARIANT_SPEC_INDEX_FILE = "variantSpecIndex.javabin";
+
 	private BigInteger emptyBitmask;
 	private String[] patientIds;
 
@@ -41,6 +43,9 @@ public class VariantStore implements Serializable {
 			VariantStore variantStore = (VariantStore) ois.readObject();
 			ois.close();
 			variantStore.open();
+			variantStore.getVariantMaskStorage().values().forEach(store -> {
+				store.updateStorageDirectory(new File(genomicDataDirectory));
+			});
 			return variantStore;
 		} else {
 			//we still need an object to reference when checking the variant store, even if it's empty.
@@ -200,6 +205,21 @@ public class VariantStore implements Serializable {
 			emptyBitmask = new BigInteger("11" + emptyVariantMask + "11", 2);
 		}
 		return emptyBitmask;
+	}
+
+	public static String[] loadVariantIndexFromFile(String genomicDataDirectory) {
+		try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream(genomicDataDirectory + "/" + VARIANT_SPEC_INDEX_FILE)));){
+
+			List<String> variants = (List<String>) objectInputStream.readObject();
+			return variants.toArray(new String[0]);
+
+		} catch (FileNotFoundException e) {
+			throw new RuntimeException(e);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		} catch (ClassNotFoundException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 }
