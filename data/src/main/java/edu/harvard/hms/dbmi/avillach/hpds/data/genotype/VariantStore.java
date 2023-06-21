@@ -42,10 +42,10 @@ public class VariantStore implements Serializable {
 			ObjectInputStream ois = new ObjectInputStream(new GZIPInputStream(new FileInputStream(genomicDataDirectory + "variantStore.javabin")));
 			VariantStore variantStore = (VariantStore) ois.readObject();
 			ois.close();
-			variantStore.open();
 			variantStore.getVariantMaskStorage().values().forEach(store -> {
 				store.updateStorageDirectory(new File(genomicDataDirectory));
 			});
+			variantStore.open();
 			return variantStore;
 		} else {
 			//we still need an object to reference when checking the variant store, even if it's empty.
