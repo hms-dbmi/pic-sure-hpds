@@ -48,6 +48,13 @@
 			<artifactId>htsjdk</artifactId>
 			<version>2.19.0</version>
 		</dependency>
+		<dependency>
+   			<groupId>com.googlecode.json-simple</groupId>
+    		<artifactId>json-simple</artifactId>
+    		<version>1.1.1</version>
+		</dependency>
+
+		
 	</dependencies>
 	<build>
 		<plugins>
@@ -310,6 +317,26 @@
 							</descriptorRefs>
 							<classifier>CSVLoaderNewSearch</classifier>
 							<finalName>CSVLoaderNewSearch</finalName>
+						</configuration>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>UpdateClinicalVariableCounts</id>
+						<configuration>
+							<archive>
+								<manifest>
+									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.util.UpdateClinicalVariableCounts</mainClass>
+								</manifest>
+							</archive>
+							<outputDirectory>${project.basedir}/../docker/pic-sure-hpds-etl</outputDirectory>
+							<descriptorRefs>
+								<descriptorRef>jar-with-dependencies</descriptorRef>
+							</descriptorRefs>
+							<classifier>UpdateClinicalVariableCounts</classifier>
+							<finalName>UpdateClinicalVariableCounts</finalName>
 						</configuration>
 						<phase>package</phase>
 						<goals>
