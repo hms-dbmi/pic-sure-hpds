@@ -477,7 +477,7 @@ public class NewVCFLoader {
 			String currentSpecNotation = currentSpecNotation();
 			int variantIndex = variantIndexBuilder.getIndex(currentSpecNotation);
 			infoStores.values().parallelStream().forEach(infoStore -> {
-				infoStore.processRecord(Integer.toString(variantIndex), infoColumns);
+				infoStore.processRecord(variantIndex, infoColumns);
 			});
 		}
 

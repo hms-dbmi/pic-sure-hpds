@@ -123,18 +123,18 @@ public class GenomicDatasetMerger {
         for (Map.Entry<String, FileBackedByteIndexedInfoStore> infoStores1Entry : infoStores1.entrySet()) {
             FileBackedByteIndexedInfoStore infoStore2 = infoStores2.get(infoStores1Entry.getKey());
 
-            FileBackedByteIndexedStorage<String, String[]> allValuesStore1 = infoStores1Entry.getValue().getAllValues();
-            FileBackedByteIndexedStorage<String, String[]> allValuesStore2 = infoStore2.getAllValues();
+            FileBackedByteIndexedStorage<String, Integer[]> allValuesStore1 = infoStores1Entry.getValue().getAllValues();
+            FileBackedByteIndexedStorage<String, Integer[]> allValuesStore2 = infoStore2.getAllValues();
             //FileBackedByteIndexedStorage<String, String[]> mergedIndexedStorage = new FileBackedJavaIndexedStorage<>(String.class, String[].class, new File(outputDirectory));
-            ConcurrentHashMap<String, ConcurrentSkipListSet<String>> mergedInfoStoreValues = new ConcurrentHashMap<>();
+            ConcurrentHashMap<String, ConcurrentSkipListSet<Integer>> mergedInfoStoreValues = new ConcurrentHashMap<>();
 
             Sets.SetView<String> allKeys = Sets.intersection(allValuesStore1.keys(), allValuesStore2.keys());
             for (String key : allKeys) {
-                Set<String> store1Values = new HashSet<>(Arrays.asList(allValuesStore1.getOrELse(key, new String[]{})));
-                Set<String> store2Values = new HashSet<>(Arrays.asList(allValuesStore2.getOrELse(key, new String[]{})));
-                Set<String> remappedValuesStore2 = store2Values.stream().map(Integer::parseInt).map(value -> remappedIndexes[value]).map(Object::toString).collect(Collectors.toSet());
+                Set<Integer> store1Values = new HashSet<>(Arrays.asList(allValuesStore1.getOrELse(key, new Integer[]{})));
+                Set<Integer> store2Values = new HashSet<>(Arrays.asList(allValuesStore2.getOrELse(key, new Integer[]{})));
+                Set<Integer> remappedValuesStore2 = store2Values.stream().map(value -> remappedIndexes[value]).collect(Collectors.toSet());
 
-                Set<String> mergedValues = Sets.union(store1Values, remappedValuesStore2);
+                Set<Integer> mergedValues = Sets.union(store1Values, remappedValuesStore2);
                 mergedInfoStoreValues.put(key, new ConcurrentSkipListSet<>(mergedValues));
             }
 
