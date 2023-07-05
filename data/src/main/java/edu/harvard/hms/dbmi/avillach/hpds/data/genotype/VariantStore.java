@@ -12,6 +12,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 public class VariantStore implements Serializable {
 	private static final long serialVersionUID = -6970128712587609414L;
@@ -37,7 +38,7 @@ public class VariantStore implements Serializable {
 		this.variantMaskStorage = variantMaskStorage;
 	}
 
-	public static VariantStore deserializeInstance(String genomicDataDirectory) throws IOException, ClassNotFoundException, InterruptedException {
+	public static VariantStore readInstance(String genomicDataDirectory) throws IOException, ClassNotFoundException {
 		if(new File(genomicDataDirectory + "variantStore.javabin").exists()) {
 			ObjectInputStream ois = new ObjectInputStream(new GZIPInputStream(new FileInputStream(genomicDataDirectory + "variantStore.javabin")));
 			VariantStore variantStore = (VariantStore) ois.readObject();
@@ -52,6 +53,18 @@ public class VariantStore implements Serializable {
 			VariantStore variantStore = new VariantStore();
 			variantStore.setPatientIds(new String[0]);
 			return variantStore;
+		}
+	}
+
+	public void writeInstance(String genomicDirectory) {
+		try (FileOutputStream fos = new FileOutputStream(new File(genomicDirectory, "variantStore.javabin"));
+			 GZIPOutputStream gzos = new GZIPOutputStream(fos);
+			 ObjectOutputStream oos = new ObjectOutputStream(gzos);) {
+			oos.writeObject(this);
+		} catch (RuntimeException e) {
+			throw e;
+		} catch (Exception e) {
+			throw new RuntimeException(e);
 		}
 	}
 

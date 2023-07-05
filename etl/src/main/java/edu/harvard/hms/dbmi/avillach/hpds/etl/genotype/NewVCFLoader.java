@@ -325,11 +325,7 @@ public class NewVCFLoader {
 			if (storage != null)
 				storage.complete();
 		}
-		try (FileOutputStream fos = new FileOutputStream(new File(storageDir, "variantStore.javabin"));
-				GZIPOutputStream gzos = new GZIPOutputStream(fos);
-				ObjectOutputStream oos = new ObjectOutputStream(gzos);) {
-			oos.writeObject(store);
-		}
+		store.writeInstance(storageDirStr);
 		logger.debug("Done saving variant masks.");
 	}
 

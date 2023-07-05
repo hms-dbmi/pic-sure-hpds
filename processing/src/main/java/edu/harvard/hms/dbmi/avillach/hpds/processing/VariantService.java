@@ -60,7 +60,7 @@ public class VariantService {
         VARIANT_INDEX_FBBIS_FILE = genomicDataDirectory + "variantIndex_fbbis.javabin";
         BUCKET_INDEX_BY_SAMPLE_FILE = genomicDataDirectory + "BucketIndexBySample.javabin";
 
-        variantStore = VariantStore.deserializeInstance(genomicDataDirectory);
+        variantStore = VariantStore.readInstance(genomicDataDirectory);
         try {
             loadGenomicCacheFiles();
         } catch (Exception e) {

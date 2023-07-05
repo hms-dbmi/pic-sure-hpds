@@ -33,8 +33,8 @@ public class GenomicDatasetMerger {
     public GenomicDatasetMerger(String genomicDirectory1, String genomicDirectory2, String outputDirectory) throws IOException, ClassNotFoundException, InterruptedException {
         this.genomicDirectory1 = genomicDirectory1;
         this.genomicDirectory2 = genomicDirectory2;
-        this.variantStore1 = VariantStore.deserializeInstance(genomicDirectory1);
-        this.variantStore2 = VariantStore.deserializeInstance(genomicDirectory2);
+        this.variantStore1 = VariantStore.readInstance(genomicDirectory1);
+        this.variantStore2 = VariantStore.readInstance(genomicDirectory2);
 
         validate();
         this.outputDirectory = outputDirectory;
@@ -71,16 +71,7 @@ public class GenomicDatasetMerger {
         VariantStore mergedVariantStore = new VariantStore();
         mergedVariantStore.setVariantMaskStorage(mergedChromosomeMasks);
         mergedVariantStore.setPatientIds(mergePatientIds());
-        // todo: duplicated from NewVCFLoader, refactor to common location
-        try (FileOutputStream fos = new FileOutputStream(new File(outputDirectory, "variantStore.javabin"));
-             GZIPOutputStream gzos = new GZIPOutputStream(fos);
-             ObjectOutputStream oos = new ObjectOutputStream(gzos);) {
-            oos.writeObject(mergedVariantStore);
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        mergedVariantStore.writeInstance(outputDirectory);
     }
 
     public Map<String, FileBackedByteIndexedInfoStore> mergeVariantIndexes() throws IOException {
