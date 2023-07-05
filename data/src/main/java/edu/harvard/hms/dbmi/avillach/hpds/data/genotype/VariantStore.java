@@ -39,21 +39,14 @@ public class VariantStore implements Serializable {
 	}
 
 	public static VariantStore readInstance(String genomicDataDirectory) throws IOException, ClassNotFoundException {
-		if(new File(genomicDataDirectory + "variantStore.javabin").exists()) {
-			ObjectInputStream ois = new ObjectInputStream(new GZIPInputStream(new FileInputStream(genomicDataDirectory + "variantStore.javabin")));
-			VariantStore variantStore = (VariantStore) ois.readObject();
-			ois.close();
-			variantStore.getVariantMaskStorage().values().forEach(store -> {
-				store.updateStorageDirectory(new File(genomicDataDirectory));
-			});
-			variantStore.open();
-			return variantStore;
-		} else {
-			//we still need an object to reference when checking the variant store, even if it's empty.
-			VariantStore variantStore = new VariantStore();
-			variantStore.setPatientIds(new String[0]);
-			return variantStore;
-		}
+		ObjectInputStream ois = new ObjectInputStream(new GZIPInputStream(new FileInputStream(genomicDataDirectory + "variantStore.javabin")));
+		VariantStore variantStore = (VariantStore) ois.readObject();
+		ois.close();
+		variantStore.getVariantMaskStorage().values().forEach(store -> {
+			store.updateStorageDirectory(new File(genomicDataDirectory));
+		});
+		variantStore.open();
+		return variantStore;
 	}
 
 	public void writeInstance(String genomicDirectory) {

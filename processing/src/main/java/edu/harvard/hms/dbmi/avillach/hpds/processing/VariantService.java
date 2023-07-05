@@ -60,12 +60,24 @@ public class VariantService {
         VARIANT_INDEX_FBBIS_FILE = genomicDataDirectory + "variantIndex_fbbis.javabin";
         BUCKET_INDEX_BY_SAMPLE_FILE = genomicDataDirectory + "BucketIndexBySample.javabin";
 
-        variantStore = VariantStore.readInstance(genomicDataDirectory);
+        variantStore = loadVariantStore();
         try {
             loadGenomicCacheFiles();
         } catch (Exception e) {
             log.error("Failed to load genomic data: " + e.getLocalizedMessage(), e);
         }
+    }
+
+    private VariantStore loadVariantStore() {
+        VariantStore variantStore;
+        try {
+            variantStore = VariantStore.readInstance(genomicDataDirectory);
+        } catch (Exception e) {
+            variantStore = new VariantStore();
+            variantStore.setPatientIds(new String[0]);
+            log.warn("Unable to load variant store");
+        }
+        return variantStore;
     }
 
     public String[] loadVariantIndex() {
