@@ -33,6 +33,9 @@ public class CSVLoaderNewSearch {
 
 	private static boolean DO_VARNAME_ROLLUP = false;
 	
+	private static String HPDS_DIRECTORY = "/opt/local/hpds/";
+
+	
 	public static void main(String[] args) throws IOException {
 		if(args.length > 1) {
 			if(args[0].equalsIgnoreCase("NO_ROLLUP")) {
@@ -42,7 +45,7 @@ public class CSVLoaderNewSearch {
 		}
 		store.allObservationsStore = new RandomAccessFile("/opt/local/hpds/allObservationsStore.javabin", "rw");
 		initialLoad();
-		store.saveStore();
+		store.saveStore(HPDS_DIRECTORY);
 		store.dumpStatsAndColumnMeta();
 	}
 
