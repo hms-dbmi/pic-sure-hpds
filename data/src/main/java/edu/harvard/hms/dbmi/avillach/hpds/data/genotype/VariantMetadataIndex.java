@@ -1,11 +1,10 @@
 package edu.harvard.hms.dbmi.avillach.hpds.data.genotype;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.Serializable;
+import java.io.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.util.zip.GZIPInputStream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +20,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
  * a fast, disk-based backing store.
  */
 public class VariantMetadataIndex implements Serializable {
+	// todo: make this variable
 	public static String VARIANT_METADATA_BIN_FILE = "/opt/local/hpds/all/VariantMetadata.javabin";
 	
 	private static final long serialVersionUID = 5917054606643971537L;
@@ -28,6 +28,8 @@ public class VariantMetadataIndex implements Serializable {
 
 	// (String) contig  --> (Integer) Bucket -->  (String) variant spec --> INFO column data[].
 	private Map<String,  FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> > indexMap = new HashMap<String,  FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> >();
+
+	// todo: make this variable
 	private static String fileStoragePrefix = "/opt/local/hpds/all/VariantMetadataStorage";
 
 	/**
@@ -190,5 +192,16 @@ public class VariantMetadataIndex implements Serializable {
 			contigFbbis.complete();
 		}
 		
+	}
+
+	public static VariantMetadataIndex createInstance(String metadataIndexPath) {
+		try(ObjectInputStream in = new ObjectInputStream(new GZIPInputStream(
+				new FileInputStream(metadataIndexPath)))){
+			return (VariantMetadataIndex) in.readObject();
+		} catch(Exception e) {
+			// todo: handle exceptions better
+			log.error("No Metadata Index found at " + metadataIndexPath, e);
+			return null;
+		}
 	}
 }

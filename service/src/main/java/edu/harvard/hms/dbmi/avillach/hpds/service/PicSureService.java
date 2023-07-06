@@ -11,8 +11,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
+import edu.harvard.hms.dbmi.avillach.hpds.service.util.Paginator;
 import org.apache.http.entity.ContentType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,43 +33,43 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.FileBackedByteIndexedInf
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.*;
+import org.springframework.stereotype.Component;
 
 @Path("PIC-SURE")
 @Produces("application/json")
+@Component("picSureService")
 public class PicSureService implements IResourceRS {
 
-	public PicSureService() {
-		try {
-			countProcessor = new CountProcessor();
-			timelineProcessor = new TimelineProcessor();
-			variantListProcessor = new VariantListProcessor();
-			responseCache = Caffeine.newBuilder()
-					.maximumSize(RESPONSE_CACHE_SIZE)
-					.build();
-		} catch (ClassNotFoundException | IOException e3) {
-			log.error("ClassNotFoundException or IOException caught: ", e3);
-		}
+	@Autowired
+	public PicSureService(QueryService queryService, TimelineProcessor timelineProcessor, CountProcessor countProcessor,
+						  VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor, Paginator paginator) {
+		this.queryService = queryService;
+		this.timelineProcessor = timelineProcessor;
+		this.countProcessor = countProcessor;
+		this.variantListProcessor = variantListProcessor;
+		this.abstractProcessor = abstractProcessor;
+		this.paginator = paginator;
 		Crypto.loadDefaultKey();
 	}
 
-	@Autowired
-	private QueryService queryService;
+	private final QueryService queryService;
 
 	private final ObjectMapper mapper = new ObjectMapper();
 
 	private Logger log = LoggerFactory.getLogger(PicSureService.class);
 
-	private TimelineProcessor timelineProcessor;
+	private final TimelineProcessor timelineProcessor;
 
-	private CountProcessor countProcessor;
+	private final CountProcessor countProcessor;
 
-	private VariantListProcessor variantListProcessor;
+	private final VariantListProcessor variantListProcessor;
+
+	private final AbstractProcessor abstractProcessor;
+
+	private final Paginator paginator;
 
 	private static final String QUERY_METADATA_FIELD = "queryMetadata";
 	private static final int RESPONSE_CACHE_SIZE = 50;
-
-	//sync and async queries have different execution paths, so we cache them separately.
-	protected static Cache<String, Response> responseCache;
 
 	@POST
 	@Path("/info")
@@ -140,7 +139,7 @@ public class PicSureService implements IResourceRS {
 	@POST
 	@Path("/search")
 	public SearchResults search(QueryRequest searchJson) {
-		Set<Entry<String, ColumnMeta>> allColumns = queryService.getDataDictionary().entrySet();
+		Set<Entry<String, ColumnMeta>> allColumns = abstractProcessor.getDictionary().entrySet();
 
 		// Phenotype Values
 		Object phenotypeResults = searchJson.getQuery() != null ? allColumns.stream().filter((entry) -> {
@@ -152,8 +151,8 @@ public class PicSureService implements IResourceRS {
 
 		// Info Values
 		Map<String, Map> infoResults = new TreeMap<String, Map>();
-		AbstractProcessor.infoStoreColumns.stream().forEach((String infoColumn) -> {
-			FileBackedByteIndexedInfoStore store = AbstractProcessor.getInfoStore(infoColumn);
+		abstractProcessor.getInfoStoreColumns().stream().forEach((String infoColumn) -> {
+			FileBackedByteIndexedInfoStore store = abstractProcessor.getInfoStore(infoColumn);
 			if (store != null) {
 				String query = searchJson.getQuery().toString();
 				String lowerCase = query.toLowerCase();
@@ -162,7 +161,7 @@ public class PicSureService implements IResourceRS {
 						|| store.column_key.toLowerCase().contains(lowerCase)) {
 					infoResults.put(infoColumn,
 							ImmutableMap.of("description", store.description, "values",
-									store.isContinuous ? new ArrayList<String>() : store.allValues.keys(), "continuous",
+									store.isContinuous ? new ArrayList<String>() : store.getAllValues().keys(), "continuous",
 									storeIsNumeric));
 				} else {
 					List<String> searchResults = store.search(query);
@@ -277,16 +276,7 @@ public class PicSureService implements IResourceRS {
 	public Response querySync(QueryRequest resultRequest) {
 		if (Crypto.hasKey(Crypto.DEFAULT_KEY_NAME)) {
 			try {
-				Query incomingQuery = convertIncomingQuery(resultRequest);
-				String queryID = UUIDv5.UUIDFromString(incomingQuery.toString()).toString();
-				Response cachedResponse = responseCache.getIfPresent(queryID);
-				if (cachedResponse != null) {
-					return cachedResponse;
-				} else {
-					Response response = _querySync(resultRequest);
-					responseCache.put(queryID, response);
-					return response;
-				}
+				return _querySync(resultRequest);
 			} catch (IOException e) {
 				log.error("IOException  caught: ", e);
 				return Response.serverError().build();
@@ -296,16 +286,35 @@ public class PicSureService implements IResourceRS {
 		}
 	}
 
+	@GET
+	@Path("/search/values/")
+	@Override
+	public PaginatedSearchResult<String> searchGenomicConceptValues(
+			@QueryParam("genomicConceptPath") String genomicConceptPath,
+			@QueryParam("query") String query,
+			@QueryParam("page") int page,
+			@QueryParam("size") int size
+	) {
+		if (page < 1) {
+			throw new IllegalArgumentException("Page must be greater than 0");
+		}
+		if (size < 1) {
+			throw new IllegalArgumentException("Size must be greater than 0");
+		}
+		final List<String> matchingValues = abstractProcessor.searchInfoConceptValues(genomicConceptPath, query);
+		return paginator.paginate(matchingValues, page, size);
+	}
+
 	private Response _querySync(QueryRequest resultRequest) throws IOException {
 		Query incomingQuery;
 		incomingQuery = convertIncomingQuery(resultRequest);
 		log.info("Query Converted");
-		switch (incomingQuery.expectedResultType) {
+		switch (incomingQuery.getExpectedResultType()) {
 
 		case INFO_COLUMN_LISTING:
 			ArrayList<Map> infoStores = new ArrayList<>();
-			AbstractProcessor.infoStoreColumns.stream().forEach((infoColumn) -> {
-				FileBackedByteIndexedInfoStore store = AbstractProcessor.getInfoStore(infoColumn);
+			abstractProcessor.getInfoStoreColumns().stream().forEach((infoColumn) -> {
+				FileBackedByteIndexedInfoStore store = abstractProcessor.getInfoStore(infoColumn);
 				if (store != null) {
 					infoStores.add(ImmutableMap.of("key", store.column_key, "description", store.description,
 							"isContinuous", store.isContinuous, "min", store.min, "max", store.max));
@@ -314,6 +323,7 @@ public class PicSureService implements IResourceRS {
 			return Response.ok(infoStores, MediaType.APPLICATION_JSON_VALUE).build();
 
 		case DATAFRAME:
+		case SECRET_ADMIN_DATAFRAME:
 		case DATAFRAME_MERGED:
 			QueryStatus status = query(resultRequest);
 			while (status.getResourceStatus().equalsIgnoreCase("RUNNING")

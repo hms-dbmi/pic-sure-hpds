@@ -89,13 +89,13 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 	public ExecutorService jobQueue;
 
 	@JsonIgnore
-	public AbstractProcessor processor;
+	public HpdsProcessor processor;
 
 	public AsyncResult(Query query, String[] headerRow) {
 		this.query = query;
 		this.headerRow = headerRow;
 		try {
-			stream = new ResultStoreStream(headerRow, query.expectedResultType==ResultType.DATAFRAME_MERGED);
+			stream = new ResultStoreStream(headerRow, query.getExpectedResultType() == ResultType.DATAFRAME_MERGED);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -107,27 +107,13 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 		status = AsyncResult.Status.RUNNING;
 		long startTime = System.currentTimeMillis();
 		try {
-			try {
-				processor.runQuery(query, this);
-			} catch(NotEnoughMemoryException e) {
-				if(this.retryCount < 3) {
-					log.info("Requeueing " + this.id);
-					e.printStackTrace();
-					this.status = AsyncResult.Status.RETRY;
-					this.retryCount ++;
-					this.enqueue();
-				}else {
-					this.status = AsyncResult.Status.ERROR;
-				}
-				return;
-			}
+			processor.runQuery(query, this);
 			this.numColumns = this.headerRow.length;
 			this.numRows = stream.getNumRows();
 			log.info("Ran Query in " + (System.currentTimeMillis()-startTime) + "ms for " + stream.getNumRows() + " rows and " + this.headerRow.length + " columns");
 			this.status = AsyncResult.Status.SUCCESS;
 		} catch (Exception e) {
-			log.error("Query failed in " + (System.currentTimeMillis()-startTime) + "ms");
-			e.printStackTrace();
+			log.error("Query failed in " + (System.currentTimeMillis()-startTime) + "ms", e);
 			this.status = AsyncResult.Status.ERROR;
 		} finally {
 			this.completedTime = System.currentTimeMillis();
@@ -139,13 +125,12 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 		this.jobQueue.execute(this);
 		} catch (RejectedExecutionException e) {
 			this.status = AsyncResult.Status.ERROR;
-//			this.stream = new ByteArrayInputStream("Server is too busy to handle your request at this time.".getBytes());
 		}
 	}
 
 	@Override
 	public int compareTo(AsyncResult o) {
-		return this.query.id.compareTo(o.query.id);
+		return this.query.getId().compareTo(o.query.getId());
 	}
 	
 }

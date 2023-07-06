@@ -176,9 +176,9 @@ public class NewVCFLoader {
 		if (logger.isDebugEnabled()) {
 			// Log out the first and last 50 variants
 			int[] count = { 0 };
-			for (String contig : store.variantMaskStorage.keySet()) {
+			for (String contig : store.getVariantMaskStorage().keySet()) {
 				ArrayList<Integer> chunkIds = new ArrayList<>();
-				FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>> chromosomeStorage = store.variantMaskStorage
+				FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>> chromosomeStorage = store.getVariantMaskStorage()
 						.get(contig);
 				if (chromosomeStorage != null) {
 					// print out the top and bottom 50 variants in the store (that have masks)
@@ -286,9 +286,13 @@ public class NewVCFLoader {
 			chunkWriteEx.execute(() -> {
 				try {
 					if (variantMaskStorage_f.get(lastContigProcessed_f) == null) {
+						String fileName = lastContigProcessed_f + "masks.bin";
+						if ("chr".startsWith(fileName)) {
+							fileName = "chr" + fileName;
+						}
 						variantMaskStorage_f.put(lastContigProcessed_f,
 								new FileBackedByteIndexedStorage(Integer.class, ConcurrentHashMap.class,
-										new File(storageDir, "chr" + lastContigProcessed_f + "masks.bin")));
+										new File(storageDir, fileName)));
 					}
 					variantMaskStorage_f.get(lastContigProcessed_f).put(lastChunkProcessed_f,
 							convertLoadingMapToMaskMap(zygosityMaskStrings_f));
@@ -307,7 +311,7 @@ public class NewVCFLoader {
 	private static void saveVariantStore(VariantStore store,
 			TreeMap<String, FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage)
 			throws IOException, FileNotFoundException {
-		store.variantMaskStorage = variantMaskStorage;
+		store.setVariantMaskStorage(variantMaskStorage);
 		for (FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>> storage : variantMaskStorage
 				.values()) {
 			if (storage != null)
@@ -318,8 +322,6 @@ public class NewVCFLoader {
 				ObjectOutputStream oos = new ObjectOutputStream(gzos);) {
 			oos.writeObject(store);
 		}
-		store = null;
-		variantMaskStorage = null;
 		logger.debug("Done saving variant masks.");
 	}
 
