@@ -142,7 +142,7 @@ public class BucketIndexBySample implements Serializable {
 				}
 			}
 		}).start();
-		
+
 		patientIds.parallelStream().forEach((patientId)->{
 			try {
 				BigInteger patientMask = new BigInteger(new String(patientBucketCharMasks[patientIds.indexOf(patientId)]),2);
@@ -153,6 +153,10 @@ public class BucketIndexBySample implements Serializable {
 				e.printStackTrace();
 			}
 			processedPatients[0] += 1;
+			int processedPatientsCount = processedPatients[0];
+			if (processedPatientsCount % 1000 == 0) {
+				log.info("wrote " + processedPatientsCount + " patient bucket masks");
+			}
 		});
 		patientBucketMasks.complete();
 		log.info("Done creating patient bucket masks");
