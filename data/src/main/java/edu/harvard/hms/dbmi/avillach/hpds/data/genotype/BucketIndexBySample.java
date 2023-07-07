@@ -127,21 +127,6 @@ public class BucketIndexBySample implements Serializable {
 		//the process to write out the bucket masks takes a very long time.  
 		//Lets spin up another thread that occasionally logs progress
 		int[] processedPatients = new int[1];
-		processedPatients[0] = 0;
-		new Thread(new Runnable() {
-			@Override
-			public void run() {
-				log.info("writing patient bucket masks to backing store (this may take some time).");
-				while(!patientBucketMasks.isComplete()) {
-					try {
-						Thread.sleep(5 * 1000 * 60); //log a message every 5 minutes
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}  
-					log.info("wrote " + processedPatients[0] + " patient bucket masks");
-				}
-			}
-		}).start();
 
 		patientIds.parallelStream().forEach((patientId)->{
 			try {
