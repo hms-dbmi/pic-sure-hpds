@@ -58,25 +58,6 @@ public class VariantStore implements Serializable {
 		}
 	}
 
-	public ArrayList<String> listVariants() {
-		ArrayList<String> allVariants = new ArrayList<>();
-		for (String key : variantMaskStorage.keySet()) {
-			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>> storage = variantMaskStorage
-					.get(key);
-			storage.keys().stream().forEach((Integer bucket) -> {
-				try {
-					for (String variant : storage.get(bucket).keySet()) {
-						allVariants.add(variant);
-					}
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			});
-		}
-		return allVariants;
-	}
-
 	public Map<String, int[]> countVariants() {
 		HashMap<String, Integer> countOffsetMap = new HashMap<String, Integer>();
 		TreeMap<String, int[]> counts = new TreeMap<>();

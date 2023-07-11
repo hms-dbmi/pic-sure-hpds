@@ -22,6 +22,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Range;
 
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CompressedIndex implements Serializable {
 
@@ -29,6 +31,7 @@ public class CompressedIndex implements Serializable {
 	 * 
 	 */
 	private static final long serialVersionUID = 5089713203903957829L;
+	private static final Logger log = LoggerFactory.getLogger(CompressedIndex.class);
 	public Float min = Float.MAX_VALUE, max = Float.MIN_VALUE;
 	private HashMap<Range<Float>, byte[]> compressedRangeMap;
 	private int valueCount;
@@ -114,8 +117,7 @@ public class CompressedIndex implements Serializable {
 								gzos.close();
 								compressed = baos.toByteArray();
 							} catch (IOException e) {
-								// TODO Auto-generated catch block
-								e.printStackTrace();
+								log.error("Error writing range map", e);
 							}
 							return compressed;
 						})
@@ -174,11 +176,9 @@ public class CompressedIndex implements Serializable {
 				){
 			continousValueMap = (TreeMap<Double, TreeSet<String>>)ois.readObject();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			log.error("Error reading range map from file", e);
 		} catch (ClassNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			log.error("Error deserializing range map", e);
 		}
 		return continousValueMap;
 	}
