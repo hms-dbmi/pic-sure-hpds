@@ -86,8 +86,7 @@ public class VariantStore implements Serializable {
 								|| masks.heterozygousNoCallMask != null || masks.homozygousNoCallMask != null ? 1 : 0;
 					}));
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+					throw new UncheckedIOException(e);
 				}
 			});
 		}
@@ -137,8 +136,7 @@ public class VariantStore implements Serializable {
 				try {
 					fbbis.open();
 				} catch (FileNotFoundException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+					throw new UncheckedIOException(e);
 				}
 			}
 		}));

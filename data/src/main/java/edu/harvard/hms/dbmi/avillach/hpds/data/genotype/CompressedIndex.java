@@ -1,10 +1,6 @@
 package edu.harvard.hms.dbmi.avillach.hpds.data.genotype;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -64,7 +60,7 @@ public class CompressedIndex implements Serializable {
 							continuousValueMap.put(DoubleValue, currentValues);
 							setMinAndMax(DoubleValue);
 						}catch(NumberFormatException e3) {
-							System.out.println("Unable to parse value : " + value.trim());
+							log.info("Unable to parse value : " + value.trim());
 						}
 					}
 				}
@@ -117,7 +113,7 @@ public class CompressedIndex implements Serializable {
 								gzos.close();
 								compressed = baos.toByteArray();
 							} catch (IOException e) {
-								log.error("Error writing range map", e);
+								throw new UncheckedIOException(e);
 							}
 							return compressed;
 						})
@@ -176,9 +172,9 @@ public class CompressedIndex implements Serializable {
 				){
 			continousValueMap = (TreeMap<Double, TreeSet<String>>)ois.readObject();
 		} catch (IOException e) {
-			log.error("Error reading range map from file", e);
+			throw new UncheckedIOException(e);
 		} catch (ClassNotFoundException e) {
-			log.error("Error deserializing range map", e);
+			throw new RuntimeException(e);
 		}
 		return continousValueMap;
 	}

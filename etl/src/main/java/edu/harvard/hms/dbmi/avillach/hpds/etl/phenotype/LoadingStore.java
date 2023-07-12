@@ -54,20 +54,17 @@ public class LoadingStore {
 							columnMeta.setMax(max);
 						}
 						ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-						try {
 
-							ObjectOutputStream out = new ObjectOutputStream(byteStream);
-							out.writeObject(arg0.getValue());
-							out.flush();
-							out.close();
-						} catch (IOException e) {
-							e.printStackTrace();
-						}
+						ObjectOutputStream out = new ObjectOutputStream(byteStream);
+						out.writeObject(arg0.getValue());
+						out.flush();
+						out.close();
+
 						allObservationsStore.write(Crypto.encryptData(byteStream.toByteArray()));
 						columnMeta.setAllObservationsLength(allObservationsStore.getFilePointer());
 						metadataMap.put(columnMeta.getName(), columnMeta);
-					} catch (IOException e1) {
-						e1.printStackTrace();
+					} catch (IOException e) {
+						throw new UncheckedIOException(e);
 					}
 				}
 

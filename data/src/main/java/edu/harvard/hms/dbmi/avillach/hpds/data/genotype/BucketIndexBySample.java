@@ -100,7 +100,7 @@ public class BucketIndexBySample implements Serializable {
 									}
 								});
 							} catch (IOException e) {
-								log.error("Error getting bucket", e);
+								throw new UncheckedIOException(e);
 							}
 							
 							// For each patient set the patientBucketCharMask entry to 0 or 1 if they have a variant in the bucket.
@@ -149,7 +149,7 @@ public class BucketIndexBySample implements Serializable {
 			}catch(NumberFormatException e) {
 				log.error("NFE caught for " + patientId, e);
 			} catch (IOException e) {
-				log.error("Error writing patient bucket masks", e);
+				throw new UncheckedIOException(e);
 			}
 			processedPatients[0] += 1;
 		});
@@ -178,9 +178,9 @@ public class BucketIndexBySample implements Serializable {
 			try {
 				return patientBucketMasks.get(patientNum);
 			} catch (IOException e) {
-				log.error("Error getting mask for patient", e);
+				throw new UncheckedIOException(e);
 			}
-			return _defaultMask;
+			//return _defaultMask;
 		}).collect(Collectors.toList());
 		for(BigInteger patientMask : patientBucketmasksForSet) {
 			patientBucketMask = patientMask.or(patientBucketMask);
