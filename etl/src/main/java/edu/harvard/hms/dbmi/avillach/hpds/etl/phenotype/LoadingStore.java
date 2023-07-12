@@ -145,7 +145,6 @@ public class LoadingStore {
 			System.out.println("Total Number of Observations : " + totalNumberOfObservations);
 			
 		} catch (IOException | ClassNotFoundException e) {
-			e.printStackTrace();
 			throw new RuntimeException("Could not load metastore");
 		}
 	}

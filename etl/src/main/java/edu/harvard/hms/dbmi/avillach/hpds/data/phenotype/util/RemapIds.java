@@ -124,7 +124,7 @@ public class RemapIds {
 				store.allIds.add(patientId);
 			}
 		} catch (ExecutionException e) {
-			e.printStackTrace();
+			log.error("Error processing record", e);
 		}
 	}
 

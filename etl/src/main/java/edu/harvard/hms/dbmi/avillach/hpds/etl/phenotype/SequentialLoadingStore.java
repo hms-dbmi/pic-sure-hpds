@@ -66,7 +66,7 @@ public class SequentialLoadingStore {
 							columnMeta.setAllObservationsLength(allObservationsTemp.getFilePointer());
 							metadataMap.put(columnMeta.getName(), columnMeta);
 						} catch (IOException e1) {
-							e1.printStackTrace();
+							throw new UncheckedIOException(e1);
 						}
 					}
 				}
