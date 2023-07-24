@@ -286,7 +286,7 @@ public class PicSureService implements IResourceRS {
 		}
 	}
 
-	@GET
+	@POST
 	@Path("/search/values/")
 	@Override
 	public PaginatedSearchResult<String> searchGenomicConceptValues(
