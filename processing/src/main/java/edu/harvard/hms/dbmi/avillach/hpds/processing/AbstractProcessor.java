@@ -129,8 +129,10 @@ public class AbstractProcessor {
 							infoStore.updateStorageDirectory(genomicDataDirectory);
 							infoStores.put(filename.replace("_infoStore.javabin", ""), infoStore);
 							ois.close();
-						} catch (IOException | ClassNotFoundException e) {
-							e.printStackTrace();
+						} catch (IOException e) {
+							throw new UncheckedIOException(e);
+						} catch (ClassNotFoundException e) {
+							throw new RuntimeException(e);
 						}
 					});
 		}
@@ -626,7 +628,7 @@ public class AbstractProcessor {
 										inStream.close();
 										return ret;
 									}else {
-										System.out.println("ColumnMeta not found for : [" + key + "]");
+										log.warn("ColumnMeta not found for : [{}]", key);
 										return null;
 									}
 								}

@@ -56,20 +56,22 @@ public class QueryProcessor implements HpdsProcessor {
 	public void runQuery(Query query, AsyncResult result) {
 		TreeSet<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
 		log.info("Processing " + idList.size() + " rows for result " + result.id);
-		for(List<Integer> list : Lists.partition(new ArrayList<>(idList), ID_BATCH_SIZE)){
-			result.stream.appendResultStore(buildResult(result, query, new TreeSet<Integer>(list)));			
-		};
+		Lists.partition(new ArrayList<>(idList), ID_BATCH_SIZE).parallelStream()
+			.map(list -> buildResult(result, query, new TreeSet<>(list)))
+			.sequential()
+			.forEach(result.stream::appendResultStore);
 	}
 
 	
 	private ResultStore buildResult(AsyncResult result, Query query, TreeSet<Integer> ids) {
-		List<String> paths = query.getFields();
-		int columnCount = paths.size() + 1;
-
-		List<ColumnMeta> columns = paths.stream()
+		List<ColumnMeta> columns = query.getFields().stream()
 			.map(abstractProcessor.getDictionary()::get)
 			.filter(Objects::nonNull)
 			.collect(Collectors.toList());
+		List<String> paths = columns.stream()
+			.map(ColumnMeta::getName)
+			.collect(Collectors.toList());
+		int columnCount = paths.size() + 1;
 
 		ArrayList<Integer> columnIndex = abstractProcessor.useResidentCubesFirst(paths, columnCount);
 		ResultStore results = new ResultStore(result.id, columns, ids);
@@ -83,89 +85,77 @@ public class QueryProcessor implements HpdsProcessor {
 	}
 
 	private void clearColumn(List<String> paths, TreeSet<Integer> ids, ResultStore results, Integer x) {
-		try{
-			String path = paths.get(x-1);
-			if(VariantUtils.pathIsVariantSpec(path)) {
-				ByteBuffer doubleBuffer = ByteBuffer.allocate(Double.BYTES);
-				int idInSubsetPointer = 0;
-				for(int id : ids) {
-					writeVariantNullResultField(results, x, doubleBuffer, idInSubsetPointer);
-					idInSubsetPointer++;
-				}
-			}else {
-				PhenoCube<?> cube = abstractProcessor.getCube(path);
-				ByteBuffer doubleBuffer = ByteBuffer.allocate(Double.BYTES);
-				int idInSubsetPointer = 0;
-				for(int id : ids) {
-					writeNullResultField(results, x, cube, doubleBuffer, idInSubsetPointer);
-					idInSubsetPointer++;
-				}
+		String path = paths.get(x-1);
+		if(VariantUtils.pathIsVariantSpec(path)) {
+			ByteBuffer doubleBuffer = ByteBuffer.allocate(Double.BYTES);
+			int idInSubsetPointer = 0;
+			for(int id : ids) {
+				writeVariantNullResultField(results, x, doubleBuffer, idInSubsetPointer);
+				idInSubsetPointer++;
 			}
-		}catch(Exception e) {
-			e.printStackTrace();
-			return;
+		} else {
+			PhenoCube<?> cube = abstractProcessor.getCube(path);
+			ByteBuffer doubleBuffer = ByteBuffer.allocate(Double.BYTES);
+			int idInSubsetPointer = 0;
+			for(int id : ids) {
+				writeNullResultField(results, x, cube, doubleBuffer, idInSubsetPointer);
+				idInSubsetPointer++;
+			}
 		}
 	}
 
 	private void processColumn(List<String> paths, TreeSet<Integer> ids, ResultStore results,
 			Integer x) {
-		try{
-			String path = paths.get(x-1);
-			if(VariantUtils.pathIsVariantSpec(path)) {
-				VariantMasks masks = abstractProcessor.getMasks(path, new VariantBucketHolder<VariantMasks>());
-				String[] patientIds = abstractProcessor.getPatientIds();
-				int idPointer = 0;
+		String path = paths.get(x-1);
+		if(VariantUtils.pathIsVariantSpec(path)) {
+			VariantMasks masks = abstractProcessor.getMasks(path, new VariantBucketHolder<VariantMasks>());
+			String[] patientIds = abstractProcessor.getPatientIds();
+			int idPointer = 0;
 
-				ByteBuffer doubleBuffer = ByteBuffer.allocate(Double.BYTES);
-				int idInSubsetPointer = 0;
-				for(int id : ids) {
-					while(idPointer < patientIds.length) {
-						int key = Integer.parseInt(patientIds[idPointer]);
-						if(key < id) {
-							idPointer++;	
-						} else if(key == id){
-							idPointer = writeVariantResultField(results, x, masks, idPointer, doubleBuffer,
-									idInSubsetPointer);
-							break;
-						} else {
-							writeVariantNullResultField(results, x, doubleBuffer, idInSubsetPointer);
-							break;
-						}
+			ByteBuffer doubleBuffer = ByteBuffer.allocate(Double.BYTES);
+			int idInSubsetPointer = 0;
+			for(int id : ids) {
+				while(idPointer < patientIds.length) {
+					int key = Integer.parseInt(patientIds[idPointer]);
+					if(key < id) {
+						idPointer++;
+					} else if(key == id){
+						idPointer = writeVariantResultField(results, x, masks, idPointer, doubleBuffer,
+								idInSubsetPointer);
+						break;
+					} else {
+						writeVariantNullResultField(results, x, doubleBuffer, idInSubsetPointer);
+						break;
 					}
-					idInSubsetPointer++;
 				}
-			}else {
-				PhenoCube<?> cube = abstractProcessor.getCube(path);
-
-				KeyAndValue<?>[] cubeValues = cube.sortedByKey();
-
-				int idPointer = 0;
-
-				ByteBuffer doubleBuffer = ByteBuffer.allocate(Double.BYTES);
-				int idInSubsetPointer = 0;
-				for(int id : ids) {
-					while(idPointer < cubeValues.length) {
-						int key = cubeValues[idPointer].getKey();
-						if(key < id) {
-							idPointer++;	
-						} else if(key == id){
-							idPointer = writeResultField(results, x, cube, cubeValues, idPointer, doubleBuffer,
-									idInSubsetPointer);
-							break;
-						} else {
-							writeNullResultField(results, x, cube, doubleBuffer, idInSubsetPointer);
-							break;
-						}
-					}
-					idInSubsetPointer++;
-				}
+				idInSubsetPointer++;
 			}
+		}else {
+			PhenoCube<?> cube = abstractProcessor.getCube(path);
 
-		}catch(Exception e) {
-			e.printStackTrace();
-			return;
+			KeyAndValue<?>[] cubeValues = cube.sortedByKey();
+
+			int idPointer = 0;
+
+			ByteBuffer doubleBuffer = ByteBuffer.allocate(Double.BYTES);
+			int idInSubsetPointer = 0;
+			for(int id : ids) {
+				while(idPointer < cubeValues.length) {
+					int key = cubeValues[idPointer].getKey();
+					if(key < id) {
+						idPointer++;
+					} else if(key == id){
+						idPointer = writeResultField(results, x, cube, cubeValues, idPointer, doubleBuffer,
+								idInSubsetPointer);
+						break;
+					} else {
+						writeNullResultField(results, x, cube, doubleBuffer, idInSubsetPointer);
+						break;
+					}
+				}
+				idInSubsetPointer++;
+			}
 		}
-
 	}
 
 	private void writeVariantNullResultField(ResultStore results, Integer x, ByteBuffer doubleBuffer,
