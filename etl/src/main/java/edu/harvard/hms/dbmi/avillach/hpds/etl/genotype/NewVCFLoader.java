@@ -158,7 +158,7 @@ public class NewVCFLoader {
 				try {
 					walker.nextLine();
 				} catch (IOException e) {
-					logger.error("Error reading nextline of VCF file [" + walker.vcfIndexLine.vcfPath + "]", e);
+					throw new UncheckedIOException(e);
 				}
 			});
 			zygosityMaskStrings.put(currentSpecNotation, maskStringsForVariantSpec[0]);
@@ -206,7 +206,7 @@ public class NewVCFLoader {
 										logger.debug(variantSpec + " : homozygous : " + homoIdList);
 								}
 							} catch (IOException e) {
-								logger.error("an error occurred", e);
+								throw new UncheckedIOException(e);
 							}
 						}
 						if (count[0] > 50)
@@ -305,7 +305,7 @@ public class NewVCFLoader {
 					variantMaskStorage_f.get(lastContigProcessed_f).put(lastChunkProcessed_f,
 							convertLoadingMapToMaskMap(zygosityMaskStrings_f));
 				} catch (IOException e) {
-					logger.error("an error occurred", e);
+					throw new UncheckedIOException(e);
 				}
 			});
 			if (lastChunkProcessed % 100 == 0) {
@@ -344,8 +344,8 @@ public class NewVCFLoader {
 		logger.debug("Splitting" + (System.currentTimeMillis() - startTime) + " seconds");
 		try {
 			VCFPerPatientInfoStoreSplitter.splitAll(storageDir,  new File(mergedDirStr));
-		} catch (ClassNotFoundException | InterruptedException | ExecutionException e) {
-			logger.error("Error splitting infostore's by column", e);
+		} catch (ClassNotFoundException | ExecutionException | InterruptedException e) {
+			throw new RuntimeException(e);
 		}
 		logger.debug("Split" + (System.currentTimeMillis() - startTime) + " seconds");
 	}
@@ -354,8 +354,8 @@ public class NewVCFLoader {
 		logger.debug("Converting" + (System.currentTimeMillis() - startTime) + " seconds");
 		try {
 			VCFPerPatientInfoStoreToFBBIISConverter.convertAll(mergedDirStr, storageDirStr);
-		} catch (ClassNotFoundException | InterruptedException | ExecutionException e) {
-			logger.error("Error converting infostore to byteindexed", e);
+		} catch (ClassNotFoundException | ExecutionException | InterruptedException e) {
+			throw new RuntimeException(e);
 		}
 		logger.debug("Converted " + ((System.currentTimeMillis() - startTime) / 1000) + " seconds");
 	}
@@ -461,7 +461,7 @@ public class NewVCFLoader {
 					}
 
 				} catch (IndexOutOfBoundsException e) {
-					logger.warn("INDEX out of bounds " + currentLine.substring(0, Math.min(50, currentLine.length())),
+					throw new RuntimeException("INDEX out of bounds " + currentLine.substring(0, Math.min(50, currentLine.length())),
 							e);
 				}
 			} else {
