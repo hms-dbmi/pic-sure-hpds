@@ -1,6 +1,5 @@
 package edu.harvard.hms.dbmi.avillach.hpds.storage;
 
-import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
 
@@ -29,6 +28,12 @@ public abstract class FileBackedJsonIndexStorage <K, V extends Serializable> ext
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    // Required to populate the objectMapper on deserialization
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        objectMapper = new ObjectMapper();
     }
 
     public abstract TypeReference<V> getTypeReference();

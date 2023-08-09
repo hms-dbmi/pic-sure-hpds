@@ -1,7 +1,5 @@
 package edu.harvard.hms.dbmi.avillach.hpds.storage;
 
-import org.apache.commons.io.output.ByteArrayOutputStream;
-
 import java.io.*;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
