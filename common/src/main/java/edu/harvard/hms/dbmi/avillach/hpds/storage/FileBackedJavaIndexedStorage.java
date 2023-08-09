@@ -38,37 +38,38 @@ public class FileBackedJavaIndexedStorage <K, V extends Serializable> extends Fi
         return recordIndex;
     }
 
-    public V get(K key) throws IOException {
-        if(this.storage==null) {
-            synchronized(this) {
-                this.open();
-            }
-        }
-        Long[] offsetsInStorage = index.get(key);
-        if(offsetsInStorage != null) {
-            Long offsetInStorage = index.get(key)[0];
-            int offsetLength = index.get(key)[1].intValue();
-            if(offsetInStorage != null && offsetLength>0) {
-                byte[] buffer = new byte[offsetLength];
-                synchronized(storage) {
-                    storage.seek(offsetInStorage);
-                    storage.readFully(buffer);
+    public V get(K key) {
+        try {
+            if(this.storage==null) {
+                synchronized(this) {
+                    this.open();
                 }
-                ObjectInputStream in = new ObjectInputStream(new GZIPInputStream(new ByteArrayInputStream(buffer)));
+            }
+            Long[] offsetsInStorage = index.get(key);
+            if(offsetsInStorage != null) {
+                Long offsetInStorage = index.get(key)[0];
+                int offsetLength = index.get(key)[1].intValue();
+                if(offsetInStorage != null && offsetLength>0) {
+                    byte[] buffer = new byte[offsetLength];
+                    synchronized(storage) {
+                        storage.seek(offsetInStorage);
+                        storage.readFully(buffer);
+                    }
+                    ObjectInputStream in = new ObjectInputStream(new GZIPInputStream(new ByteArrayInputStream(buffer)));
 
-                try {
-                    V readObject = (V) in.readObject();
-                    return readObject;
-                } catch (ClassNotFoundException e) {
-                    throw new RuntimeException("This should never happen.");
-                } finally {
-                    in.close();
+                    try {
+                        V readObject = (V) in.readObject();
+                        return readObject;
+                    } finally {
+                        in.close();
+                    }
                 }
-            }else {
-                return null;
             }
-        } else {
             return null;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e)
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
         }
     }
 }

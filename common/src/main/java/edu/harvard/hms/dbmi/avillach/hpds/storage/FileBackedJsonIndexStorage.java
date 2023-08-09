@@ -40,35 +40,33 @@ public abstract class FileBackedJsonIndexStorage <K, V extends Serializable> ext
         return recordIndex;
     }
 
-    public V get(K key) throws IOException {
-        if(this.storage==null) {
-            synchronized(this) {
-                this.open();
-            }
-        }
-        Long[] offsetsInStorage = index.get(key);
-        if(offsetsInStorage != null) {
-            Long offsetInStorage = index.get(key)[0];
-            int offsetLength = index.get(key)[1].intValue();
-            if(offsetInStorage != null && offsetLength>0) {
-                byte[] buffer = new byte[offsetLength];
-                synchronized(storage) {
-                    storage.seek(offsetInStorage);
-                    storage.readFully(buffer);
+    public V get(K key) {
+        try {
+            if(this.storage==null) {
+                synchronized(this) {
+                    this.open();
                 }
-                try {
+            }
+            Long[] offsetsInStorage = index.get(key);
+            if(offsetsInStorage != null) {
+                Long offsetInStorage = index.get(key)[0];
+                int offsetLength = index.get(key)[1].intValue();
+                if(offsetInStorage != null && offsetLength>0) {
+                    byte[] buffer = new byte[offsetLength];
+                    synchronized(storage) {
+                        storage.seek(offsetInStorage);
+                        storage.readFully(buffer);
+                    }
                     V readObject = readObject(buffer);
                     return readObject;
-                } catch (Exception e) {
-                    System.out.println("Unable to deserialize, " + e.getMessage());
-                    System.out.println(new String(buffer));
-                    throw new RuntimeException(e);
+                }else {
+                    return null;
                 }
-            }else {
+            } else {
                 return null;
             }
-        } else {
-            return null;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 

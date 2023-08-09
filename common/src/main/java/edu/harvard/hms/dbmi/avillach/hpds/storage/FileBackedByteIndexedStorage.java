@@ -58,7 +58,7 @@ public abstract class FileBackedByteIndexedStorage <K, V extends Serializable> i
 	public boolean isComplete() {
 		return this.completed;
 	}
-	public abstract V get(K key) throws IOException;
+	public abstract V get(K key);
 
 	public V getOrELse(K key, V defaultValue) throws IOException {
 		V result = get(key);
