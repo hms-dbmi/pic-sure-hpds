@@ -13,7 +13,6 @@ public abstract class FileBackedByteIndexedStorage <K, V extends Serializable> i
 	protected ConcurrentHashMap<K, Long[]> index;
 	protected File storageFile;
 	protected boolean completed = false;
-	protected Long maxStorageSize;  //leave this in to not break serialization
 
 
 	public FileBackedByteIndexedStorage(Class<K> keyClass, Class<V> valueClass, File storageFile) throws FileNotFoundException {
@@ -34,7 +33,7 @@ public abstract class FileBackedByteIndexedStorage <K, V extends Serializable> i
 		return index.keySet();
 	}
 
-	public void put(K key, V value) throws IOException {
+	public void put(K key, V value) {
 		if(completed) {
 			throw new RuntimeException("A completed FileBackedByteIndexedStorage cannot be modified.");
 		}
@@ -47,6 +46,8 @@ public abstract class FileBackedByteIndexedStorage <K, V extends Serializable> i
 				storage.write(out.toByteArray());
 				recordIndex[1] = storage.getFilePointer() - recordIndex[0];
 			}
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
 		}
 		index.put(key, recordIndex);
 	}
@@ -72,9 +73,6 @@ public abstract class FileBackedByteIndexedStorage <K, V extends Serializable> i
 		this.completed = true;
 	}
 
-	public boolean isComplete() {
-		return this.completed;
-	}
 	public V get(K key) {
 		try {
 			if(this.storage==null) {
@@ -109,7 +107,7 @@ public abstract class FileBackedByteIndexedStorage <K, V extends Serializable> i
 
 	protected abstract ByteArrayOutputStream writeObject(V value) throws IOException;
 
-	public V getOrELse(K key, V defaultValue) throws IOException {
+	public V getOrELse(K key, V defaultValue) {
 		V result = get(key);
 		return result == null ? defaultValue : result;
 	}

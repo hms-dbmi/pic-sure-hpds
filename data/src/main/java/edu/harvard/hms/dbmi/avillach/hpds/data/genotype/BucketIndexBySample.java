@@ -122,14 +122,8 @@ public class BucketIndexBySample implements Serializable {
 		
 		int[] processedPatients = new int[1];
 		patientIds.parallelStream().forEach((patientId)->{
-			try {
-				BigInteger patientMask = new BigInteger(new String(patientBucketCharMasks[patientIds.indexOf(patientId)]),2);
-				patientBucketMasks.put(patientId, patientMask);
-			}catch(NumberFormatException e) {
-				log.error("NFE caught for " + patientId, e);
-			} catch (IOException e) {
-				throw new UncheckedIOException(e);
-			}
+			BigInteger patientMask = new BigInteger(new String(patientBucketCharMasks[patientIds.indexOf(patientId)]),2);
+			patientBucketMasks.put(patientId, patientMask);
 			processedPatients[0] += 1;
 			int processedPatientsCount = processedPatients[0];
 			if (processedPatientsCount % 1000 == 0) {

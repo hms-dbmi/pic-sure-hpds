@@ -162,7 +162,7 @@ public class GenomicDatasetMerger {
                             infoStores.put(filename.replace("_infoStore.javabin", ""), infoStore);
                             ois.close();
                         } catch (IOException | ClassNotFoundException e) {
-                            e.printStackTrace();
+                            throw new RuntimeException(e);
                         }
                     });
         }
@@ -192,34 +192,30 @@ public class GenomicDatasetMerger {
 
         FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>> merged = new FileBackedStorageVariantMasksImpl(new File(outputDirectory + chromosome + "masks.bin"));
         variantMaskStorage1.keys().forEach(key -> {
-            try {
-                Map<String, VariantMasks> masks1 = variantMaskStorage1.get(key);
-                Map<String, VariantMasks> masks2 = variantMaskStorage2.get(key);
-                if (masks2 == null) {
-                    masks2 = Map.of();
-                }
-
-                ConcurrentHashMap<String, VariantMasks> mergedMasks = new ConcurrentHashMap<>();
-                for (Map.Entry<String, VariantMasks> entry : masks1.entrySet()) {
-                    VariantMasks variantMasks2 = masks2.get(entry.getKey());
-                    if (variantMasks2 == null) {
-                        // this will have all null masks, which will result in null when
-                        // appended to a null, or be replaced with an empty bitmask otherwise
-                        variantMasks2 = new VariantMasks();
-                    }
-                    mergedMasks.put(entry.getKey(), append(entry.getValue(), variantMasks2));
-                }
-                // Any entry in the second set that is not in the merged set can be merged with an empty variant mask,
-                // if there were a corresponding entry in set 1, it would have been merged in the previous loop
-                for (Map.Entry<String, VariantMasks> entry : masks2.entrySet()) {
-                    if (!mergedMasks.containsKey(entry.getKey())) {
-                        mergedMasks.put(entry.getKey(), append(new VariantMasks(), entry.getValue()));
-                    }
-                }
-                merged.put(key, mergedMasks);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+            Map<String, VariantMasks> masks1 = variantMaskStorage1.get(key);
+            Map<String, VariantMasks> masks2 = variantMaskStorage2.get(key);
+            if (masks2 == null) {
+                masks2 = Map.of();
             }
+
+            ConcurrentHashMap<String, VariantMasks> mergedMasks = new ConcurrentHashMap<>();
+            for (Map.Entry<String, VariantMasks> entry : masks1.entrySet()) {
+                VariantMasks variantMasks2 = masks2.get(entry.getKey());
+                if (variantMasks2 == null) {
+                    // this will have all null masks, which will result in null when
+                    // appended to a null, or be replaced with an empty bitmask otherwise
+                    variantMasks2 = new VariantMasks();
+                }
+                mergedMasks.put(entry.getKey(), append(entry.getValue(), variantMasks2));
+            }
+            // Any entry in the second set that is not in the merged set can be merged with an empty variant mask,
+            // if there were a corresponding entry in set 1, it would have been merged in the previous loop
+            for (Map.Entry<String, VariantMasks> entry : masks2.entrySet()) {
+                if (!mergedMasks.containsKey(entry.getKey())) {
+                    mergedMasks.put(entry.getKey(), append(new VariantMasks(), entry.getValue()));
+                }
+            }
+            merged.put(key, mergedMasks);
         });
 
         ConcurrentHashMap<String, VariantMasks> mergedMasks = new ConcurrentHashMap<>();
