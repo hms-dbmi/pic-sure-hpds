@@ -67,7 +67,7 @@ public class FileBackedJavaIndexedStorage <K, V extends Serializable> extends Fi
             }
             return null;
         } catch (IOException e) {
-            throw new UncheckedIOException(e)
+            throw new UncheckedIOException(e);
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
