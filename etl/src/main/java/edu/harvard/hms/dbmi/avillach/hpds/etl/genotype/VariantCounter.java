@@ -1,15 +1,11 @@
 package edu.harvard.hms.dbmi.avillach.hpds.etl.genotype;
 
-import java.io.*;
-import java.util.ArrayList;
-import java.util.TreeSet;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.zip.GZIPInputStream;
-
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMasks;
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantSpec;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantStore;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
+
+import java.io.IOException;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class VariantCounter {
 
@@ -21,14 +17,9 @@ public class VariantCounter {
 			currentChromosome = variantStore.getVariantMaskStorage().get(contig);
 			currentChromosome.keys().parallelStream().forEach((offsetBucket)->{
 				ConcurrentHashMap<String, VariantMasks> maskMap;
-				try {
-					maskMap = currentChromosome.get(offsetBucket);
-					if(maskMap!=null) {
-						countOfVariants[0]+=maskMap.size();
-					}
-
-				} catch (IOException e) {
-					throw new UncheckedIOException(e);
+				maskMap = currentChromosome.get(offsetBucket);
+				if(maskMap!=null) {
+					countOfVariants[0]+=maskMap.size();
 				}
 			});
 			System.out.println(contig + "," + countOfVariants[0]);

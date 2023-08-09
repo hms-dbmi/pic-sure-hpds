@@ -92,7 +92,7 @@ public class VariantMetadataIndex implements Serializable {
 			log.warn("No bucket found for spec " + variantSpec + " in bucket " + chrOffset);
 			return new String[0];
 		
-		} catch (IOException e) {
+		} catch (UncheckedIOException e) {
 			log.warn("IOException caught looking up variantSpec : " + variantSpec, e);
 			return new String[0];
 		}
@@ -113,7 +113,6 @@ public class VariantMetadataIndex implements Serializable {
 	 * have to write them to disk once.  The data will be written to disk only when the flush() method is called.
 	 * 
 	 * @param variantSpec
-	 * @param array
 	 * @throws IOException
 	 */
 	public void put(String variantSpec, String metaData ) throws IOException {

@@ -70,27 +70,23 @@ public class VariantStore implements Serializable {
 					.get(contig);
 			storage.keys().stream().forEach((Integer key) -> {
 				int[] contigCounts = counts.get(contig);
-				try {
-					Collection<VariantMasks> values = storage.get(key).values();
-					contigCounts[0] += values.stream().collect(Collectors.summingInt((VariantMasks masks) -> {
-						return masks.heterozygousMask != null ? 1 : 0;
-					}));
-					contigCounts[1] += values.stream().collect(Collectors.summingInt((VariantMasks masks) -> {
-						return masks.homozygousMask != null ? 1 : 0;
-					}));
-					contigCounts[2] += values.stream().collect(Collectors.summingInt((VariantMasks masks) -> {
-						return masks.heterozygousNoCallMask != null ? 1 : 0;
-					}));
-					contigCounts[3] += values.stream().collect(Collectors.summingInt((VariantMasks masks) -> {
-						return masks.homozygousNoCallMask != null ? 1 : 0;
-					}));
-					contigCounts[4] += values.stream().collect(Collectors.summingInt((VariantMasks masks) -> {
-						return masks.heterozygousMask != null || masks.homozygousMask != null
-								|| masks.heterozygousNoCallMask != null || masks.homozygousNoCallMask != null ? 1 : 0;
-					}));
-				} catch (IOException e) {
-					throw new UncheckedIOException(e);
-				}
+				Collection<VariantMasks> values = storage.get(key).values();
+				contigCounts[0] += values.stream().collect(Collectors.summingInt((VariantMasks masks) -> {
+					return masks.heterozygousMask != null ? 1 : 0;
+				}));
+				contigCounts[1] += values.stream().collect(Collectors.summingInt((VariantMasks masks) -> {
+					return masks.homozygousMask != null ? 1 : 0;
+				}));
+				contigCounts[2] += values.stream().collect(Collectors.summingInt((VariantMasks masks) -> {
+					return masks.heterozygousNoCallMask != null ? 1 : 0;
+				}));
+				contigCounts[3] += values.stream().collect(Collectors.summingInt((VariantMasks masks) -> {
+					return masks.homozygousNoCallMask != null ? 1 : 0;
+				}));
+				contigCounts[4] += values.stream().collect(Collectors.summingInt((VariantMasks masks) -> {
+					return masks.heterozygousMask != null || masks.homozygousMask != null
+							|| masks.heterozygousNoCallMask != null || masks.homozygousNoCallMask != null ? 1 : 0;
+				}));
 			});
 		}
 		return counts;

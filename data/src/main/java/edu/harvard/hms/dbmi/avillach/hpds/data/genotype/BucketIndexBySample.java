@@ -87,22 +87,18 @@ public class BucketIndexBySample implements Serializable {
 							
 							// Create a bitmask with 1 values for each patient who has any variant in this bucket
 							BigInteger[] patientMaskForBucket = {variantStore.emptyBitmask()};
-							try {
-								contigStore.get(bucket).values().forEach((VariantMasks masks)->{
-									if(masks.heterozygousMask!=null) {
-										patientMaskForBucket[0] = patientMaskForBucket[0].or(masks.heterozygousMask);
-									}
-									//add hetreo no call bits to mask
-									if(masks.heterozygousNoCallMask!=null) {
-										patientMaskForBucket[0] = patientMaskForBucket[0].or(masks.heterozygousNoCallMask);
-									}
-									if(masks.homozygousMask!=null) {
-										patientMaskForBucket[0] = patientMaskForBucket[0].or(masks.homozygousMask);
-									}
-								});
-							} catch (IOException e) {
-								throw new UncheckedIOException(e);
-							}
+							contigStore.get(bucket).values().forEach((VariantMasks masks)->{
+								if(masks.heterozygousMask!=null) {
+									patientMaskForBucket[0] = patientMaskForBucket[0].or(masks.heterozygousMask);
+								}
+								//add hetreo no call bits to mask
+								if(masks.heterozygousNoCallMask!=null) {
+									patientMaskForBucket[0] = patientMaskForBucket[0].or(masks.heterozygousNoCallMask);
+								}
+								if(masks.homozygousMask!=null) {
+									patientMaskForBucket[0] = patientMaskForBucket[0].or(masks.homozygousMask);
+								}
+							});
 							
 							// For each patient set the patientBucketCharMask entry to 0 or 1 if they have a variant in the bucket.
 							int maxIndex = patientMaskForBucket[0].bitLength() - 1;
@@ -161,14 +157,9 @@ public class BucketIndexBySample implements Serializable {
 				new BigInteger(new String(emptyBucketMaskChar()),2) : patientBucketMasks.get(patientSet.get(0));
 		
 		BigInteger _defaultMask = patientBucketMask;
-		List<BigInteger> patientBucketmasksForSet = patientSet.parallelStream().map((patientNum)->{
-			try {
-				return patientBucketMasks.get(patientNum);
-			} catch (IOException e) {
-				throw new UncheckedIOException(e);
-			}
-			//return _defaultMask;
-		}).collect(Collectors.toList());
+		List<BigInteger> patientBucketmasksForSet = patientSet.parallelStream()
+				.map((patientNum)-> patientBucketMasks.get(patientNum))
+				.collect(Collectors.toList());
 		for(BigInteger patientMask : patientBucketmasksForSet) {
 			patientBucketMask = patientMask.or(patientBucketMask);
 		}
@@ -204,18 +195,5 @@ public class BucketIndexBySample implements Serializable {
 			_emptyBucketMaskChar = bucketMaskChar;
 		}
 		return _emptyBucketMaskChar.clone();
-	}
-	
-	/**
-	 * Use while debugging
-	 */
-	public void printPatientMasks() {
-		for(Integer patientID : patientBucketMasks.keys()) {
-			try {
-				log.info("BucketMask length for " + patientID + ":\t" + patientBucketMasks.get(patientID).toString(2).length());
-			} catch (IOException e) {
-				log.error("FBBIS Error: ", e);
-			}
-		}
 	}
 }

@@ -54,7 +54,7 @@ public class VariantService {
         }
     }
 
-    public VariantService() throws IOException, ClassNotFoundException, InterruptedException {
+    public VariantService() {
         genomicDataDirectory = System.getProperty("HPDS_GENOMIC_DATA_DIRECTORY", "/opt/local/hpds/all/");
         VARIANT_INDEX_FBBIS_STORAGE_FILE = genomicDataDirectory + "variantIndex_fbbis_storage.javabin";
         VARIANT_INDEX_FBBIS_FILE = genomicDataDirectory + "variantIndex_fbbis.javabin";
@@ -145,17 +145,10 @@ public class VariantService {
 
                         for( int i = 0; i < bucketCount; i++) {
                             final int _i = i;
-                            ex.submit(new Runnable() {
-                                @Override
-                                public void run() {
-                                    try {
-                                        String[] variantIndexBucket = indexStore.get(_i);
-                                        System.arraycopy(variantIndexBucket, 0, _varaiantIndex2, (_i * VARIANT_INDEX_BLOCK_SIZE), variantIndexBucket.length);
-                                        log.info("loaded " + (_i * VARIANT_INDEX_BLOCK_SIZE) + " block");
-                                    } catch (IOException e) {
-                                        throw new UncheckedIOException(e);
-                                    }
-                                }
+                            ex.submit(() -> {
+                                String[] variantIndexBucket = indexStore.get(_i);
+                                System.arraycopy(variantIndexBucket, 0, _varaiantIndex2, (_i * VARIANT_INDEX_BLOCK_SIZE), variantIndexBucket.length);
+                                log.info("loaded " + (_i * VARIANT_INDEX_BLOCK_SIZE) + " block");
                             });
                         }
                         objectInputStream.close();

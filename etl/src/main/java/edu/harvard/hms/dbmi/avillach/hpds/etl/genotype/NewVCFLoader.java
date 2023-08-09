@@ -191,22 +191,18 @@ public class NewVCFLoader {
 					chunkIds.addAll(chromosomeStorage.keys());
 					for (Integer chunkId : chunkIds) {
 						for (String variantSpec : chromosomeStorage.get(chunkId).keySet()) {
-							try {
-								count[0]++;
-								VariantMasks variantMasks = chromosomeStorage.get(chunkId).get(variantSpec);
-								if (variantMasks != null) {
-									BigInteger heterozygousMask = variantMasks.heterozygousMask;
-									String heteroIdList = sampleIdsForMask(allSampleIds, heterozygousMask);
-									BigInteger homozygousMask = variantMasks.homozygousMask;
-									String homoIdList = sampleIdsForMask(allSampleIds, homozygousMask);
+							count[0]++;
+							VariantMasks variantMasks = chromosomeStorage.get(chunkId).get(variantSpec);
+							if (variantMasks != null) {
+								BigInteger heterozygousMask = variantMasks.heterozygousMask;
+								String heteroIdList = sampleIdsForMask(allSampleIds, heterozygousMask);
+								BigInteger homozygousMask = variantMasks.homozygousMask;
+								String homoIdList = sampleIdsForMask(allSampleIds, homozygousMask);
 
-									if (!heteroIdList.isEmpty() && heteroIdList.length() < 1000)
-										logger.debug(variantSpec + " : heterozygous : " + heteroIdList);
-									if (!homoIdList.isEmpty() && homoIdList.length() < 1000)
-										logger.debug(variantSpec + " : homozygous : " + homoIdList);
-								}
-							} catch (IOException e) {
-								throw new UncheckedIOException(e);
+								if (!heteroIdList.isEmpty() && heteroIdList.length() < 1000)
+									logger.debug(variantSpec + " : heterozygous : " + heteroIdList);
+								if (!homoIdList.isEmpty() && homoIdList.length() < 1000)
+									logger.debug(variantSpec + " : homozygous : " + homoIdList);
 							}
 						}
 						if (count[0] > 50)
@@ -217,22 +213,18 @@ public class NewVCFLoader {
 					for (int x = chunkIds.size() - 1; x > 0; x--) {
 						int chunkId = chunkIds.get(x);
 						chromosomeStorage.get(chunkId).keySet().forEach((variantSpec) -> {
-							try {
-								count[0]++;
-								VariantMasks variantMasks = chromosomeStorage.get(chunkId).get(variantSpec);
-								if (variantMasks != null) {
-									BigInteger heterozygousMask = variantMasks.heterozygousMask;
-									String heteroIdList = sampleIdsForMask(allSampleIds, heterozygousMask);
-									BigInteger homozygousMask = variantMasks.homozygousMask;
-									String homoIdList = sampleIdsForMask(allSampleIds, homozygousMask);
+							count[0]++;
+							VariantMasks variantMasks = chromosomeStorage.get(chunkId).get(variantSpec);
+							if (variantMasks != null) {
+								BigInteger heterozygousMask = variantMasks.heterozygousMask;
+								String heteroIdList = sampleIdsForMask(allSampleIds, heterozygousMask);
+								BigInteger homozygousMask = variantMasks.homozygousMask;
+								String homoIdList = sampleIdsForMask(allSampleIds, homozygousMask);
 
-									if (!heteroIdList.isEmpty() && heteroIdList.length() < 1000)
-										logger.debug(variantSpec + " : heterozygous : " + heteroIdList);
-									if (!homoIdList.isEmpty() && homoIdList.length() < 1000)
-										logger.debug(variantSpec + " : homozygous : " + homoIdList);
-								}
-							} catch (IOException e) {
-								logger.error("an error occurred", e);
+								if (!heteroIdList.isEmpty() && heteroIdList.length() < 1000)
+									logger.debug(variantSpec + " : heterozygous : " + heteroIdList);
+								if (!homoIdList.isEmpty() && homoIdList.length() < 1000)
+									logger.debug(variantSpec + " : homozygous : " + homoIdList);
 							}
 						});
 						if (count[0] > 50)
@@ -663,7 +655,7 @@ public class NewVCFLoader {
 				}
 			});
 		} catch (IOException e) {
-			throw new RuntimeException("IOException caught parsing vcfIndexFile", e);
+			throw new UncheckedIOException("IOException caught parsing vcfIndexFile", e);
 		}
 		return new ArrayList<>(vcfSet);
 	}

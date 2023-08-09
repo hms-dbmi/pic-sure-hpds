@@ -17,57 +17,10 @@ public abstract class FileBackedJsonIndexStorage <K, V extends Serializable> ext
         super(null, null, storageFile);
     }
 
-    public void put(K key, V value) throws IOException {
-        if(completed) {
-            throw new RuntimeException("A completed FileBackedByteIndexedStorage cannot be modified.");
-        }
-        Long[] recordIndex = store(value);
-        index.put(key, recordIndex);
-    }
-
-    private Long[] store(V value) throws IOException {
+    protected ByteArrayOutputStream writeObject(V value) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         objectMapper.writeValue(new GZIPOutputStream(out), value);
-
-        Long[] recordIndex = new Long[2];
-        synchronized(storage) {
-            storage.seek(storage.length());
-            recordIndex[0] = storage.getFilePointer();
-            storage.write(out.toByteArray());
-            recordIndex[1] = storage.getFilePointer() - recordIndex[0];
-//			maxStorageSize = storage.getFilePointer();
-        }
-        return recordIndex;
-    }
-
-    public V get(K key) {
-        try {
-            if(this.storage==null) {
-                synchronized(this) {
-                    this.open();
-                }
-            }
-            Long[] offsetsInStorage = index.get(key);
-            if(offsetsInStorage != null) {
-                Long offsetInStorage = index.get(key)[0];
-                int offsetLength = index.get(key)[1].intValue();
-                if(offsetInStorage != null && offsetLength>0) {
-                    byte[] buffer = new byte[offsetLength];
-                    synchronized(storage) {
-                        storage.seek(offsetInStorage);
-                        storage.readFully(buffer);
-                    }
-                    V readObject = readObject(buffer);
-                    return readObject;
-                }else {
-                    return null;
-                }
-            } else {
-                return null;
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return out;
     }
 
     protected V readObject(byte[] buffer) {
@@ -79,9 +32,4 @@ public abstract class FileBackedJsonIndexStorage <K, V extends Serializable> ext
     }
 
     public abstract TypeReference<V> getTypeReference();
-
-    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-        in.defaultReadObject();
-        objectMapper = new ObjectMapper();
-    }
 }

@@ -1,5 +1,7 @@
 package edu.harvard.hms.dbmi.avillach.hpds.storage;
 
+import org.apache.commons.io.output.ByteArrayOutputStream;
+
 import java.io.*;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +34,22 @@ public abstract class FileBackedByteIndexedStorage <K, V extends Serializable> i
 		return index.keySet();
 	}
 
-	public abstract void put(K key, V value) throws IOException;
+	public void put(K key, V value) throws IOException {
+		if(completed) {
+			throw new RuntimeException("A completed FileBackedByteIndexedStorage cannot be modified.");
+		}
+		Long[] recordIndex;
+		try (ByteArrayOutputStream out = writeObject(value)) {
+			recordIndex = new Long[2];
+			synchronized (storage) {
+				storage.seek(storage.length());
+				recordIndex[0] = storage.getFilePointer();
+				storage.write(out.toByteArray());
+				recordIndex[1] = storage.getFilePointer() - recordIndex[0];
+			}
+		}
+		index.put(key, recordIndex);
+	}
 
 	public void load(Iterable<V> values, Function<V, K> mapper) throws IOException {
 		//make sure we start fresh
@@ -58,7 +75,39 @@ public abstract class FileBackedByteIndexedStorage <K, V extends Serializable> i
 	public boolean isComplete() {
 		return this.completed;
 	}
-	public abstract V get(K key);
+	public V get(K key) {
+		try {
+			if(this.storage==null) {
+				synchronized(this) {
+					this.open();
+				}
+			}
+			Long[] offsetsInStorage = index.get(key);
+			if(offsetsInStorage != null) {
+				Long offsetInStorage = index.get(key)[0];
+				int offsetLength = index.get(key)[1].intValue();
+				if(offsetInStorage != null && offsetLength>0) {
+					byte[] buffer = new byte[offsetLength];
+					synchronized(storage) {
+						storage.seek(offsetInStorage);
+						storage.readFully(buffer);
+					}
+					V readObject = readObject(buffer);
+					return readObject;
+				}else {
+					return null;
+				}
+			} else {
+				return null;
+			}
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
+	}
+
+	protected abstract V readObject(byte[] buffer);
+
+	protected abstract ByteArrayOutputStream writeObject(V value) throws IOException;
 
 	public V getOrELse(K key, V defaultValue) throws IOException {
 		V result = get(key);
