@@ -74,6 +74,28 @@ public class GenomicDatasetMerger {
         mergedVariantStore.writeInstance(outputDirectory);
     }
 
+    /**
+     * Since both sets of variant indexes reference a different variant spec list, we need to re-index
+     * the values in the second set of variant indexes.
+     *
+     * For each variant in the second list of variants:
+     * If it exists in list one, update any references to it by index to it's index in list 1
+     * Otherwise, append it to list one, and update any references to it by index to it's new position in list 1
+     *
+     * Ex:
+     *
+     * variantIndex1 = ["chr1,1000,A,G", "chr1,1002,A,G", "chr1,2000,A,G"]
+     * variantIndex2 = ["chr1,1000,A,G", "chr1,1004,A,G", "chr1,3000,A,G"]
+     *
+     * GeneWithVariant_store1 = [0, 1]
+     * GeneWithVariant_store2 = [0, 1, 2]
+     *
+     * mergedVariantIndex = ["chr1,1000,A,G", "chr1,1002,A,G", "chr1,2000,A,G", "chr1,1004,A,G", "chr1,3000,A,G"]
+     * GeneWithVariant_merged = [0, 1, 3, 4]
+     *
+     * @return
+     * @throws IOException
+     */
     public Map<String, FileBackedByteIndexedInfoStore> mergeVariantIndexes() throws IOException {
         String[] variantIndex1 = VariantStore.loadVariantIndexFromFile(genomicDirectory1);
         String[] variantIndex2 = VariantStore.loadVariantIndexFromFile(genomicDirectory2);
@@ -160,7 +182,6 @@ public class GenomicDatasetMerger {
                             FileBackedByteIndexedInfoStore infoStore = (FileBackedByteIndexedInfoStore) ois.readObject();
                             infoStore.updateStorageDirectory(genomicDataDirectory);
                             infoStores.put(filename.replace("_infoStore.javabin", ""), infoStore);
-                            ois.close();
                         } catch (IOException | ClassNotFoundException e) {
                             throw new RuntimeException(e);
                         }
@@ -169,6 +190,11 @@ public class GenomicDatasetMerger {
         return infoStores;
     }
 
+    /**
+     * Merge patient ids from both variant stores. We are simply appending patients from store 2 to patients from store 1
+     *
+     * @return the merged patient ids
+     */
     private String[] mergePatientIds() {
         return Stream.concat(Arrays.stream(variantStore1.getPatientIds()), Arrays.stream(variantStore2.getPatientIds()))
                 .toArray(String[]::new);
