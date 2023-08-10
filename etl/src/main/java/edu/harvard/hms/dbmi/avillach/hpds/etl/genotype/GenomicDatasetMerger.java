@@ -174,7 +174,11 @@ public class GenomicDatasetMerger {
                 .toArray(String[]::new);
     }
 
-    public Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergeChromosomeMasks() throws FileNotFoundException {
+    /**
+     * For each chromosome, call mergeChromosomeMask to merge the masks
+     * @return
+     */
+    public Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergeChromosomeMasks() {
         Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergedMaskStorage = new ConcurrentHashMap<>();
         variantStore1.getVariantMaskStorage().keySet().parallelStream().forEach(chromosome -> {
             try {
@@ -186,6 +190,48 @@ public class GenomicDatasetMerger {
         return mergedMaskStorage;
     }
 
+    /**
+     * Merge the masks for a chormosome. The logic here is somewhat complex but straightforward, dealing with no values at various places in the maps.
+     * If a variant mask contains no matches (ie, is 000000...), it is not stored in the data.
+     *
+     * Examples:
+     * variantMaskStorage1: {
+     *     10001 -> {
+     *         "chr22,10001031,A,G" -> "10101010",
+     *         "chr22,10001143,G,A" -> "10101010"
+     *     },
+     *     10002 -> {
+     *         "chr22,10002031,A,G" -> "10101010",
+     *         "chr22,10002143,G,A" -> "10101010"
+     *     }
+     * }
+     * variantMaskStorage2: {
+     *     10001 -> {
+     *         "chr22,10001031,A,G" -> "00001111",
+     *         "chr22,10001213,A,G" -> "00001111"
+     *     },
+     *     10003 -> {
+     *         "chr22,10003031,A,G" -> "00001111",
+     *         "chr22,10003213,A,G" -> "00001111"
+     *     }
+     * }
+     *
+     * mergedVariantMaskStorage: {
+     *     10001 -> {
+     *         "chr22,10001031,A,G" -> "1010101000001111",
+     *         "chr22,10001213,A,G" -> "0000000000001111",
+     *         "chr22,10001143,G,A" -> "1010101000000000"
+     *     },
+     *     10002 -> {
+     *         "chr22,10002031,A,G" -> "1010101000000000",
+     *         "chr22,10002143,G,A" -> "1010101000000000"
+     *     }
+     *     10003 -> {
+     *         "chr22,10003031,A,G" -> "0000000000001111",
+     *         "chr22,10003213,A,G" -> "0000000000001111"
+     *     }
+     * }
+     */
     public FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>> mergeChromosomeMask(String chromosome) throws FileNotFoundException {
         FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>> variantMaskStorage1 = variantStore1.getVariantMaskStorage().get(chromosome);
         FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>> variantMaskStorage2 = variantStore2.getVariantMaskStorage().get(chromosome);
