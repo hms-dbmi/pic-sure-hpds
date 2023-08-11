@@ -20,6 +20,8 @@ import java.util.zip.GZIPOutputStream;
 
 public class GenomicDatasetMerger {
 
+    public static final String INFO_STORE_JAVABIN_SUFFIX = "infoStore.javabin";
+    public static final String VARIANT_SPEC_INDEX_FILENAME = "variantSpecIndex.javabin";
     private static Logger log = LoggerFactory.getLogger(GenomicDatasetMerger.class);
 
     private final VariantStore variantStore1;
@@ -64,7 +66,7 @@ public class GenomicDatasetMerger {
     public void merge() throws IOException {
         Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergedChromosomeMasks = mergeChromosomeMasks();
         mergeVariantStore(mergedChromosomeMasks);
-        Map<String, FileBackedByteIndexedInfoStore> mergedVariantIndexes = mergeVariantIndexes();
+        mergeVariantIndexes();
     }
 
     public void mergeVariantStore(Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergedChromosomeMasks) {
@@ -138,13 +140,12 @@ public class GenomicDatasetMerger {
 
             FileBackedByteIndexedStorage<String, Integer[]> allValuesStore1 = infoStores1Entry.getValue().getAllValues();
             FileBackedByteIndexedStorage<String, Integer[]> allValuesStore2 = infoStore2.getAllValues();
-            //FileBackedByteIndexedStorage<String, String[]> mergedIndexedStorage = new FileBackedJavaIndexedStorage<>(String.class, String[].class, new File(outputDirectory));
             ConcurrentHashMap<String, ConcurrentSkipListSet<Integer>> mergedInfoStoreValues = new ConcurrentHashMap<>();
 
-            Sets.SetView<String> allKeys = Sets.intersection(allValuesStore1.keys(), allValuesStore2.keys());
+            Sets.SetView<String> allKeys = Sets.union(allValuesStore1.keys(), allValuesStore2.keys());
             for (String key : allKeys) {
-                Set<Integer> store1Values = new HashSet<>(Arrays.asList(allValuesStore1.getOrELse(key, new Integer[]{})));
-                Set<Integer> store2Values = new HashSet<>(Arrays.asList(allValuesStore2.getOrELse(key, new Integer[]{})));
+                Set<Integer> store1Values = Set.of(allValuesStore1.getOrELse(key, new Integer[]{}));
+                Set<Integer> store2Values = Set.of(allValuesStore2.getOrELse(key, new Integer[]{}));
                 Set<Integer> remappedValuesStore2 = store2Values.stream().map(value -> remappedIndexes[value]).collect(Collectors.toSet());
 
                 Set<Integer> mergedValues = Sets.union(store1Values, remappedValuesStore2);
@@ -155,10 +156,10 @@ public class GenomicDatasetMerger {
             infoStore.allValues = mergedInfoStoreValues;
             FileBackedByteIndexedInfoStore mergedStore = new FileBackedByteIndexedInfoStore(new File(outputDirectory), infoStore);
             mergedInfoStores.put(infoStores1Entry.getKey(), mergedStore);
-            mergedStore.write(new File(outputDirectory + infoStore.column_key + "_infoStore.javabin"));
+            mergedStore.write(new File(outputDirectory + infoStore.column_key + "_" + INFO_STORE_JAVABIN_SUFFIX));
         }
 
-        try (FileOutputStream fos = new FileOutputStream(new File(outputDirectory, "variantSpecIndex.javabin"));
+        try (FileOutputStream fos = new FileOutputStream(new File(outputDirectory, VARIANT_SPEC_INDEX_FILENAME));
              GZIPOutputStream gzos = new GZIPOutputStream(fos);
              ObjectOutputStream oos = new ObjectOutputStream(gzos);) {
             oos.writeObject(variantSpecList);
@@ -171,7 +172,7 @@ public class GenomicDatasetMerger {
         Map<String, FileBackedByteIndexedInfoStore> infoStores = new HashMap<>();
         File genomicDataDirectory = new File(directory);
         if(genomicDataDirectory.exists() && genomicDataDirectory.isDirectory()) {
-            Arrays.stream(genomicDataDirectory.list((file, filename)->{return filename.endsWith("infoStore.javabin");}))
+            Arrays.stream(genomicDataDirectory.list((file, filename)->{return filename.endsWith(INFO_STORE_JAVABIN_SUFFIX);}))
                     .forEach((String filename)->{
                         try (
                                 FileInputStream fis = new FileInputStream(directory + filename);
@@ -181,7 +182,7 @@ public class GenomicDatasetMerger {
                             log.info("loading " + filename);
                             FileBackedByteIndexedInfoStore infoStore = (FileBackedByteIndexedInfoStore) ois.readObject();
                             infoStore.updateStorageDirectory(genomicDataDirectory);
-                            infoStores.put(filename.replace("_infoStore.javabin", ""), infoStore);
+                            infoStores.put(filename.replace("_" + INFO_STORE_JAVABIN_SUFFIX, ""), infoStore);
                         } catch (IOException | ClassNotFoundException e) {
                             throw new RuntimeException(e);
                         }
