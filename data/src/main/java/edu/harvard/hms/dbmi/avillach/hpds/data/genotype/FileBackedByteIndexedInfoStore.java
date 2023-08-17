@@ -143,18 +143,15 @@ public class FileBackedByteIndexedInfoStore implements Serializable {
 		allValues.updateStorageDirectory(storageDirectory);
 	}
 
-	public void write(File outputFile)
-			throws IOException {
-		FileOutputStream fos = new FileOutputStream(outputFile);
-		GZIPOutputStream gzos = new GZIPOutputStream(fos);
-		ObjectOutputStream oos = new ObjectOutputStream(gzos);
-		oos.writeObject(this);
-		oos.flush();
-		oos.close();
-		gzos.flush();
-		gzos.close();
-		fos.flush();
-		fos.close();
+	public void write(File outputFile) {
+		try(
+				FileOutputStream fos = new FileOutputStream(outputFile);
+				GZIPOutputStream gzos = new GZIPOutputStream(fos);
+				ObjectOutputStream oos = new ObjectOutputStream(gzos);) {
+			oos.writeObject(this);
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
 	}
 }
 

@@ -20,29 +20,26 @@ import java.util.zip.GZIPOutputStream;
 
 public class GenomicDatasetMerger {
 
-    public static final String INFO_STORE_JAVABIN_SUFFIX = "infoStore.javabin";
-    public static final String VARIANT_SPEC_INDEX_FILENAME = "variantSpecIndex.javabin";
     private static Logger log = LoggerFactory.getLogger(GenomicDatasetMerger.class);
 
     private final VariantStore variantStore1;
     private final VariantStore variantStore2;
 
-    private final VariantStore mergedVariantStore;
-
-    private final String genomicDirectory1;
-    private final String genomicDirectory2;
+    private final Map<String, FileBackedByteIndexedInfoStore> infoStores1;
+    private final Map<String, FileBackedByteIndexedInfoStore> infoStores2;
 
     private final String outputDirectory;
 
-    public GenomicDatasetMerger(String genomicDirectory1, String genomicDirectory2, String outputDirectory) throws IOException, ClassNotFoundException, InterruptedException {
-        this.genomicDirectory1 = genomicDirectory1;
-        this.genomicDirectory2 = genomicDirectory2;
-        this.variantStore1 = VariantStore.readInstance(genomicDirectory1);
-        this.variantStore2 = VariantStore.readInstance(genomicDirectory2);
-        this.mergedVariantStore = new VariantStore();
+    private final VariantStore mergedVariantStore;
 
-        validate();
+    public GenomicDatasetMerger(VariantStore variantStore1, VariantStore variantStore2, Map<String, FileBackedByteIndexedInfoStore> infoStores1, Map<String, FileBackedByteIndexedInfoStore> infoStores2, String outputDirectory) {
+        this.variantStore1 = variantStore1;
+        this.variantStore2 = variantStore2;
+        this.mergedVariantStore = new VariantStore();
+        this.infoStores1 = infoStores1;
+        this.infoStores2 = infoStores2;
         this.outputDirectory = outputDirectory;
+        validate();
     }
 
     private void validate() {
@@ -52,19 +49,6 @@ public class GenomicDatasetMerger {
             log.error(String.join(", ", variantStore2.getVariantMaskStorage().keySet()));
             throw new IllegalStateException("Unable to merge variant stores with different numbers of chromosomes");
         }
-    }
-
-    /**
-     * args[0]: directory containing genomic dataset 1
-     * args[1]: directory containing genomic dataset 2
-     * args[2]: output directory
-     */
-    public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
-        String outputDirectory = args[2];
-        GenomicDatasetMerger genomicDatasetMerger = new GenomicDatasetMerger(args[0], args[1], outputDirectory);
-        VariantStore mergedVariantStore = genomicDatasetMerger.merge();
-
-        mergedVariantStore.writeInstance(outputDirectory);
     }
 
     public VariantStore merge() throws IOException {
@@ -103,8 +87,8 @@ public class GenomicDatasetMerger {
      * @throws IOException
      */
     public Map<String, FileBackedByteIndexedInfoStore> mergeVariantIndexes() throws IOException {
-        String[] variantIndex1 = VariantStore.loadVariantIndexFromFile(genomicDirectory1);
-        String[] variantIndex2 = VariantStore.loadVariantIndexFromFile(genomicDirectory2);
+        String[] variantIndex1 = variantStore1.getVariantSpecIndex();
+        String[] variantIndex2 = variantStore2.getVariantSpecIndex();
 
         Map<String, Integer> variantSpecToIndexMap = new HashMap<>();
         LinkedList<String> variantSpecList = new LinkedList<>(Arrays.asList(variantIndex1));
@@ -132,8 +116,6 @@ public class GenomicDatasetMerger {
             }
         }
 
-        Map<String, FileBackedByteIndexedInfoStore> infoStores1 = loadInfoStores(genomicDirectory1);
-        Map<String, FileBackedByteIndexedInfoStore> infoStores2 = loadInfoStores(genomicDirectory2);
         Map<String, FileBackedByteIndexedInfoStore> mergedInfoStores = new HashMap<>();
 
         if (!infoStores1.keySet().equals(infoStores2.keySet())) {
@@ -160,34 +142,10 @@ public class GenomicDatasetMerger {
             infoStore.allValues = mergedInfoStoreValues;
             FileBackedByteIndexedInfoStore mergedStore = new FileBackedByteIndexedInfoStore(new File(outputDirectory), infoStore);
             mergedInfoStores.put(infoStores1Entry.getKey(), mergedStore);
-            mergedStore.write(new File(outputDirectory + infoStore.column_key + "_" + INFO_STORE_JAVABIN_SUFFIX));
         }
 
         mergedVariantStore.setVariantSpecIndex(variantSpecList.toArray(new String[0]));
         return mergedInfoStores;
-    }
-
-    private Map<String, FileBackedByteIndexedInfoStore> loadInfoStores(String directory) {
-        Map<String, FileBackedByteIndexedInfoStore> infoStores = new HashMap<>();
-        File genomicDataDirectory = new File(directory);
-        if(genomicDataDirectory.exists() && genomicDataDirectory.isDirectory()) {
-            Arrays.stream(genomicDataDirectory.list((file, filename)->{return filename.endsWith(INFO_STORE_JAVABIN_SUFFIX);}))
-                    .forEach((String filename)->{
-                        try (
-                                FileInputStream fis = new FileInputStream(directory + filename);
-                                GZIPInputStream gis = new GZIPInputStream(fis);
-                                ObjectInputStream ois = new ObjectInputStream(gis)
-                        ){
-                            log.info("loading " + filename);
-                            FileBackedByteIndexedInfoStore infoStore = (FileBackedByteIndexedInfoStore) ois.readObject();
-                            infoStore.updateStorageDirectory(genomicDataDirectory);
-                            infoStores.put(filename.replace("_" + INFO_STORE_JAVABIN_SUFFIX, ""), infoStore);
-                        } catch (IOException | ClassNotFoundException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
-        }
-        return infoStores;
     }
 
     /**
