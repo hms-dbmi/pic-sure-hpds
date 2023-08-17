@@ -27,6 +27,8 @@ public class GenomicDatasetMerger {
     private final VariantStore variantStore1;
     private final VariantStore variantStore2;
 
+    private final VariantStore mergedVariantStore;
+
     private final String genomicDirectory1;
     private final String genomicDirectory2;
 
@@ -37,6 +39,7 @@ public class GenomicDatasetMerger {
         this.genomicDirectory2 = genomicDirectory2;
         this.variantStore1 = VariantStore.readInstance(genomicDirectory1);
         this.variantStore2 = VariantStore.readInstance(genomicDirectory2);
+        this.mergedVariantStore = new VariantStore();
 
         validate();
         this.outputDirectory = outputDirectory;
@@ -57,23 +60,24 @@ public class GenomicDatasetMerger {
      * args[2]: output directory
      */
     public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
-        long time = System.currentTimeMillis();
-        GenomicDatasetMerger genomicDatasetMerger = new GenomicDatasetMerger(args[0], args[1], args[2]);
-        genomicDatasetMerger.merge();
-        log.info("Finished in " + (System.currentTimeMillis() - time) + " + ms");
+        String outputDirectory = args[2];
+        GenomicDatasetMerger genomicDatasetMerger = new GenomicDatasetMerger(args[0], args[1], outputDirectory);
+        VariantStore mergedVariantStore = genomicDatasetMerger.merge();
+
+        mergedVariantStore.writeInstance(outputDirectory);
     }
 
-    public void merge() throws IOException {
+    public VariantStore merge() throws IOException {
         Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergedChromosomeMasks = mergeChromosomeMasks();
-        mergeVariantStore(mergedChromosomeMasks);
+        VariantStore mergedVariantStore = mergeVariantStore(mergedChromosomeMasks);
         mergeVariantIndexes();
+        return mergedVariantStore;
     }
 
-    public void mergeVariantStore(Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergedChromosomeMasks) {
-        VariantStore mergedVariantStore = new VariantStore();
+    public VariantStore mergeVariantStore(Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergedChromosomeMasks) {
         mergedVariantStore.setVariantMaskStorage(mergedChromosomeMasks);
         mergedVariantStore.setPatientIds(mergePatientIds());
-        mergedVariantStore.writeInstance(outputDirectory);
+        return mergedVariantStore;
     }
 
     /**
@@ -159,12 +163,7 @@ public class GenomicDatasetMerger {
             mergedStore.write(new File(outputDirectory + infoStore.column_key + "_" + INFO_STORE_JAVABIN_SUFFIX));
         }
 
-        try (FileOutputStream fos = new FileOutputStream(new File(outputDirectory, VARIANT_SPEC_INDEX_FILENAME));
-             GZIPOutputStream gzos = new GZIPOutputStream(fos);
-             ObjectOutputStream oos = new ObjectOutputStream(gzos);) {
-            oos.writeObject(variantSpecList);
-        }
-
+        mergedVariantStore.setVariantSpecIndex(variantSpecList.toArray(new String[0]));
         return mergedInfoStores;
     }
 

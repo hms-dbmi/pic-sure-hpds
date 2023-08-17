@@ -24,6 +24,8 @@ public class VariantStore implements Serializable {
 	private BigInteger emptyBitmask;
 	private String[] patientIds;
 
+	private transient String[] variantSpecIndex;
+
 	private Integer variantStorageSize;
 
 	private String[] vcfHeaders = new String[24];
@@ -38,6 +40,13 @@ public class VariantStore implements Serializable {
 		this.variantMaskStorage = variantMaskStorage;
 	}
 
+	public String[] getVariantSpecIndex() {
+		return variantSpecIndex;
+	}
+	public void setVariantSpecIndex(String[] variantSpecIndex) {
+		this.variantSpecIndex = variantSpecIndex;
+	}
+
 	public static VariantStore readInstance(String genomicDataDirectory) throws IOException, ClassNotFoundException {
 		ObjectInputStream ois = new ObjectInputStream(new GZIPInputStream(new FileInputStream(genomicDataDirectory + "variantStore.javabin")));
 		VariantStore variantStore = (VariantStore) ois.readObject();
@@ -46,6 +55,7 @@ public class VariantStore implements Serializable {
 			store.updateStorageDirectory(new File(genomicDataDirectory));
 		});
 		variantStore.open();
+		variantStore.setVariantSpecIndex(loadVariantIndexFromFile(genomicDataDirectory));
 		return variantStore;
 	}
 
@@ -54,10 +64,15 @@ public class VariantStore implements Serializable {
 			 GZIPOutputStream gzos = new GZIPOutputStream(fos);
 			 ObjectOutputStream oos = new ObjectOutputStream(gzos);) {
 			oos.writeObject(this);
-		} catch (RuntimeException e) {
-			throw e;
-		} catch (Exception e) {
-			throw new RuntimeException(e);
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
+		try (FileOutputStream fos = new FileOutputStream(new File(genomicDirectory, "variantSpecIndex.javabin"));
+			 GZIPOutputStream gzos = new GZIPOutputStream(fos);
+			 ObjectOutputStream oos = new ObjectOutputStream(gzos);) {
+			oos.writeObject(Arrays.asList(variantSpecIndex));
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
 		}
 	}
 

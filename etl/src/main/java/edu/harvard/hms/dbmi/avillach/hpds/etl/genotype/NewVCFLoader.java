@@ -171,8 +171,6 @@ public class NewVCFLoader {
 
 		shutdownChunkWriteExecutor();
 
-		saveVariantStore(store, variantMaskStorage);
-
 		saveInfoStores();
 
 		splitInfoStoresByColumn();
@@ -234,7 +232,8 @@ public class NewVCFLoader {
 			}
 		}
 
-		saveVariantIndex();
+		store.setVariantSpecIndex(variantIndexBuilder.getVariantSpecIndex().toArray(new String[0]));
+		saveVariantStore(store, variantMaskStorage);
 	}
 
 	private static String sampleIdsForMask(String[] sampleIds, BigInteger heterozygousMask) {
@@ -361,14 +360,6 @@ public class NewVCFLoader {
 			} catch (InterruptedException e) {
 				logger.error("Error shutting down chunk write executor", e);
 			}
-		}
-	}
-
-	private static void saveVariantIndex() throws IOException {
-		try (FileOutputStream fos = new FileOutputStream(new File(storageDir, "variantSpecIndex.javabin"));
-			 GZIPOutputStream gzos = new GZIPOutputStream(fos);
-			 ObjectOutputStream oos = new ObjectOutputStream(gzos);) {
-			oos.writeObject(variantIndexBuilder.getVariantSpecIndex());
 		}
 	}
 
