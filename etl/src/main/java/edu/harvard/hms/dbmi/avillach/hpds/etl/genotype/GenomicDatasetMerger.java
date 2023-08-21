@@ -55,13 +55,6 @@ public class GenomicDatasetMerger {
         }
     }
 
-    public VariantStore merge() throws IOException {
-        Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergedChromosomeMasks = mergeChromosomeMasks();
-        VariantStore mergedVariantStore = mergeVariantStore(mergedChromosomeMasks);
-        mergeVariantIndexes();
-        return mergedVariantStore;
-    }
-
     public VariantStore mergeVariantStore(Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergedChromosomeMasks) {
         mergedVariantStore.setVariantMaskStorage(mergedChromosomeMasks);
         mergedVariantStore.setPatientIds(mergePatientIds());
