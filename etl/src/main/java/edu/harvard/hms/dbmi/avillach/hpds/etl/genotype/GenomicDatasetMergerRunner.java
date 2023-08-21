@@ -1,5 +1,6 @@
 package edu.harvard.hms.dbmi.avillach.hpds.etl.genotype;
 
+import com.google.common.base.Preconditions;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.FileBackedByteIndexedInfoStore;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMasks;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantStore;
@@ -33,7 +34,9 @@ public class GenomicDatasetMergerRunner {
      * args[2]: output directory
      */
     public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
-        // todo :validation
+        if (args.length != 3) {
+            throw new IllegalArgumentException("Three arguments must be provided: source directory 1, source directory 2, output directory");
+        }
         genomicDirectory1 = args[0];
         genomicDirectory2 = args[1];
         String outputDirectory = args[2];
