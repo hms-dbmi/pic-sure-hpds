@@ -49,6 +49,10 @@ public class GenomicDatasetMerger {
             log.error(String.join(", ", variantStore2.getVariantMaskStorage().keySet()));
             throw new IllegalStateException("Unable to merge variant stores with different numbers of chromosomes");
         }
+        Sets.SetView<String> patientIntersection = Sets.intersection(Sets.newHashSet(variantStore1.getPatientIds()), Sets.newHashSet(variantStore2.getPatientIds()));
+        if (!patientIntersection.isEmpty()) {
+            throw new IllegalStateException("Cannot merge genomic datasets containing the same patient id");
+        }
     }
 
     public VariantStore merge() throws IOException {
