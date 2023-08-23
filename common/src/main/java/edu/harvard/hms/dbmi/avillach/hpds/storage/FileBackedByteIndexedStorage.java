@@ -73,8 +73,9 @@ public abstract class FileBackedByteIndexedStorage <K, V extends Serializable> i
 
 	public V get(K key) {
 		try {
-			if(this.storage==null) {
-				synchronized(this) {
+			// todo: make this class immutable and remove this lock/check altogether
+			synchronized(this) {
+				if(this.storage==null) {
 					this.open();
 				}
 			}
