@@ -262,20 +262,16 @@ public class AbstractProcessor {
 
 	private void addIdSetsForAnyRecordOf(Query query, ArrayList<Set<Integer>> filteredIdSets) {
 		if(!query.getAnyRecordOf().isEmpty()) {
-			Set<Integer> patientsInScope = new ConcurrentSkipListSet<Integer>();
-			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<VariantMasks>();
-			query.getAnyRecordOf().parallelStream().forEach(path->{
-				if(patientsInScope.size()<Math.max(
-						phenotypeMetaStore.getPatientIds().size(),
-						variantService.getPatientIds().length)) {
-					if(VariantUtils.pathIsVariantSpec(path)) {
-						addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1","1/1"}, path, patientsInScope, bucketCache);
-					} else {
-						patientsInScope.addAll(getCube(path).keyBasedIndex());
-					}
+			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
+			filteredIdSets.addAll(query.getAnyRecordOf().parallelStream().map(path->{
+				if(VariantUtils.pathIsVariantSpec(path)) {
+					TreeSet<Integer> patientsInScope = new TreeSet<>();
+					addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1","1/1"}, path, patientsInScope, bucketCache);
+					return patientsInScope;
+				} else {
+					return new TreeSet<Integer>(getCube(path).keyBasedIndex());
 				}
-			});
-			filteredIdSets.add(patientsInScope);
+			}).collect(Collectors.toSet()));
 		}
 	}
 
