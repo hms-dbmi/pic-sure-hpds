@@ -6,6 +6,7 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -195,24 +196,27 @@ public class AbstractProcessor {
 	 * @return
 	 */
 	protected List<Set<Integer>> idSetsForEachFilter(Query query) {
-		ArrayList<Set<Integer>> filteredIdSets = new ArrayList<Set<Integer>>();
+		final ArrayList<Set<Integer>> filteredIdSets = new ArrayList<>();
 
 		try {
-			addIdSetsForAnyRecordOf(query, filteredIdSets);
+			query.getAllAnyRecordOf().forEach(anyRecordOfFilterList -> {
+				addIdSetsForAnyRecordOf(anyRecordOfFilterList, filteredIdSets);
+			});
 			addIdSetsForRequiredFields(query, filteredIdSets);
 			addIdSetsForNumericFilters(query, filteredIdSets);
 			addIdSetsForCategoryFilters(query, filteredIdSets);
 		} catch (InvalidCacheLoadException e) {
 			log.warn("Invalid query supplied: " + e.getLocalizedMessage());
-			filteredIdSets.add(new HashSet<Integer>()); // if an invalid path is supplied, no patients should match.
+			filteredIdSets.add(new HashSet<>()); // if an invalid path is supplied, no patients should match.
 		}
 
 		//AND logic to make sure all patients match each filter
 		if(filteredIdSets.size()>1) {
-			filteredIdSets = new ArrayList<Set<Integer>>(List.of(applyBooleanLogic(filteredIdSets)));
+			List<Set<Integer>> processedFilteredIdSets = new ArrayList<>(List.of(applyBooleanLogic(filteredIdSets)));
+			return addIdSetsForVariantInfoFilters(query, processedFilteredIdSets);
+		} else {
+			return addIdSetsForVariantInfoFilters(query, filteredIdSets);
 		}
-
-		return addIdSetsForVariantInfoFilters(query, filteredIdSets);
 	}
 
 	/**
@@ -248,7 +252,7 @@ public class AbstractProcessor {
 	private void addIdSetsForRequiredFields(Query query, ArrayList<Set<Integer>> filteredIdSets) {
 		if(!query.getRequiredFields().isEmpty()) {
 			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
-			filteredIdSets.addAll(query.getRequiredFields().parallelStream().map(path->{
+			filteredIdSets.addAll(query.getRequiredFields().stream().map(path->{
 				if(VariantUtils.pathIsVariantSpec(path)) {
 					TreeSet<Integer> patientsInScope = new TreeSet<>();
 					addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1","1/1"}, path, patientsInScope, bucketCache);
@@ -260,18 +264,19 @@ public class AbstractProcessor {
 		}
 	}
 
-	private void addIdSetsForAnyRecordOf(Query query, ArrayList<Set<Integer>> filteredIdSets) {
-		if(!query.getAnyRecordOf().isEmpty()) {
+	private void addIdSetsForAnyRecordOf(List<String> anyRecordOfFilters, ArrayList<Set<Integer>> filteredIdSets) {
+		if(!anyRecordOfFilters.isEmpty()) {
 			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
-			filteredIdSets.addAll(query.getAnyRecordOf().parallelStream().map(path->{
-				if(VariantUtils.pathIsVariantSpec(path)) {
+			Set<Integer> anyRecordOfPatientSet = anyRecordOfFilters.stream().flatMap(path -> {
+				if (VariantUtils.pathIsVariantSpec(path)) {
 					TreeSet<Integer> patientsInScope = new TreeSet<>();
-					addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1","1/1"}, path, patientsInScope, bucketCache);
-					return patientsInScope;
+					addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1", "1/1"}, path, patientsInScope, bucketCache);
+					return patientsInScope.stream();
 				} else {
-					return new TreeSet<Integer>(getCube(path).keyBasedIndex());
+					return (Stream<Integer>) getCube(path).keyBasedIndex().stream();
 				}
-			}).collect(Collectors.toSet()));
+			}).collect(Collectors.toSet());
+			filteredIdSets.add(anyRecordOfPatientSet);
 		}
 	}
 
@@ -286,7 +291,7 @@ public class AbstractProcessor {
 	private void addIdSetsForCategoryFilters(Query query, ArrayList<Set<Integer>> filteredIdSets) {
 		if(!query.getCategoryFilters().isEmpty()) {
 			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<VariantMasks>();
-			Set<Set<Integer>> idsThatMatchFilters = (Set<Set<Integer>>)query.getCategoryFilters().entrySet().parallelStream().map(entry->{
+			Set<Set<Integer>> idsThatMatchFilters = (Set<Set<Integer>>)query.getCategoryFilters().entrySet().stream().map(entry->{
 				Set<Integer> ids = new TreeSet<Integer>();
 				if(VariantUtils.pathIsVariantSpec(entry.getKey())) {
 					addIdSetsForVariantSpecCategoryFilters(entry.getValue(), entry.getKey(), ids, bucketCache);
