@@ -252,7 +252,7 @@ public class AbstractProcessor {
 	private void addIdSetsForRequiredFields(Query query, ArrayList<Set<Integer>> filteredIdSets) {
 		if(!query.getRequiredFields().isEmpty()) {
 			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
-			filteredIdSets.addAll(query.getRequiredFields().stream().map(path->{
+			filteredIdSets.addAll(query.getRequiredFields().parallelStream().map(path->{
 				if(VariantUtils.pathIsVariantSpec(path)) {
 					TreeSet<Integer> patientsInScope = new TreeSet<>();
 					addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1","1/1"}, path, patientsInScope, bucketCache);
@@ -267,7 +267,7 @@ public class AbstractProcessor {
 	private void addIdSetsForAnyRecordOf(List<String> anyRecordOfFilters, ArrayList<Set<Integer>> filteredIdSets) {
 		if(!anyRecordOfFilters.isEmpty()) {
 			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
-			Set<Integer> anyRecordOfPatientSet = anyRecordOfFilters.stream().flatMap(path -> {
+			Set<Integer> anyRecordOfPatientSet = anyRecordOfFilters.parallelStream().flatMap(path -> {
 				if (VariantUtils.pathIsVariantSpec(path)) {
 					TreeSet<Integer> patientsInScope = new TreeSet<>();
 					addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1", "1/1"}, path, patientsInScope, bucketCache);
@@ -290,9 +290,9 @@ public class AbstractProcessor {
 
 	private void addIdSetsForCategoryFilters(Query query, ArrayList<Set<Integer>> filteredIdSets) {
 		if(!query.getCategoryFilters().isEmpty()) {
-			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<VariantMasks>();
-			Set<Set<Integer>> idsThatMatchFilters = (Set<Set<Integer>>)query.getCategoryFilters().entrySet().stream().map(entry->{
-				Set<Integer> ids = new TreeSet<Integer>();
+			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
+			Set<Set<Integer>> idsThatMatchFilters = query.getCategoryFilters().entrySet().parallelStream().map(entry->{
+				Set<Integer> ids = new TreeSet<>();
 				if(VariantUtils.pathIsVariantSpec(entry.getKey())) {
 					addIdSetsForVariantSpecCategoryFilters(entry.getValue(), entry.getKey(), ids, bucketCache);
 				} else {
