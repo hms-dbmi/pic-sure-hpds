@@ -203,10 +203,7 @@ public class Query {
 		writePartFormat("Numeric filters", numericFilters, builder);
 		writePartFormat("Category filters", categoryFilters, builder);
 		writePartFormat("Variant Info filters", variantInfoFilters, builder, false);
-
-		List<List<String>> allAnyRecordOf = new ArrayList<>(anyRecordOfMulti);
-		allAnyRecordOf.add(anyRecordOf);
-		writePartFormat("Any-Record-Of filters", allAnyRecordOf, builder, true);
+		writePartFormat("Any-Record-Of filters", getAllAnyRecordOf(), builder, true);
 
 		return builder.toString();
 	}
