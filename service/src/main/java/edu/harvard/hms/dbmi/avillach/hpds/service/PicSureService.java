@@ -42,13 +42,15 @@ public class PicSureService implements IResourceRS {
 
 	@Autowired
 	public PicSureService(QueryService queryService, TimelineProcessor timelineProcessor, CountProcessor countProcessor,
-						  VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor, Paginator paginator) {
+						  VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor, Paginator paginator,
+						  AvroQueryProcessor avroQueryProcessor) {
 		this.queryService = queryService;
 		this.timelineProcessor = timelineProcessor;
 		this.countProcessor = countProcessor;
 		this.variantListProcessor = variantListProcessor;
 		this.abstractProcessor = abstractProcessor;
 		this.paginator = paginator;
+		this.avroQueryProcessor = avroQueryProcessor;
 		Crypto.loadDefaultKey();
 	}
 
@@ -67,6 +69,8 @@ public class PicSureService implements IResourceRS {
 	private final AbstractProcessor abstractProcessor;
 
 	private final Paginator paginator;
+
+	private final AvroQueryProcessor avroQueryProcessor;
 
 	private static final String QUERY_METADATA_FIELD = "queryMetadata";
 	private static final int RESPONSE_CACHE_SIZE = 50;
@@ -338,7 +342,9 @@ public class PicSureService implements IResourceRS {
 				return queryOkResponse(result.stream, incomingQuery).build();
 			}
 			return Response.status(400).entity("Status : " + result.status.name()).build();
-
+		case DATAFRAME_AVRO:
+			return queryOkResponse(avroQueryProcessor.runQuery(incomingQuery), incomingQuery)
+					.header(HttpHeaders.CONTENT_TYPE, ContentType.APPLICATION_JSON).build();
 		case CROSS_COUNT:
 			return queryOkResponse(countProcessor.runCrossCounts(incomingQuery), incomingQuery)
 					.header(HttpHeaders.CONTENT_TYPE, ContentType.APPLICATION_JSON).build();

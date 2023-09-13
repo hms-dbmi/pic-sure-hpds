@@ -94,5 +94,9 @@ public enum ResultType {
 	 * is suitable to time series analysis and/or loading into another 
 	 * instance of HPDS.
 	 */
-	DATAFRAME_TIMESERIES
+	DATAFRAME_TIMESERIES,
+	/**
+	 * This exports a dataframe in PFB avro fromat
+	 */
+	DATAFRAME_AVRO
 }

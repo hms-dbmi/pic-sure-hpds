@@ -320,6 +320,11 @@
 				<artifactId>spring-test</artifactId>
 				<version>4.3.30.RELEASE</version>
 			</dependency>
+			<dependency>
+				<groupId>org.apache.avro</groupId>
+				<artifactId>avro</artifactId>
+				<version>1.11.2</version>
+			</dependency>
 
 		</dependencies>
 	</dependencyManagement>
