@@ -31,4 +31,12 @@
             <http-only>true</http-only>
         </cookie-config>
     </session-config>
+    <error-page>
+        <error-code>404</error-code>
+        <location>/error-404.html</location>
+    </error-page>
+    <error-page>
+        <error-code>500</error-code>
+        <location>/error-500.html</location>
+    </error-page>
 </web-app>
