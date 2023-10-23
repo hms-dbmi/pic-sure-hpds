@@ -273,7 +273,12 @@ public class AbstractProcessor {
 					addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1", "1/1"}, path, patientsInScope, bucketCache);
 					return patientsInScope.stream();
 				} else {
-					return (Stream<Integer>) getCube(path).keyBasedIndex().stream();
+					try {
+						return (Stream<Integer>) getCube(path).keyBasedIndex().stream();
+					} catch (InvalidCacheLoadException e) {
+						// return an empty stream if this concept doesn't exist
+						return Stream.empty();
+					}
 				}
 			}).collect(Collectors.toSet());
 			filteredIdSets.add(anyRecordOfPatientSet);
