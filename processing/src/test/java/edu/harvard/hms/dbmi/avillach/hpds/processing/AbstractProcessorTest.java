@@ -1,7 +1,10 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing;
 
 
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.FileBackedByteIndexedInfoStore;
+import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
 import org.junit.Before;
@@ -12,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.junit.Assert.*;
@@ -32,6 +36,9 @@ public class AbstractProcessorTest {
 
     @Mock
     private PatientVariantJoinHandler patientVariantJoinHandler;
+
+    @Mock
+    private LoadingCache<String, PhenoCube<?>> mockLoadingCache;
 
     public static final String GENE_WITH_VARIANT_KEY = "Gene_with_variant";
     private static final String VARIANT_SEVERITY_KEY = "Variant_severity";
@@ -61,7 +68,7 @@ public class AbstractProcessorTest {
                         new TreeMap<>(),
                         new TreeSet<>()
                 ),
-                null,
+                mockLoadingCache,
                 infoStores,
                 null,
                 variantService,
@@ -125,8 +132,8 @@ public class AbstractProcessorTest {
         when(patientVariantJoinHandler.getPatientIdsForIntersectionOfVariantSets(any(), argumentCaptor.capture())).thenReturn(List.of(Set.of(42)));
 
         Map<String, String[]> categoryVariantInfoFilters = Map.of(
-            GENE_WITH_VARIANT_KEY, new String[] {EXAMPLE_GENES_WITH_VARIANT.get(0)},
-            VARIANT_SEVERITY_KEY, new String[] {EXAMPLE_VARIANT_SEVERITIES.get(0)}
+                GENE_WITH_VARIANT_KEY, new String[] {EXAMPLE_GENES_WITH_VARIANT.get(0)},
+                VARIANT_SEVERITY_KEY, new String[] {EXAMPLE_VARIANT_SEVERITIES.get(0)}
         );
         Query.VariantInfoFilter variantInfoFilter = new Query.VariantInfoFilter();
         variantInfoFilter.categoryVariantInfoFilters = categoryVariantInfoFilters;
@@ -140,5 +147,72 @@ public class AbstractProcessorTest {
         assertFalse(patientSubsetForQuery.isEmpty());
         // Expected result is the intersection of the two filters
         assertEquals(argumentCaptor.getValue(), new SparseVariantIndex(Set.of(4, 6)));
+    }
+
+    @Test
+    public void getPatientSubsetForQuery_anyRecordOf_applyOrLogic() throws ExecutionException {
+        when(variantIndexCache.get(GENE_WITH_VARIANT_KEY, EXAMPLE_GENES_WITH_VARIANT.get(0))).thenReturn(new SparseVariantIndex(Set.of(2, 4, 6)));
+        when(variantIndexCache.get(VARIANT_SEVERITY_KEY, EXAMPLE_VARIANT_SEVERITIES.get(0))).thenReturn(new SparseVariantIndex(Set.of(4, 5, 6, 7)));
+
+        ArgumentCaptor<VariantIndex> argumentCaptor = ArgumentCaptor.forClass(VariantIndex.class);
+        ArgumentCaptor<List<Set<Integer>>> listArgumentCaptor = ArgumentCaptor.forClass(List.class);
+        when(patientVariantJoinHandler.getPatientIdsForIntersectionOfVariantSets(listArgumentCaptor.capture(), argumentCaptor.capture())).thenReturn(List.of(Set.of(42)));
+
+        Map<String, String[]> categoryVariantInfoFilters = Map.of(
+                GENE_WITH_VARIANT_KEY, new String[] {EXAMPLE_GENES_WITH_VARIANT.get(0)},
+                VARIANT_SEVERITY_KEY, new String[] {EXAMPLE_VARIANT_SEVERITIES.get(0)}
+        );
+        Query.VariantInfoFilter variantInfoFilter = new Query.VariantInfoFilter();
+        variantInfoFilter.categoryVariantInfoFilters = categoryVariantInfoFilters;
+
+        List<Query.VariantInfoFilter> variantInfoFilters = List.of(variantInfoFilter);
+
+        PhenoCube mockPhenoCube = mock(PhenoCube.class);
+        when(mockPhenoCube.keyBasedIndex()).thenReturn(List.of(42, 101));
+        when(mockLoadingCache.get("good concept")).thenReturn(mockPhenoCube);
+        when(mockLoadingCache.get("bad concept")).thenThrow(CacheLoader.InvalidCacheLoadException.class);
+
+        Query query = new Query();
+        query.setVariantInfoFilters(variantInfoFilters);
+        query.setAnyRecordOf(List.of("good concept", "bad concept"));
+
+        TreeSet<Integer> patientSubsetForQuery = abstractProcessor.getPatientSubsetForQuery(query);
+        assertFalse(patientSubsetForQuery.isEmpty());
+        // Expected result is the intersection of the two filters
+        assertEquals(argumentCaptor.getValue(), new SparseVariantIndex(Set.of(4, 6)));
+        assertEquals(listArgumentCaptor.getValue().get(0), Set.of(42, 101));
+    }
+
+
+
+    @Test
+    public void getPatientSubsetForQuery_anyRecordOfInvalidKey_returnEmpty() throws ExecutionException {
+        when(variantIndexCache.get(GENE_WITH_VARIANT_KEY, EXAMPLE_GENES_WITH_VARIANT.get(0))).thenReturn(new SparseVariantIndex(Set.of(2, 4, 6)));
+        when(variantIndexCache.get(VARIANT_SEVERITY_KEY, EXAMPLE_VARIANT_SEVERITIES.get(0))).thenReturn(new SparseVariantIndex(Set.of(4, 5, 6, 7)));
+
+        ArgumentCaptor<VariantIndex> argumentCaptor = ArgumentCaptor.forClass(VariantIndex.class);
+        ArgumentCaptor<List<Set<Integer>>> listArgumentCaptor = ArgumentCaptor.forClass(List.class);
+        when(patientVariantJoinHandler.getPatientIdsForIntersectionOfVariantSets(listArgumentCaptor.capture(), argumentCaptor.capture())).thenReturn(List.of(Set.of(42)));
+
+        Map<String, String[]> categoryVariantInfoFilters = Map.of(
+                GENE_WITH_VARIANT_KEY, new String[] {EXAMPLE_GENES_WITH_VARIANT.get(0)},
+                VARIANT_SEVERITY_KEY, new String[] {EXAMPLE_VARIANT_SEVERITIES.get(0)}
+        );
+        Query.VariantInfoFilter variantInfoFilter = new Query.VariantInfoFilter();
+        variantInfoFilter.categoryVariantInfoFilters = categoryVariantInfoFilters;
+
+        List<Query.VariantInfoFilter> variantInfoFilters = List.of(variantInfoFilter);
+
+        when(mockLoadingCache.get("bad concept")).thenThrow(CacheLoader.InvalidCacheLoadException.class);
+
+        Query query = new Query();
+        query.setVariantInfoFilters(variantInfoFilters);
+        query.setAnyRecordOf(List.of("bad concept"));
+
+        TreeSet<Integer> patientSubsetForQuery = abstractProcessor.getPatientSubsetForQuery(query);
+        assertFalse(patientSubsetForQuery.isEmpty());
+        // Expected result is the intersection of the two filters
+        assertEquals(argumentCaptor.getValue(), new SparseVariantIndex(Set.of(4, 6)));
+        assertEquals(listArgumentCaptor.getValue().get(0), Set.of());
     }
 }
