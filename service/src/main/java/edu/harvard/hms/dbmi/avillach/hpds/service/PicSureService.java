@@ -11,6 +11,8 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 
+import edu.harvard.hms.dbmi.avillach.hpds.service.filesharing.FileSharingService;
+import edu.harvard.hms.dbmi.avillach.hpds.service.filesharing.FileSystemService;
 import edu.harvard.hms.dbmi.avillach.hpds.service.util.Paginator;
 import org.apache.http.entity.ContentType;
 import org.slf4j.Logger;
@@ -34,6 +36,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.*;
 import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.RequestBody;
 
 @Path("PIC-SURE")
 @Produces("application/json")
@@ -42,13 +45,16 @@ public class PicSureService implements IResourceRS {
 
 	@Autowired
 	public PicSureService(QueryService queryService, TimelineProcessor timelineProcessor, CountProcessor countProcessor,
-						  VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor, Paginator paginator) {
+						  VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor,
+						  Paginator paginator, FileSharingService fileSystemService
+	) {
 		this.queryService = queryService;
 		this.timelineProcessor = timelineProcessor;
 		this.countProcessor = countProcessor;
 		this.variantListProcessor = variantListProcessor;
 		this.abstractProcessor = abstractProcessor;
 		this.paginator = paginator;
+		this.fileSystemService = fileSystemService;
 		Crypto.loadDefaultKey();
 	}
 
@@ -67,6 +73,8 @@ public class PicSureService implements IResourceRS {
 	private final AbstractProcessor abstractProcessor;
 
 	private final Paginator paginator;
+
+	private final FileSharingService fileSystemService;
 
 	private static final String QUERY_METADATA_FIELD = "queryMetadata";
 	private static final int RESPONSE_CACHE_SIZE = 50;
@@ -251,6 +259,36 @@ public class PicSureService implements IResourceRS {
 	}
 
 	@POST
+	@Path("/write/{dataType}")
+	public Response writeQueryResult(
+		@RequestBody() Query query, @PathParam("dataType") String datatype
+	) {
+		AsyncResult result = queryService.getResultFor(query.getId());
+		// the queryResult has this DIY retry logic that blocks a system thread.
+		// I'm not going to do that here. If the service can't find it, you get a 404.
+		// Retry it client side.
+		if (result == null) {
+			return Response.status(404).build();
+		}
+		if (result.status == AsyncResult.Status.ERROR) {
+			return Response.status(500).build();
+		}
+		if (result.status != AsyncResult.Status.SUCCESS) {
+			return Response.status(503).build(); // 503 = unavailable
+		}
+
+		// at least for now, this is going to block until we finish writing
+		// Not very restful, but it will make this API very easy to consume
+		boolean success = false;
+		if ("phenotypic".equals(datatype)) {
+			success = fileSystemService.createPhenotypicData(query);
+		} else if ("genomic".equals(datatype)) {
+			success = fileSystemService.createGenomicData(query);
+		}
+		return success ? Response.ok().build() : Response.serverError().build();
+	}
+
+	@POST
 	@Path("/query/{resourceQueryId}/status")
 	@Override
 	public QueryStatus queryStatus(@PathParam("resourceQueryId") UUID queryId, QueryRequest request) {
@@ -266,7 +304,7 @@ public class PicSureService implements IResourceRS {
 			return Response.ok().entity(convertIncomingQuery(resultRequest).toString()).build();
 		} catch (IOException e) {
 			return Response.ok()
-					.entity("An error occurred formatting the query for display: " + e.getLocalizedMessage()).build();
+				.entity("An error occurred formatting the query for display: " + e.getLocalizedMessage()).build();
 		}
 	}
 
