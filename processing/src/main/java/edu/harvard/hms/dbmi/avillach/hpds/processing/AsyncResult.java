@@ -1,6 +1,7 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -130,6 +131,10 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 	@Override
 	public int compareTo(AsyncResult o) {
 		return this.query.getId().compareTo(o.query.getId());
+	}
+
+	public Path getTempFilePath() {
+		return stream.getTempFilePath();
 	}
 	
 }
