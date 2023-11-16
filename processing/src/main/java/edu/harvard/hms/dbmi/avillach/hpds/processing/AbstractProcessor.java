@@ -29,6 +29,9 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query.VariantInfoFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.Nullable;
+import javax.validation.constraints.NotNull;
+
 
 @Component
 public class AbstractProcessor {
@@ -187,6 +190,16 @@ public class AbstractProcessor {
 		return ids[0];
 	}
 
+	private class IntersectingSetContainer<T> {
+		Set<T> set = null;
+		boolean initialized = false;
+
+		void intersect(@NotNull Set<T> toIntersect) {
+			initialized = true;
+			set = set == null ? toIntersect : Sets.intersection(set, toIntersect);
+		}
+	}
+
 	/**
 	 * For each filter in the query, return a set of patient ids that match. The order of these sets in the
 	 * returned list of sets does not matter and cannot currently be tied back to the filter that generated
@@ -196,26 +209,27 @@ public class AbstractProcessor {
 	 * @return
 	 */
 	protected List<Set<Integer>> idSetsForEachFilter(Query query) {
-		final ArrayList<Set<Integer>> filteredIdSets = new ArrayList<>();
+		IntersectingSetContainer<Integer> ids = new IntersectingSetContainer<>();
 
 		try {
-			query.getAllAnyRecordOf().forEach(anyRecordOfFilterList -> {
-				addIdSetsForAnyRecordOf(anyRecordOfFilterList, filteredIdSets);
-			});
-			addIdSetsForRequiredFields(query, filteredIdSets);
-			addIdSetsForNumericFilters(query, filteredIdSets);
-			addIdSetsForCategoryFilters(query, filteredIdSets);
+            for (List<String> anyRecordOfFilterList : query.getAllAnyRecordOf()) {
+				ids = addIdSetsForAnyRecordOf(anyRecordOfFilterList, ids);
+            }
+            ids = addIdSetsForRequiredFields(query, ids);
+			ids = addIdSetsForNumericFilters(query, ids);
+			ids = addIdSetsForCategoryFilters(query, ids);
 		} catch (InvalidCacheLoadException e) {
 			log.warn("Invalid query supplied: " + e.getLocalizedMessage());
-			filteredIdSets.add(new HashSet<>()); // if an invalid path is supplied, no patients should match.
+			return List.of(new HashSet<>());
 		}
 
+
+
 		//AND logic to make sure all patients match each filter
-		if(filteredIdSets.size()>1) {
-			List<Set<Integer>> processedFilteredIdSets = new ArrayList<>(List.of(applyBooleanLogic(filteredIdSets)));
-			return addIdSetsForVariantInfoFilters(query, processedFilteredIdSets);
+		if (ids.initialized) {
+			return addIdSetsForVariantInfoFilters(query, new ArrayList<>(List.of(ids.set)));
 		} else {
-			return addIdSetsForVariantInfoFilters(query, filteredIdSets);
+			return addIdSetsForVariantInfoFilters(query, new ArrayList<>());
 		}
 	}
 
@@ -249,22 +263,23 @@ public class AbstractProcessor {
 		return idList;
 	}
 
-	private void addIdSetsForRequiredFields(Query query, ArrayList<Set<Integer>> filteredIdSets) {
+	private IntersectingSetContainer<Integer> addIdSetsForRequiredFields(Query query, IntersectingSetContainer<Integer> filteredIdSets) {
 		if(!query.getRequiredFields().isEmpty()) {
 			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
-			filteredIdSets.addAll(query.getRequiredFields().parallelStream().map(path->{
-				if(VariantUtils.pathIsVariantSpec(path)) {
+			query.getRequiredFields().parallelStream().map(path -> {
+				if (VariantUtils.pathIsVariantSpec(path)) {
 					TreeSet<Integer> patientsInScope = new TreeSet<>();
-					addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1","1/1"}, path, patientsInScope, bucketCache);
+					addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1", "1/1"}, path, patientsInScope, bucketCache);
 					return patientsInScope;
 				} else {
-					return new TreeSet<Integer>(getCube(path).keyBasedIndex());
+					return (Set<Integer>) new TreeSet<Integer>(getCube(path).keyBasedIndex());
 				}
-			}).collect(Collectors.toSet()));
+			}).forEach(filteredIdSets::intersect);
 		}
+		return filteredIdSets;
 	}
 
-	private void addIdSetsForAnyRecordOf(List<String> anyRecordOfFilters, ArrayList<Set<Integer>> filteredIdSets) {
+	private IntersectingSetContainer<Integer> addIdSetsForAnyRecordOf(List<String> anyRecordOfFilters, IntersectingSetContainer<Integer> filteredIdSets) {
 		if(!anyRecordOfFilters.isEmpty()) {
 			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
 			Set<Integer> anyRecordOfPatientSet = anyRecordOfFilters.parallelStream().flatMap(path -> {
@@ -281,35 +296,37 @@ public class AbstractProcessor {
 					}
 				}
 			}).collect(Collectors.toSet());
-			filteredIdSets.add(anyRecordOfPatientSet);
+			filteredIdSets.intersect(anyRecordOfPatientSet);
 		}
+		return filteredIdSets;
 	}
 
-	private void addIdSetsForNumericFilters(Query query, ArrayList<Set<Integer>> filteredIdSets) {
+	private IntersectingSetContainer<Integer> addIdSetsForNumericFilters(Query query, IntersectingSetContainer<Integer> filteredIdSets) {
 		if(!query.getNumericFilters().isEmpty()) {
-			filteredIdSets.addAll((Set<TreeSet<Integer>>)(query.getNumericFilters().entrySet().parallelStream().map(entry->{
-				return (TreeSet<Integer>)(getCube(entry.getKey()).getKeysForRange(entry.getValue().getMin(), entry.getValue().getMax()));
-			}).collect(Collectors.toSet())));
+			query.getNumericFilters().entrySet().parallelStream().map(entry-> {
+				return (Set<Integer>)(getCube(entry.getKey()).getKeysForRange(entry.getValue().getMin(), entry.getValue().getMax()));
+			}).forEach(filteredIdSets::intersect);
 		}
+		return filteredIdSets;
 	}
 
-	private void addIdSetsForCategoryFilters(Query query, ArrayList<Set<Integer>> filteredIdSets) {
-		if(!query.getCategoryFilters().isEmpty()) {
-			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
-			Set<Set<Integer>> idsThatMatchFilters = query.getCategoryFilters().entrySet().parallelStream().map(entry->{
-				Set<Integer> ids = new TreeSet<>();
-				if(VariantUtils.pathIsVariantSpec(entry.getKey())) {
-					addIdSetsForVariantSpecCategoryFilters(entry.getValue(), entry.getKey(), ids, bucketCache);
-				} else {
-					String[] categoryFilter = entry.getValue();
-					for(String category : categoryFilter) {
-							ids.addAll(getCube(entry.getKey()).getKeysForValue(category));
-					}
+	private IntersectingSetContainer<Integer> addIdSetsForCategoryFilters(
+		Query query, IntersectingSetContainer<Integer> startingIds
+	) {
+		VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
+		query.getCategoryFilters().entrySet().parallelStream().map(entry->{
+			Set<Integer> ids = new TreeSet<>();
+			if(VariantUtils.pathIsVariantSpec(entry.getKey())) {
+				addIdSetsForVariantSpecCategoryFilters(entry.getValue(), entry.getKey(), ids, bucketCache);
+			} else {
+				String[] categoryFilter = entry.getValue();
+				for(String category : categoryFilter) {
+						ids.addAll(getCube(entry.getKey()).getKeysForValue(category));
 				}
-				return ids;
-			}).collect(Collectors.toSet());
-			filteredIdSets.addAll(idsThatMatchFilters);
-		}
+			}
+			return ids;
+		}).forEach(startingIds::intersect);
+		return startingIds;
 	}
 
 	private void addIdSetsForVariantSpecCategoryFilters(String[] zygosities, String key, Set<Integer> ids, VariantBucketHolder<VariantMasks> bucketCache) {
