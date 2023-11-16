@@ -1,6 +1,7 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing;
 
 import java.io.*;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
@@ -223,6 +224,10 @@ public class ResultStoreStream extends InputStream {
 
 	public long estimatedSize() {
 		return tempFile.length();
+	}
+
+	public Path getTempFilePath() {
+		return Path.of(tempFile.getAbsolutePath());
 	}
 
 }
