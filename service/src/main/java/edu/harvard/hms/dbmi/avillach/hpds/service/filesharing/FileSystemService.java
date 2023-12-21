@@ -45,8 +45,10 @@ public class FileSystemService {
 
         try {
             LOG.info("Writing query {} to file: {}", queryId, filePath);
-            if (!Files.exists(dirPath)) {
-                Files.createDirectory(dirPath);
+            synchronized (dirPath) {
+                if (!Files.exists(dirPath)) {
+                    Files.createDirectory(dirPath);
+                }
             }
             return Files.copy(content, filePath) > 0;
         } catch (IOException e) {
