@@ -263,6 +263,11 @@ public class PicSureService implements IResourceRS {
 	public Response writeQueryResult(
 		@RequestBody() Query query, @PathParam("dataType") String datatype
 	) {
+		// query IDs within HPDS are a different concept that query IDs in PIC-SURE
+		// Generally, equivalent queries with different PIC-SURE query IDs will have the SAME
+		// HPDS query ID.
+		String hpdsQueryId = UUIDv5.UUIDFromString(query.toString()).toString();
+		query.setId(hpdsQueryId);
 		AsyncResult result = queryService.getResultFor(query.getId());
 		// the queryResult has this DIY retry logic that blocks a system thread.
 		// I'm not going to do that here. If the service can't find it, you get a 404.
