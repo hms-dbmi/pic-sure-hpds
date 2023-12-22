@@ -45,17 +45,19 @@ public class FileSystemService {
 
         try {
             LOG.info("Writing query {} to file: {}", queryId, filePath);
-            synchronized (dirPath) {
-                if (!Files.exists(dirPath)) {
-                    Files.createDirectory(dirPath);
-                }
-            }
+            makeDirIfDNE(dirPath);
             return Files.copy(content, filePath) > 0;
         } catch (IOException e) {
             LOG.error("Error writing result.", e);
             return false;
         } finally {
             IOUtils.closeQuietly(content);
+        }
+    }
+
+    private synchronized void makeDirIfDNE(Path dirPath) throws IOException {
+        if (!Files.exists(dirPath)) {
+            Files.createDirectory(dirPath);
         }
     }
 }
