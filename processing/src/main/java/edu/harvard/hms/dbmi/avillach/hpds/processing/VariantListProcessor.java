@@ -144,7 +144,9 @@ public class VariantListProcessor implements HpdsProcessor {
 
 		Map<String, String[]> metadata = (metadataIndex == null ? null : metadataIndex.findByMultipleVariantSpec(variantList));
 
-		log.debug("metadata size " + metadata.size());
+		if(metadata == null || metadata.isEmpty()) {
+			return "No Variants Found\n"; //UI uses newlines to show result count
+		}
 		
 		// Sort the variantSpecs so that the user doesn't lose their mind
 		TreeMap<String, String[]> metadataSorted = new TreeMap<>((o1, o2) -> {
@@ -153,11 +155,7 @@ public class VariantListProcessor implements HpdsProcessor {
 		metadataSorted.putAll(metadata);
 		metadata = metadataSorted;
 
-		if(metadata == null || metadata.isEmpty()) {
-			return "No Variants Found\n"; //UI uses newlines to show result count
-		} else {
-			log.debug("Found " + metadata.size() + " varaints");
-		}
+		log.debug("Found " + metadata.size() + " variants");
 
 		PhenoCube<String> idCube = null;
 		if(!ID_CUBE_NAME.contentEquals("NONE")) {
