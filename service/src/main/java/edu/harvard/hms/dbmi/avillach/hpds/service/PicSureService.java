@@ -14,6 +14,7 @@ import javax.ws.rs.core.Response.Status;
 import edu.harvard.hms.dbmi.avillach.hpds.service.filesharing.FileSharingService;
 import edu.harvard.hms.dbmi.avillach.hpds.service.filesharing.FileSystemService;
 import edu.harvard.hms.dbmi.avillach.hpds.service.util.Paginator;
+import edu.harvard.hms.dbmi.avillach.hpds.service.util.QueryUUIDGen;
 import org.apache.http.entity.ContentType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,7 +47,7 @@ public class PicSureService implements IResourceRS {
 	@Autowired
 	public PicSureService(QueryService queryService, TimelineProcessor timelineProcessor, CountProcessor countProcessor,
 						  VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor,
-						  Paginator paginator, FileSharingService fileSystemService
+						  Paginator paginator, FileSharingService fileSystemService, QueryUUIDGen queryUUIDGen
 	) {
 		this.queryService = queryService;
 		this.timelineProcessor = timelineProcessor;
@@ -55,6 +56,7 @@ public class PicSureService implements IResourceRS {
 		this.abstractProcessor = abstractProcessor;
 		this.paginator = paginator;
 		this.fileSystemService = fileSystemService;
+		this.queryUUIDGen = queryUUIDGen;
 		Crypto.loadDefaultKey();
 	}
 
@@ -75,6 +77,8 @@ public class PicSureService implements IResourceRS {
 	private final Paginator paginator;
 
 	private final FileSharingService fileSystemService;
+
+	private final QueryUUIDGen queryUUIDGen;
 
 	private static final String QUERY_METADATA_FIELD = "queryMetadata";
 	private static final int RESPONSE_CACHE_SIZE = 50;
@@ -266,8 +270,7 @@ public class PicSureService implements IResourceRS {
 		// query IDs within HPDS are a different concept that query IDs in PIC-SURE
 		// Generally, equivalent queries with different PIC-SURE query IDs will have the SAME
 		// HPDS query ID.
-		String hpdsQueryId = UUIDv5.UUIDFromString(query.toString()).toString();
-		query.setId(hpdsQueryId);
+		queryUUIDGen.setId(query);
 		AsyncResult result = queryService.getResultFor(query.getId());
 		// the queryResult has this DIY retry logic that blocks a system thread.
 		// I'm not going to do that here. If the service can't find it, you get a 404.

@@ -21,7 +21,7 @@ public class Query {
 		this.fields = new ArrayList<String>(query.fields);
 		this.requiredFields = new ArrayList<String>(query.requiredFields);
 		this.anyRecordOf = new ArrayList<String>(query.anyRecordOf);
-		this.numericFilters = new TreeMap<String, DoubleFilter>(query.numericFilters);
+		this.numericFilters = new TreeMap<String, Filter.DoubleFilter>(query.numericFilters);
 		this.categoryFilters = new TreeMap<String, String[]>(query.categoryFilters);
 		this.variantInfoFilters = new ArrayList<VariantInfoFilter>();
 		if (query.variantInfoFilters != null) {
@@ -30,6 +30,7 @@ public class Query {
 			});
 		}
 		this.id = query.id;
+		this.picSureId = query.picSureId;
 	}
 
 	private ResultType expectedResultType = ResultType.COUNT;
@@ -38,11 +39,12 @@ public class Query {
 	private List<String> requiredFields = new ArrayList<>();
 	private List<String> anyRecordOf = new ArrayList<>();
 	private List<List<String>> anyRecordOfMulti = new ArrayList<>();
-	private Map<String, DoubleFilter> numericFilters = new HashMap<>();
+	private Map<String, Filter.DoubleFilter> numericFilters = new HashMap<>();
 	private Map<String, String[]> categoryFilters = new HashMap<>();
 	private List<VariantInfoFilter> variantInfoFilters = new ArrayList<>();
 	private String id;
 
+	private String picSureId;
 
 	public ResultType getExpectedResultType() {
 		return expectedResultType;
@@ -72,7 +74,7 @@ public class Query {
 		return anyRecordOfMultiCopy;
 	}
 
-	public Map<String, DoubleFilter> getNumericFilters() {
+	public Map<String, Filter.DoubleFilter> getNumericFilters() {
 		return numericFilters;
 	}
 
@@ -111,7 +113,7 @@ public class Query {
 		this.anyRecordOfMulti = anyRecordOfMulti != null ? new ArrayList<>(anyRecordOfMulti) : new ArrayList<>();
 	}
 
-	public void setNumericFilters(Map<String, DoubleFilter> numericFilters) {
+	public void setNumericFilters(Map<String, Filter.DoubleFilter> numericFilters) {
 		this.numericFilters = numericFilters != null ? new HashMap<>(numericFilters) : new HashMap<>();
 	}
 
@@ -127,19 +129,27 @@ public class Query {
 		this.id = id;
 	}
 
+	public String getPicSureId() {
+		return picSureId;
+	}
+
+	public void setPicSureId(String picSureId) {
+		this.picSureId = picSureId;
+	}
+
 	public static class VariantInfoFilter {
 		public VariantInfoFilter() {
 
 		}
 
 		public VariantInfoFilter(VariantInfoFilter filter) {
-			this.numericVariantInfoFilters = new TreeMap<String, FloatFilter>(filter.numericVariantInfoFilters);
-			this.categoryVariantInfoFilters = new TreeMap<String, String[]>(filter.categoryVariantInfoFilters);
+			this.numericVariantInfoFilters = new TreeMap<>(filter.numericVariantInfoFilters);
+			this.categoryVariantInfoFilters = new TreeMap<>(filter.categoryVariantInfoFilters);
 		}
 
-		public Map<String, FloatFilter> numericVariantInfoFilters;
+		public Map<String, Filter.FloatFilter> numericVariantInfoFilters;
 		public Map<String, String[]> categoryVariantInfoFilters;
-		
+
 		public String toString() {
 			StringBuilder builder = new StringBuilder();
 			writePartFormat("Numeric Variant Info Filters", numericVariantInfoFilters, builder);
@@ -207,7 +217,7 @@ public class Query {
 
 		return builder.toString();
 	}
-	
+
 	/**
 	 * For some elements of the query, we will iterate over the list of items and send them each to the string builder
 	 * @param queryPart
@@ -218,7 +228,7 @@ public class Query {
 	private static void writePartFormat(String queryPart, Collection items, StringBuilder builder, boolean allowRollup) {
 		final Collection collectionToWrite = Optional.ofNullable(items).orElseGet(Collections::emptyList);
 		//same beginning
-		builder.append(queryPart + ": [");  
+		builder.append(queryPart + ": [");
 		//if there are many elements, we want to truncate the display
 		if(allowRollup && collectionToWrite.size() > 5) {
 			builder.append("\n");
@@ -233,17 +243,17 @@ public class Query {
 		//same ending
 		builder.append("]\n");
 	}
-	
+
 	@SuppressWarnings("rawtypes")
 	private static void showTopLevelValues(Collection varList, StringBuilder builder) {
 
 		Map<String, Integer> countMap = new HashMap<String, Integer>();
-		
+
 		for(Object var : varList) {
 			if(var instanceof String) {
 				int index = ((String) var).startsWith("\\") ? 1 : 0;
 				String firstLevel = ((String)var).split("\\\\")[index];
-				
+
 				Integer count = countMap.get(firstLevel);
 				if(count == null) {
 					count = 1;
@@ -255,7 +265,7 @@ public class Query {
 				System.out.println("Object is not string! " + var);
 			}
 		}
-		
+
 		for(String key : countMap.keySet()) {
 			builder.append("\t" + countMap.get(key) + " values under " + key + "\n");
 		}
@@ -275,12 +285,12 @@ public class Query {
 		}
 
 		//for the mapped elements, we never want to roll up the values; always show
-		builder.append(queryPart + ": [");  
+		builder.append(queryPart + ": [");
 		String sep1 = "";
 		for(Object key : varMap.keySet()) {
 			builder.append(sep1 + key + ": ");
 			Object value = varMap.get(key);
-			
+
 			if(value instanceof Object[]) {
 				builder.append("{");
 				String sep2 = "";

@@ -7,6 +7,7 @@ import java.util.concurrent.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import edu.harvard.hms.dbmi.avillach.hpds.service.util.QueryUUIDGen;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,16 +42,21 @@ public class QueryService {
 	private final QueryProcessor queryProcessor;
 	private final TimeseriesProcessor timeseriesProcessor;
 	private final CountProcessor countProcessor;
+	private final QueryUUIDGen queryUUIDGen;
 
 	HashMap<String, AsyncResult> results = new HashMap<>();
 
 
 	@Autowired
-	public QueryService (AbstractProcessor abstractProcessor, QueryProcessor queryProcessor, TimeseriesProcessor timeseriesProcessor, CountProcessor countProcessor) {
+	public QueryService (
+			AbstractProcessor abstractProcessor, QueryProcessor queryProcessor, TimeseriesProcessor timeseriesProcessor,
+			CountProcessor countProcessor, QueryUUIDGen queryUUIDGen
+	) {
 		this.abstractProcessor = abstractProcessor;
 		this.queryProcessor = queryProcessor;
 		this.timeseriesProcessor = timeseriesProcessor;
 		this.countProcessor = countProcessor;
+		this.queryUUIDGen = queryUUIDGen;
 
 		SMALL_JOB_LIMIT = getIntProp("SMALL_JOB_LIMIT");
 		SMALL_TASK_THREADS = getIntProp("SMALL_TASK_THREADS");
@@ -122,7 +128,7 @@ public class QueryService {
 		result.queuedTime = System.currentTimeMillis();
 		result.id = UUIDv5.UUIDFromString(query.toString()).toString();
 		result.processor = p;
-		query.setId(result.id);
+		queryUUIDGen.setId(query);
 		results.put(result.id, result);
 		return result;
 	}
