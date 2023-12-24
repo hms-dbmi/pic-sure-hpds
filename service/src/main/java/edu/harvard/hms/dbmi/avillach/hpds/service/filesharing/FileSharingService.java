@@ -34,7 +34,7 @@ public class FileSharingService {
 
     public boolean createPhenotypicData(Query query) {
         AsyncResult result = queryService.getResultFor(query.getId());
-        if (result.status != AsyncResult.Status.SUCCESS) {
+        if (result == null || result.status != AsyncResult.Status.SUCCESS) {
             return false;
         }
         return fileWriter.writeResultToFile("phenotypic_data.tsv", result, query.getPicSureId());

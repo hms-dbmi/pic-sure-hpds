@@ -33,12 +33,13 @@ public class FileSharingServiceTest {
     public void shouldCreatePhenotypicData() {
         Query query = new Query();
         query.setId("my-id");
+        query.setPicSureId("my-ps-id");
         AsyncResult result = new AsyncResult(query, new String[]{});
         result.status = AsyncResult.Status.SUCCESS;
 
         Mockito.when(queryService.getResultFor("my-id"))
             .thenReturn(result);
-        Mockito.when(fileWriter.writeResultToFile("phenotypic_data.tsv", result, "my-id"))
+        Mockito.when(fileWriter.writeResultToFile("phenotypic_data.tsv", result, "my-ps-id"))
             .thenReturn(true);
 
         boolean actual = subject.createPhenotypicData(query);
@@ -50,6 +51,7 @@ public class FileSharingServiceTest {
     public void shouldNotCreatePhenotypicData() {
         Query query = new Query();
         query.setId("my-id");
+        query.setPicSureId("my-ps-id");
         AsyncResult result = new AsyncResult(query, new String[]{});
         result.status = AsyncResult.Status.ERROR;
 
@@ -64,7 +66,7 @@ public class FileSharingServiceTest {
     @Test
     public void shouldCreateGenomicData() throws IOException {
         Query query = new Query();
-        query.setId("my-id");
+        query.setPicSureId("my-id");
         String vcf = "lol lets put the whole vcf in a string";
         Mockito.when(variantListProcessor.runVcfExcerptQuery(query, true))
             .thenReturn(vcf);
@@ -79,7 +81,7 @@ public class FileSharingServiceTest {
     @Test
     public void shouldNotCreateGenomicData() throws IOException {
         Query query = new Query();
-        query.setId("my-id");
+        query.setPicSureId("my-id");
         Mockito.when(variantListProcessor.runVcfExcerptQuery(query, true))
             .thenThrow(new IOException("oh no!"));
 
