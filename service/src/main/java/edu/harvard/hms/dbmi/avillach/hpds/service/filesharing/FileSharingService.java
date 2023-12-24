@@ -37,13 +37,13 @@ public class FileSharingService {
         if (result.status != AsyncResult.Status.SUCCESS) {
             return false;
         }
-        return fileWriter.writeResultToFile("phenotypic_data.tsv", query.getId(), result);
+        return fileWriter.writeResultToFile("phenotypic_data.tsv", result, query.getPicSureId());
     }
 
     public boolean createGenomicData(Query query) {
         try {
             String vcf = variantListProcessor.runVcfExcerptQuery(query, true);
-            return fileWriter.writeResultToFile("genomic_data.tsv", query.getId(), vcf, query.getId());
+            return fileWriter.writeResultToFile("genomic_data.tsv", vcf, query.getPicSureId());
         } catch (IOException e) {
             LOG.error("Error running genomic query", e);
             return false;

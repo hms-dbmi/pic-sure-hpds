@@ -38,7 +38,7 @@ public class FileSharingServiceTest {
 
         Mockito.when(queryService.getResultFor("my-id"))
             .thenReturn(result);
-        Mockito.when(fileWriter.writeResultToFile("phenotypic_data.tsv", "my-id", result))
+        Mockito.when(fileWriter.writeResultToFile("phenotypic_data.tsv", result, "my-id"))
             .thenReturn(true);
 
         boolean actual = subject.createPhenotypicData(query);
@@ -68,7 +68,7 @@ public class FileSharingServiceTest {
         String vcf = "lol lets put the whole vcf in a string";
         Mockito.when(variantListProcessor.runVcfExcerptQuery(query, true))
             .thenReturn(vcf);
-        Mockito.when(fileWriter.writeResultToFile("genomic_data.tsv", "my-id", vcf, "my-id"))
+        Mockito.when(fileWriter.writeResultToFile("genomic_data.tsv", vcf, "my-id"))
             .thenReturn(true);
 
         boolean actual = subject.createGenomicData(query);

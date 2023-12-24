@@ -25,12 +25,12 @@ public class FileSystemService {
     @Value("${enable_file_sharing:false}")
     private boolean enableFileSharing;
 
-    public boolean writeResultToFile(String fileName, String directory, AsyncResult result) {
+    public boolean writeResultToFile(String fileName, AsyncResult result, String id) {
         result.stream.open();
-        return writeStreamToFile(fileName, result.stream, result.id);
+        return writeStreamToFile(fileName, result.stream, id);
     }
 
-    public boolean writeResultToFile(String fileName, String directory, String result, String id) {
+    public boolean writeResultToFile(String fileName, String result, String id) {
         return writeStreamToFile(fileName, new ByteArrayInputStream(result.getBytes()), id);
     }
 

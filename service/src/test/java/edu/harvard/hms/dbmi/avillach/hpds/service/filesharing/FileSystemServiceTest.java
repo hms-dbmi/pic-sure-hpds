@@ -20,7 +20,7 @@ public class FileSystemServiceTest {
             "and tomatoes as a healthy lunch, and that's just so far from the truth that it's bugging me. " +
             "Like, come on. It's bread and cheese and oil. I don't care how fresh the tomatoes are.";
 
-        boolean actual = subject.writeResultToFile("out.tsv", dir.toAbsolutePath().toString(), fileContent, "my-id");
+        boolean actual = subject.writeResultToFile("out.tsv", fileContent, "my-id");
         String actualContent = Files.readString(dir.resolve("my-id/out.tsv"));
 
         Assert.assertTrue(actual);
@@ -34,7 +34,7 @@ public class FileSystemServiceTest {
         ReflectionTestUtils.setField(subject, "sharingRoot", dir);
         ReflectionTestUtils.setField(subject, "enableFileSharing", false);
 
-        boolean actual = subject.writeResultToFile("out.tsv", dir.toAbsolutePath().toString(), "", "my-id");
+        boolean actual = subject.writeResultToFile("out.tsv", "", "my-id");
 
         Assert.assertFalse(actual);
     }
