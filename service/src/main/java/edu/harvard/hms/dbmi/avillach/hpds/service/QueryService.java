@@ -7,13 +7,10 @@ import java.util.concurrent.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import edu.harvard.hms.dbmi.avillach.hpds.service.util.QueryUUIDGen;
+import edu.harvard.hms.dbmi.avillach.hpds.service.util.QueryDecorator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableMap;
-
-import edu.harvard.dbmi.avillach.util.UUIDv5;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.*;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.AsyncResult.Status;
@@ -42,7 +39,7 @@ public class QueryService {
 	private final QueryProcessor queryProcessor;
 	private final TimeseriesProcessor timeseriesProcessor;
 	private final CountProcessor countProcessor;
-	private final QueryUUIDGen queryUUIDGen;
+	private final QueryDecorator queryDecorator;
 
 	HashMap<String, AsyncResult> results = new HashMap<>();
 
@@ -50,13 +47,13 @@ public class QueryService {
 	@Autowired
 	public QueryService (
 			AbstractProcessor abstractProcessor, QueryProcessor queryProcessor, TimeseriesProcessor timeseriesProcessor,
-			CountProcessor countProcessor, QueryUUIDGen queryUUIDGen
+			CountProcessor countProcessor, QueryDecorator queryDecorator
 	) {
 		this.abstractProcessor = abstractProcessor;
 		this.queryProcessor = queryProcessor;
 		this.timeseriesProcessor = timeseriesProcessor;
 		this.countProcessor = countProcessor;
-		this.queryUUIDGen = queryUUIDGen;
+		this.queryDecorator = queryDecorator;
 
 		SMALL_JOB_LIMIT = getIntProp("SMALL_JOB_LIMIT");
 		SMALL_TASK_THREADS = getIntProp("SMALL_TASK_THREADS");
@@ -75,7 +72,6 @@ public class QueryService {
 
 	public AsyncResult runQuery(Query query) throws ClassNotFoundException, IOException {
 		// Merging fields from filters into selected fields for user validation of results
-		mergeFilterFieldsIntoSelectedFields(query);
 
 		Collections.sort(query.getFields());
 
@@ -126,37 +122,12 @@ public class QueryService {
 		AsyncResult result = new AsyncResult(query, p.getHeaderRow(query));
 		result.status = AsyncResult.Status.PENDING;
 		result.queuedTime = System.currentTimeMillis();
-		queryUUIDGen.setId(query);
+		queryDecorator.setId(query);
 		result.id = query.getId();
 		result.processor = p;
-		queryUUIDGen.setId(query);
+		queryDecorator.setId(query);
 		results.put(result.id, result);
 		return result;
-	}
-	
-	
-	private void mergeFilterFieldsIntoSelectedFields(Query query) {
-		LinkedHashSet<String> fields = new LinkedHashSet<>();
-		fields.addAll(query.getFields());
-		if(!query.getCategoryFilters().isEmpty()) {
-			Set<String> categoryFilters = new TreeSet<String>(query.getCategoryFilters().keySet());
-			Set<String> toBeRemoved = new TreeSet<String>();
-			for(String categoryFilter : categoryFilters) {
-				System.out.println("In : " + categoryFilter);
-				if(VariantUtils.pathIsVariantSpec(categoryFilter)) {
-					toBeRemoved.add(categoryFilter);
-				}
-			}
-			categoryFilters.removeAll(toBeRemoved);
-			for(String categoryFilter : categoryFilters) {
-				System.out.println("Out : " + categoryFilter);
-			}
-			fields.addAll(categoryFilters);
-		}
-		fields.addAll(query.getAnyRecordOf());
-		fields.addAll(query.getRequiredFields());
-		fields.addAll(query.getNumericFilters().keySet());
-		query.setFields(fields);
 	}
 
 	private boolean ensureAllFieldsExist(Query query) {

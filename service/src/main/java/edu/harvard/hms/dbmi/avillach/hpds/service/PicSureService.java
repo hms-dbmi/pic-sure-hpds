@@ -12,9 +12,8 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 
 import edu.harvard.hms.dbmi.avillach.hpds.service.filesharing.FileSharingService;
-import edu.harvard.hms.dbmi.avillach.hpds.service.filesharing.FileSystemService;
 import edu.harvard.hms.dbmi.avillach.hpds.service.util.Paginator;
-import edu.harvard.hms.dbmi.avillach.hpds.service.util.QueryUUIDGen;
+import edu.harvard.hms.dbmi.avillach.hpds.service.util.QueryDecorator;
 import org.apache.http.entity.ContentType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +29,6 @@ import com.google.common.collect.ImmutableMap;
 
 import edu.harvard.dbmi.avillach.domain.*;
 import edu.harvard.dbmi.avillach.service.IResourceRS;
-import edu.harvard.dbmi.avillach.util.UUIDv5;
 import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.FileBackedByteIndexedInfoStore;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
@@ -47,7 +45,7 @@ public class PicSureService implements IResourceRS {
 	@Autowired
 	public PicSureService(QueryService queryService, TimelineProcessor timelineProcessor, CountProcessor countProcessor,
 						  VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor,
-						  Paginator paginator, FileSharingService fileSystemService, QueryUUIDGen queryUUIDGen
+						  Paginator paginator, FileSharingService fileSystemService, QueryDecorator queryDecorator
 	) {
 		this.queryService = queryService;
 		this.timelineProcessor = timelineProcessor;
@@ -56,7 +54,7 @@ public class PicSureService implements IResourceRS {
 		this.abstractProcessor = abstractProcessor;
 		this.paginator = paginator;
 		this.fileSystemService = fileSystemService;
-		this.queryUUIDGen = queryUUIDGen;
+		this.queryDecorator = queryDecorator;
 		Crypto.loadDefaultKey();
 	}
 
@@ -78,7 +76,7 @@ public class PicSureService implements IResourceRS {
 
 	private final FileSharingService fileSystemService;
 
-	private final QueryUUIDGen queryUUIDGen;
+	private final QueryDecorator queryDecorator;
 
 	private static final String QUERY_METADATA_FIELD = "queryMetadata";
 	private static final int RESPONSE_CACHE_SIZE = 50;
@@ -228,7 +226,7 @@ public class PicSureService implements IResourceRS {
 		status.setStatus(entity.status.toPicSureStatus());
 
 		Map<String, Object> metadata = new HashMap<String, Object>();
-		queryUUIDGen.setId(entity.query);
+		queryDecorator.setId(entity.query);
 		metadata.put("picsureQueryId", entity.query.getId());
 		status.setResultMetadata(metadata);
 		return status;
@@ -271,7 +269,7 @@ public class PicSureService implements IResourceRS {
 		// query IDs within HPDS are a different concept that query IDs in PIC-SURE
 		// Generally, equivalent queries with different PIC-SURE query IDs will have the SAME
 		// HPDS query ID.
-		queryUUIDGen.setId(query);
+		queryDecorator.setId(query);
 		AsyncResult result = queryService.getResultFor(query.getId());
 		// the queryResult has this DIY retry logic that blocks a system thread.
 		// I'm not going to do that here. If the service can't find it, you get a 404.
@@ -433,7 +431,7 @@ public class PicSureService implements IResourceRS {
 	}
 
 	private ResponseBuilder queryOkResponse(Object obj, Query incomingQuery) {
-		queryUUIDGen.setId(incomingQuery);
+		queryDecorator.setId(incomingQuery);
 		return Response.ok(obj).header(QUERY_METADATA_FIELD, incomingQuery.getId());
 	}
 }
