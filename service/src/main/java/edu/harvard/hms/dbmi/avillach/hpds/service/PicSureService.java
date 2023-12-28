@@ -228,7 +228,8 @@ public class PicSureService implements IResourceRS {
 		status.setStatus(entity.status.toPicSureStatus());
 
 		Map<String, Object> metadata = new HashMap<String, Object>();
-		metadata.put("picsureQueryId", UUIDv5.UUIDFromString(entity.query.toString()));
+		queryUUIDGen.setId(entity.query);
+		metadata.put("picsureQueryId", entity.query.getId());
 		status.setResultMetadata(metadata);
 		return status;
 	}
@@ -432,6 +433,7 @@ public class PicSureService implements IResourceRS {
 	}
 
 	private ResponseBuilder queryOkResponse(Object obj, Query incomingQuery) {
-		return Response.ok(obj).header(QUERY_METADATA_FIELD, UUIDv5.UUIDFromString(incomingQuery.toString()));
+		queryUUIDGen.setId(incomingQuery);
+		return Response.ok(obj).header(QUERY_METADATA_FIELD, incomingQuery.getId());
 	}
 }

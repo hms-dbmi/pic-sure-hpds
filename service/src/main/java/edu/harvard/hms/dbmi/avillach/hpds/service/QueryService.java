@@ -126,7 +126,8 @@ public class QueryService {
 		AsyncResult result = new AsyncResult(query, p.getHeaderRow(query));
 		result.status = AsyncResult.Status.PENDING;
 		result.queuedTime = System.currentTimeMillis();
-		result.id = UUIDv5.UUIDFromString(query.toString()).toString();
+		queryUUIDGen.setId(query);
+		result.id = query.getId();
 		result.processor = p;
 		queryUUIDGen.setId(query);
 		results.put(result.id, result);
