@@ -72,8 +72,9 @@ public class QueryService {
 
 	public AsyncResult runQuery(Query query) throws ClassNotFoundException, IOException {
 		// Merging fields from filters into selected fields for user validation of results
-
-		Collections.sort(query.getFields());
+		List<String> fields = query.getFields();
+		Collections.sort(fields);
+		query.setFields(fields);
 
 		AsyncResult result = initializeResult(query);
 		
@@ -125,7 +126,6 @@ public class QueryService {
 		queryDecorator.setId(query);
 		result.id = query.getId();
 		result.processor = p;
-		queryDecorator.setId(query);
 		results.put(result.id, result);
 		return result;
 	}

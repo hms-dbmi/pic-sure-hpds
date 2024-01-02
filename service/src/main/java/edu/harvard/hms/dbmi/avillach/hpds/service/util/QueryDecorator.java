@@ -7,9 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.LinkedHashSet;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 @Component
 public class QueryDecorator {
@@ -24,6 +22,11 @@ public class QueryDecorator {
         // first. This can mutate the query, resulting in shifting UUIDs
         // To stabilize things, we're always going to call that, and shift the logic here
         mergeFilterFieldsIntoSelectedFields(query);
+
+        // we also sort things sometimes
+        List<String> fields = query.getFields();
+        Collections.sort(fields);
+        query.setFields(fields);
         
         String id = UUIDv5.UUIDFromString(query.toString()).toString();
         query.setId(id);
