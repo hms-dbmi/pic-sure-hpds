@@ -369,6 +369,7 @@ public class PicSureService implements IResourceRS {
 
 		case DATAFRAME:
 		case SECRET_ADMIN_DATAFRAME:
+		case DATAFRAME_TIMESERIES:
 		case DATAFRAME_MERGED:
 			QueryStatus status = query(resultRequest);
 			while (status.getResourceStatus().equalsIgnoreCase("RUNNING")
