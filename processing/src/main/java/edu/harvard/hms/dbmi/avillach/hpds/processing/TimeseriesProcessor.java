@@ -37,18 +37,19 @@ public class TimeseriesProcessor implements HpdsProcessor {
 
 	private AbstractProcessor abstractProcessor;
 
-	@Value("${ID_CUBE_NAME:NONE}")
-	private String ID_CUBE_NAME;
+	private final String ID_CUBE_NAME;
 
-	@Value("${ID_BATCH_SIZE:0}")
-	private int ID_BATCH_SIZE;
+	private final int ID_BATCH_SIZE;
 
-	@Value("${CACHE_SIZE:100}")
-	private int CACHE_SIZE;
+	private final int CACHE_SIZE;
 
 	@Autowired
 	public TimeseriesProcessor(AbstractProcessor abstractProcessor) {
 		this.abstractProcessor = abstractProcessor;
+		// todo: handle these via spring annotations
+		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
+		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
+		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
 	}
 
 	/**
@@ -104,7 +105,7 @@ public class TimeseriesProcessor implements HpdsProcessor {
 				log.warn("Attempting export of non-existant concept: " + conceptPath);
 				continue;
 			}
-			log.debug("Exporting " + conceptPath);
+			log.info("Exporting " + conceptPath);
 			List<?> valuesForKeys = cube.getValuesForKeys(idList);
 			for (Object kvObj : valuesForKeys) {
 				if (cube.isStringType()) {
