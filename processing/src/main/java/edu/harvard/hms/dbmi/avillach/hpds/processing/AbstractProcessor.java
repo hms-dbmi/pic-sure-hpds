@@ -264,43 +264,49 @@ public class AbstractProcessor {
 	}
 
 	private IntersectingSetContainer<Integer> addIdSetsForRequiredFields(Query query, IntersectingSetContainer<Integer> filteredIdSets) {
-		VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
-		query.getRequiredFields().parallelStream().map(path->{
-			if(VariantUtils.pathIsVariantSpec(path)) {
-				TreeSet<Integer> patientsInScope = new TreeSet<>();
-				addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1","1/1"}, path, patientsInScope, bucketCache);
-				return patientsInScope;
-			} else {
-				return (Set<Integer>) new TreeSet<Integer>(getCube(path).keyBasedIndex());
-			}
-		}).forEach(filteredIdSets::intersect);
+		if(!query.getRequiredFields().isEmpty()) {
+			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
+			query.getRequiredFields().parallelStream().map(path -> {
+				if (VariantUtils.pathIsVariantSpec(path)) {
+					TreeSet<Integer> patientsInScope = new TreeSet<>();
+					addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1", "1/1"}, path, patientsInScope, bucketCache);
+					return patientsInScope;
+				} else {
+					return (Set<Integer>) new TreeSet<Integer>(getCube(path).keyBasedIndex());
+				}
+			}).forEach(filteredIdSets::intersect);
+		}
 		return filteredIdSets;
 	}
 
 	private IntersectingSetContainer<Integer> addIdSetsForAnyRecordOf(List<String> anyRecordOfFilters, IntersectingSetContainer<Integer> filteredIdSets) {
-		VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
-		Set<Integer> anyRecordOfPatientSet = anyRecordOfFilters.parallelStream().flatMap(path -> {
-			if (VariantUtils.pathIsVariantSpec(path)) {
-				TreeSet<Integer> patientsInScope = new TreeSet<>();
-				addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1", "1/1"}, path, patientsInScope, bucketCache);
-				return patientsInScope.stream();
-			} else {
-				try {
-					return (Stream<Integer>) getCube(path).keyBasedIndex().stream();
-				} catch (InvalidCacheLoadException e) {
-					// return an empty stream if this concept doesn't exist
-					return Stream.empty();
+		if(!anyRecordOfFilters.isEmpty()) {
+			VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
+			Set<Integer> anyRecordOfPatientSet = anyRecordOfFilters.parallelStream().flatMap(path -> {
+				if (VariantUtils.pathIsVariantSpec(path)) {
+					TreeSet<Integer> patientsInScope = new TreeSet<>();
+					addIdSetsForVariantSpecCategoryFilters(new String[]{"0/1", "1/1"}, path, patientsInScope, bucketCache);
+					return patientsInScope.stream();
+				} else {
+					try {
+						return (Stream<Integer>) getCube(path).keyBasedIndex().stream();
+					} catch (InvalidCacheLoadException e) {
+						// return an empty stream if this concept doesn't exist
+						return Stream.empty();
+					}
 				}
-			}
-		}).collect(Collectors.toSet());
-		filteredIdSets.intersect(anyRecordOfPatientSet);
+			}).collect(Collectors.toSet());
+			filteredIdSets.intersect(anyRecordOfPatientSet);
+		}
 		return filteredIdSets;
 	}
 
 	private IntersectingSetContainer<Integer> addIdSetsForNumericFilters(Query query, IntersectingSetContainer<Integer> filteredIdSets) {
-		query.getNumericFilters().entrySet().parallelStream().map(entry-> {
-			return (Set<Integer>)(getCube(entry.getKey()).getKeysForRange(entry.getValue().getMin(), entry.getValue().getMax()));
-		}).forEach(filteredIdSets::intersect);
+		if(!query.getNumericFilters().isEmpty()) {
+			query.getNumericFilters().entrySet().parallelStream().map(entry-> {
+				return (Set<Integer>)(getCube(entry.getKey()).getKeysForRange(entry.getValue().getMin(), entry.getValue().getMax()));
+			}).forEach(filteredIdSets::intersect);
+		}
 		return filteredIdSets;
 	}
 
