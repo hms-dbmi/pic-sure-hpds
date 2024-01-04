@@ -37,17 +37,18 @@ public class TimeseriesProcessor implements HpdsProcessor {
 
 	private AbstractProcessor abstractProcessor;
 
-	private final String ID_CUBE_NAME;
-	private final int ID_BATCH_SIZE;
-	private final int CACHE_SIZE;
+	@Value("${ID_CUBE_NAME:NONE}")
+	private String ID_CUBE_NAME;
+
+	@Value("${ID_BATCH_SIZE:0}")
+	private int ID_BATCH_SIZE;
+
+	@Value("${CACHE_SIZE:100}")
+	private int CACHE_SIZE;
 
 	@Autowired
 	public TimeseriesProcessor(AbstractProcessor abstractProcessor) {
 		this.abstractProcessor = abstractProcessor;
-		// todo: handle these via spring annotations
-		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
-		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
-		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
 	}
 
 	/**
@@ -71,7 +72,6 @@ public class TimeseriesProcessor implements HpdsProcessor {
 		} else {
 			throw new NotAuthorizedException("Data Export is not authorized for this system");
 		}
-		return;
 	}
 
 	/**
@@ -83,25 +83,21 @@ public class TimeseriesProcessor implements HpdsProcessor {
 	 * @throws IOException
 	 */
 	private void exportTimeData(Query query, AsyncResult result, TreeSet<Integer> idList) throws IOException {
-
-		Set<String> exportedConceptPaths = new HashSet<String>();
+		log.info("Starting export for time series data of query {} (HPDS ID {})", query.getPicSureId(), query.getId());
 		//get a list of all fields mentioned in the query;  export all data associated with any included field
-		List<String> pathList = new LinkedList<String>();
+		Set<String> pathList = new HashSet<>();
 		pathList.addAll(query.getAnyRecordOf());
 		pathList.addAll(query.getFields());
 		pathList.addAll(query.getRequiredFields());
 		pathList.addAll(query.getCategoryFilters().keySet());
 		pathList.addAll(query.getNumericFilters().keySet());
-		
-		addDataForConcepts(pathList, exportedConceptPaths, idList, result);
+
+		addDataForConcepts(pathList, idList, result);
+		log.info("Completed export for time series data of query {} (HPDS ID {})", query.getPicSureId(), query.getId());
 	}
 
-	private void addDataForConcepts(Collection<String> pathList, Set<String> exportedConceptPaths, TreeSet<Integer> idList, AsyncResult result) throws IOException {
+	private void addDataForConcepts(Set<String> pathList, TreeSet<Integer> idList, AsyncResult result) throws IOException {
 		for (String conceptPath : pathList) {
-			//skip concepts we may already have encountered
-			if(exportedConceptPaths.contains(conceptPath)) {
-				continue;
-			}
 			ArrayList<String[]> dataEntries = new ArrayList<String[]>();
 			PhenoCube<?> cube = abstractProcessor.getCube(conceptPath);
 			if(cube == null) {
@@ -131,7 +127,6 @@ public class TimeseriesProcessor implements HpdsProcessor {
 				}
 			}
 			result.stream.appendResults(dataEntries);
-			exportedConceptPaths.add(conceptPath);
 		}
 	}
 }
