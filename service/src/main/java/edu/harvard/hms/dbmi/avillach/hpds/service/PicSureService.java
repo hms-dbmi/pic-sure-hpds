@@ -321,7 +321,7 @@ public class PicSureService implements IResourceRS {
 	public Response querySync(QueryRequest resultRequest) {
 		if (Crypto.hasKey(Crypto.DEFAULT_KEY_NAME)) {
 			try {
-				return _querySync(resultRequest);
+				return submitQueryAndWaitForCompletion(resultRequest);
 			} catch (IOException e) {
 				log.error("IOException  caught: ", e);
 				return Response.serverError().build();
@@ -350,7 +350,7 @@ public class PicSureService implements IResourceRS {
 		return paginator.paginate(matchingValues, page, size);
 	}
 
-	private Response _querySync(QueryRequest resultRequest) throws IOException {
+	private Response submitQueryAndWaitForCompletion(QueryRequest resultRequest) throws IOException {
 		Query incomingQuery;
 		incomingQuery = convertIncomingQuery(resultRequest);
 		log.info("Query Converted");
