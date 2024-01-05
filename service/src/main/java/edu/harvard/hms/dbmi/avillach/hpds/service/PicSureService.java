@@ -11,6 +11,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 
+import edu.harvard.hms.dbmi.avillach.hpds.data.query.ResultType;
 import edu.harvard.hms.dbmi.avillach.hpds.service.filesharing.FileSharingService;
 import edu.harvard.hms.dbmi.avillach.hpds.service.util.Paginator;
 import edu.harvard.hms.dbmi.avillach.hpds.service.util.QueryDecorator;
@@ -266,10 +267,27 @@ public class PicSureService implements IResourceRS {
 	public Response writeQueryResult(
 		@RequestBody() Query query, @PathParam("dataType") String datatype
 	) {
+		if (query.getExpectedResultType() != ResultType.DATAFRAME_TIMESERIES) {
+			return Response
+				.status(400, "The write endpoint only writes time series dataframes. Fix result type.")
+				.build();
+		}
 		// query IDs within HPDS are a different concept that query IDs in PIC-SURE
 		// Generally, equivalent queries with different PIC-SURE query IDs will have the SAME
 		// HPDS query ID.
 		queryDecorator.setId(query);
+
+		try {
+			String status = convertToQueryStatus(queryService.runQuery(query)).getResourceStatus();
+			while (status.equalsIgnoreCase("RUNNING") || status.equalsIgnoreCase("PENDING")) {
+				Thread.sleep(10000); // Yea, this is not restful. Sorry.
+				status = convertToQueryStatus(queryService.getStatusFor(query.getId())).getResourceStatus();
+			}
+        } catch (ClassNotFoundException | IOException | InterruptedException e) {
+			log.warn("Error waiting for response", e);
+			return Response.serverError().build();
+        }
+
 		AsyncResult result = queryService.getResultFor(query.getId());
 		// the queryResult has this DIY retry logic that blocks a system thread.
 		// I'm not going to do that here. If the service can't find it, you get a 404.
