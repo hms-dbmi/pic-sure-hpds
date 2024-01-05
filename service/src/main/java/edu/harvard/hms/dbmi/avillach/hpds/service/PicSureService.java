@@ -303,6 +303,7 @@ public class PicSureService implements IResourceRS {
 		// at least for now, this is going to block until we finish writing
 		// Not very restful, but it will make this API very easy to consume
 		boolean success = false;
+		query.setId(hpdsQueryID);
 		if ("phenotypic".equals(datatype)) {
 			success = fileSystemService.createPhenotypicData(query);
 		} else if ("genomic".equals(datatype)) {
