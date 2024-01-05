@@ -272,23 +272,21 @@ public class PicSureService implements IResourceRS {
 				.status(400, "The write endpoint only writes time series dataframes. Fix result type.")
 				.build();
 		}
-		// query IDs within HPDS are a different concept that query IDs in PIC-SURE
-		// Generally, equivalent queries with different PIC-SURE query IDs will have the SAME
-		// HPDS query ID.
-		queryDecorator.setId(query);
-
+		String hpdsQueryID;
 		try {
-			String status = convertToQueryStatus(queryService.runQuery(query)).getResourceStatus();
-			while ("RUNNING".equalsIgnoreCase(status) || "PENDING".equalsIgnoreCase(status)) {
+			QueryStatus queryStatus = convertToQueryStatus(queryService.runQuery(query));
+			String status = queryStatus.getResourceStatus();
+            hpdsQueryID = queryStatus.getResourceResultId();
+            while ("RUNNING".equalsIgnoreCase(status) || "PENDING".equalsIgnoreCase(status)) {
 				Thread.sleep(10000); // Yea, this is not restful. Sorry.
-				status = convertToQueryStatus(queryService.getStatusFor(query.getId())).getResourceStatus();
+				status = convertToQueryStatus(queryService.getStatusFor(hpdsQueryID)).getResourceStatus();
 			}
         } catch (ClassNotFoundException | IOException | InterruptedException e) {
 			log.warn("Error waiting for response", e);
 			return Response.serverError().build();
         }
 
-		AsyncResult result = queryService.getResultFor(query.getId());
+		AsyncResult result = queryService.getResultFor(hpdsQueryID);
 		// the queryResult has this DIY retry logic that blocks a system thread.
 		// I'm not going to do that here. If the service can't find it, you get a 404.
 		// Retry it client side.
