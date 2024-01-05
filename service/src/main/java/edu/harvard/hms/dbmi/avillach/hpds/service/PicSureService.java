@@ -279,7 +279,7 @@ public class PicSureService implements IResourceRS {
 
 		try {
 			String status = convertToQueryStatus(queryService.runQuery(query)).getResourceStatus();
-			while (status.equalsIgnoreCase("RUNNING") || status.equalsIgnoreCase("PENDING")) {
+			while ("RUNNING".equalsIgnoreCase(status) || "PENDING".equalsIgnoreCase(status)) {
 				Thread.sleep(10000); // Yea, this is not restful. Sorry.
 				status = convertToQueryStatus(queryService.getStatusFor(query.getId())).getResourceStatus();
 			}
