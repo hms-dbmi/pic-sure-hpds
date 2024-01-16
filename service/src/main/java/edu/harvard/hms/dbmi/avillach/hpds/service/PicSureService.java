@@ -262,11 +262,24 @@ public class PicSureService implements IResourceRS {
 		}
 	}
 
+	private Optional<String> roundTripUUID(String uuid) {
+		try {
+			return Optional.ofNullable(UUID.fromString(uuid).toString());
+		} catch (IllegalArgumentException ignored) {
+			return Optional.empty();
+		}
+	}
+
 	@POST
 	@Path("/write/{dataType}")
 	public Response writeQueryResult(
 		@RequestBody() Query query, @PathParam("dataType") String datatype
 	) {
+		if (roundTripUUID(query.getPicSureId()).map(id -> id.equalsIgnoreCase(query.getPicSureId())).orElse(false)) {
+			return Response
+				.status(400, "The query pic-sure ID is not a UUID")
+				.build();
+		}
 		if (query.getExpectedResultType() != ResultType.DATAFRAME_TIMESERIES) {
 			return Response
 				.status(400, "The write endpoint only writes time series dataframes. Fix result type.")
