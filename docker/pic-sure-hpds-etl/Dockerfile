@@ -6,6 +6,8 @@ RUN apk add --no-cache --purge -uU curl wget unzip gnupg openssl
 
 RUN apk add --no-cache --purge openjdk11
 
+RUN apk add --no-cache docker
+
 ADD create_key.sh .
 ADD SQLLoader-jar-with-dependencies.jar .
 ADD CSVLoader-jar-with-dependencies.jar .
