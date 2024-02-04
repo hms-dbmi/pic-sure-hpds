@@ -8,6 +8,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.RandomAccessFile;
 import java.io.Serializable;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -32,6 +33,10 @@ public class FileBackedByteIndexedStorage <K, V extends Serializable> implements
 
 	public Set<K> keys(){
 		return index.keySet();
+	}
+
+	public Map<K, Long[]> todoIdkWhyIdEverUseGet() {
+		return index;
 	}
 
 	public void put(K key, V value) throws IOException {

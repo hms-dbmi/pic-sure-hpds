@@ -488,7 +488,7 @@ public class AbstractProcessor {
 		return infoKeys;
 	}
 
-	protected Collection<String> getVariantList(Query query) throws IOException {
+	public Collection<String> getVariantList(Query query) throws IOException {
 		return processVariantList(query);
 	}
 
@@ -570,7 +570,7 @@ public class AbstractProcessor {
 		return unionOfInfoFilters;
 	}
 
-	protected BigInteger createMaskForPatientSet(Set<Integer> patientSubset) {
+	public BigInteger createMaskForPatientSet(Set<Integer> patientSubset) {
 		return patientVariantJoinHandler.createMaskForPatientSet(patientSubset);
 	}
 
@@ -659,7 +659,7 @@ public class AbstractProcessor {
 	}
 
 
-	protected PhenoCube getCube(String path) {
+	public PhenoCube getCube(String path) {
 		try {
 			return store.get(path);
 		} catch (ExecutionException e) {

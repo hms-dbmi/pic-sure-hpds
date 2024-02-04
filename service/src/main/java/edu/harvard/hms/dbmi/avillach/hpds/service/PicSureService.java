@@ -12,6 +12,7 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.ResultType;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.flatvcf.FlatVCFProcessor;
 import edu.harvard.hms.dbmi.avillach.hpds.service.filesharing.FileSharingService;
 import edu.harvard.hms.dbmi.avillach.hpds.service.util.Paginator;
 import edu.harvard.hms.dbmi.avillach.hpds.service.util.QueryDecorator;
@@ -45,10 +46,12 @@ public class PicSureService implements IResourceRS {
 
 	@Autowired
 	public PicSureService(QueryService queryService, TimelineProcessor timelineProcessor, CountProcessor countProcessor,
-						  VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor,
-						  Paginator paginator, FileSharingService fileSystemService, QueryDecorator queryDecorator
+                          VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor,
+                          Paginator paginator, FileSharingService fileSystemService, QueryDecorator queryDecorator,
+						  FlatVCFProcessor flatVCFProcessor
 	) {
-		this.queryService = queryService;
+        this.flatVCFProcessor = flatVCFProcessor;
+        this.queryService = queryService;
 		this.timelineProcessor = timelineProcessor;
 		this.countProcessor = countProcessor;
 		this.variantListProcessor = variantListProcessor;
@@ -58,6 +61,9 @@ public class PicSureService implements IResourceRS {
 		this.queryDecorator = queryDecorator;
 		Crypto.loadDefaultKey();
 	}
+
+
+	private final FlatVCFProcessor flatVCFProcessor;
 
 	private final QueryService queryService;
 
@@ -275,6 +281,14 @@ public class PicSureService implements IResourceRS {
 	public Response writeQueryResult(
 		@RequestBody() Query query, @PathParam("dataType") String datatype
 	) {
+		if ("spicy".equalsIgnoreCase(datatype)) {
+            try {
+                flatVCFProcessor.runVcfExcerptQuery(query, true);
+				return Response.ok().build();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
 		if (roundTripUUID(query.getPicSureId()).map(id -> !id.equalsIgnoreCase(query.getPicSureId())).orElse(false)) {
 			return Response
 				.status(400, "The query pic-sure ID is not a UUID")
