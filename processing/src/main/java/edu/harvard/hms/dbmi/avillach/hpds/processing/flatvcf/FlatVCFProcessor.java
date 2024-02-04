@@ -22,6 +22,7 @@ import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.stream.Stream;
 
 @Component
 public class FlatVCFProcessor implements HpdsProcessor {
@@ -138,9 +139,9 @@ public class FlatVCFProcessor implements HpdsProcessor {
 		
 		log.info("Running VCF Extract query");
 
-		Collection<String> variantList = abstractProcessor.getInfoStore("Gene_with_variant").getAllValues().keys();
+		Collection<String> genes = abstractProcessor.getInfoStore("Gene_with_variant").getAllValues().keys();
 		
-		log.debug("variantList Size " + variantList.size());
+		log.debug("variantList Size " + genes.size());
 
 		PhenoCube<String> idCube = null;
 		if(!ID_CUBE_NAME.contentEquals("NONE")) {
@@ -195,8 +196,11 @@ public class FlatVCFProcessor implements HpdsProcessor {
 		writer.writeRow(builder.toString());
 		VariantBucketHolder<VariantMasks> variantMaskBucketHolder = new VariantBucketHolder<VariantMasks>();
 
+
 		//loop over the variants identified, and build an output row
-		variantList.stream()
+		genes.stream()
+			.map(this::createSingleGeneQuery)
+			.flatMap(this::safeGetVariantList)
 			.map(variant -> metadataIndex.findByMultipleVariantSpec(List.of(variant)))
 			.filter(Objects::nonNull)
 			.flatMap(m -> m.entrySet().stream())
@@ -204,6 +208,22 @@ public class FlatVCFProcessor implements HpdsProcessor {
 			.forEach(writer::writeRow);
 
 		writer.complete();
+	}
+
+	private Stream<String> safeGetVariantList(Query query) {
+        try {
+            return abstractProcessor.getVariantList(query).stream();
+        } catch (IOException e) {
+            return Stream.empty();
+        }
+    }
+
+	private Query createSingleGeneQuery(String gene) {
+		var q = new Query();
+		Query.VariantInfoFilter v = new Query.VariantInfoFilter();
+		v.categoryVariantInfoFilters = Map.of("Gene_with_variant", new String[] {gene});
+		q.setVariantInfoFilters(List.of(v));
+		return q;
 	}
 
 	private String createRow(boolean includePatientData, Map.Entry<String, String[]> entry, VariantBucketHolder<VariantMasks> variantMaskBucketHolder, BigInteger patientMasks, Map<String, Integer> patientIndexMap) {
