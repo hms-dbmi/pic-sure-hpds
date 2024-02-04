@@ -22,6 +22,9 @@ import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 @Component
@@ -197,11 +200,13 @@ public class FlatVCFProcessor implements HpdsProcessor {
 		VariantBucketHolder<VariantMasks> variantMaskBucketHolder = new VariantBucketHolder<VariantMasks>();
 
 
+		AtomicInteger count = new AtomicInteger(0);
 		//loop over the variants identified, and build an output row
 		genes.stream()
 			.map(this::createSingleGeneQuery)
-			.flatMap(this::safeGetVariantList)
-			.map(variant -> metadataIndex.findByMultipleVariantSpec(List.of(variant)))
+			.map(this::safeGetVariantList)
+			.filter(Predicate.not(Collection::isEmpty))
+			.map(metadataIndex::findByMultipleVariantSpec)
 			.filter(Objects::nonNull)
 			.flatMap(m -> m.entrySet().stream())
 			.map(entry -> createRow(includePatientData, entry, variantMaskBucketHolder, patientMasks, patientIndexMap))
@@ -210,11 +215,11 @@ public class FlatVCFProcessor implements HpdsProcessor {
 		writer.complete();
 	}
 
-	private Stream<String> safeGetVariantList(Query query) {
+	private Collection<String> safeGetVariantList(Query query) {
         try {
-            return abstractProcessor.getVariantList(query).stream();
+            return abstractProcessor.getVariantList(query);
         } catch (IOException e) {
-            return Stream.empty();
+            return List.of();
         }
     }
 
