@@ -78,7 +78,7 @@ public class PatientVariantJoinHandler {
                             BigInteger heteroMask = masks.heterozygousMask == null ? variantService.emptyBitmask() : masks.heterozygousMask;
                             BigInteger homoMask = masks.homozygousMask == null ? variantService.emptyBitmask() : masks.homozygousMask;
                             BigInteger orMasks = heteroMask.or(homoMask);
-                            log.info("Patients with variant " + variantSpec + ": " + (orMasks.bitCount()));
+                            log.info("Patients with variant " + variantSpec + ": " + (orMasks.bitCount() - 4));
                             synchronized(matchingPatients) {
                                 matchingPatients[0] = matchingPatients[0].or(orMasks);
                             }
