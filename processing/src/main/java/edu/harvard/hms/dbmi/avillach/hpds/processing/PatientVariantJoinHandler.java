@@ -78,9 +78,9 @@ public class PatientVariantJoinHandler {
                             BigInteger heteroMask = masks.heterozygousMask == null ? variantService.emptyBitmask() : masks.heterozygousMask;
                             BigInteger homoMask = masks.homozygousMask == null ? variantService.emptyBitmask() : masks.homozygousMask;
                             BigInteger orMasks = heteroMask.or(homoMask);
-                            BigInteger andMasks = orMasks.and(patientsInScopeMask);
+                            log.info("Patients with variant " + variantSpec + ": " + (orMasks.bitCount()));
                             synchronized(matchingPatients) {
-                                matchingPatients[0] = matchingPatients[0].or(andMasks);
+                                matchingPatients[0] = matchingPatients[0].or(orMasks);
                             }
                         }, () -> missingVariants.add(variantSpec));
                     });
@@ -90,7 +90,7 @@ public class PatientVariantJoinHandler {
                     }
                 });
             }
-            return matchingPatients[0];
+            return matchingPatients[0].and(patientsInScopeMask);
         }else {
             log.error("No matches found for info filters.");
             return createMaskForPatientSet(new HashSet<>());
