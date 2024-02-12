@@ -15,8 +15,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 
 public class GenomicDatasetMerger {
 
@@ -55,7 +53,7 @@ public class GenomicDatasetMerger {
         }
     }
 
-    public VariantStore mergeVariantStore(Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergedChromosomeMasks) {
+    public VariantStore mergeVariantStore(Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>>> mergedChromosomeMasks) {
         mergedVariantStore.setVariantMaskStorage(mergedChromosomeMasks);
         mergedVariantStore.setPatientIds(mergePatientIds());
         return mergedVariantStore;
@@ -165,8 +163,8 @@ public class GenomicDatasetMerger {
      * For each chromosome, call mergeChromosomeMask to merge the masks
      * @return
      */
-    public Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergeChromosomeMasks() {
-        Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> mergedMaskStorage = new ConcurrentHashMap<>();
+    public Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>>> mergeChromosomeMasks() {
+        Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>>> mergedMaskStorage = new ConcurrentHashMap<>();
         variantStore1.getVariantMaskStorage().keySet().forEach(chromosome -> {
             try {
                 mergedMaskStorage.put(chromosome, mergeChromosomeMask(chromosome));
@@ -219,77 +217,48 @@ public class GenomicDatasetMerger {
      *     }
      * }
      */
-    public FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>> mergeChromosomeMask(String chromosome) throws FileNotFoundException {
-        FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>> variantMaskStorage1 = variantStore1.getVariantMaskStorage().get(chromosome);
-        FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>> variantMaskStorage2 = variantStore2.getVariantMaskStorage().get(chromosome);
+    public FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>> mergeChromosomeMask(String chromosome) throws FileNotFoundException {
+        FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>> variantMaskStorage1 = variantStore1.getVariantMaskStorage().get(chromosome);
+        FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>> variantMaskStorage2 = variantStore2.getVariantMaskStorage().get(chromosome);
 
-        FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariantMasks>> merged = new FileBackedStorageVariantMasksImpl(new File(outputDirectory + chromosome + "masks.bin"));
+        FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>> merged = new FileBackedStorageVariantMasksImpl(new File(outputDirectory + chromosome + "masks.bin"));
         variantMaskStorage1.keys().parallelStream().forEach(key -> {
-            Map<String, VariantMasks> masks1 = variantMaskStorage1.get(key);
-            Map<String, VariantMasks> masks2 = variantMaskStorage2.get(key);
+            Map<String, VariableVariantMasks> masks1 = variantMaskStorage1.get(key);
+            Map<String, VariableVariantMasks> masks2 = variantMaskStorage2.get(key);
             if (masks2 == null) {
                 masks2 = Map.of();
             }
 
-            ConcurrentHashMap<String, VariantMasks> mergedMasks = new ConcurrentHashMap<>();
-            for (Map.Entry<String, VariantMasks> entry : masks1.entrySet()) {
-                VariantMasks variantMasks2 = masks2.get(entry.getKey());
+            ConcurrentHashMap<String, VariableVariantMasks> mergedMasks = new ConcurrentHashMap<>();
+            for (Map.Entry<String, VariableVariantMasks> entry : masks1.entrySet()) {
+                VariableVariantMasks variantMasks2 = masks2.get(entry.getKey());
                 if (variantMasks2 == null) {
                     // this will have all null masks, which will result in null when
                     // appended to a null, or be replaced with an empty bitmask otherwise
-                    variantMasks2 = new VariantMasks();
+                    variantMasks2 = new VariableVariantMasks();
                 }
-                mergedMasks.put(entry.getKey(), append(entry.getValue(), variantMasks2));
+                mergedMasks.put(entry.getKey(), entry.getValue().append(variantMasks2));
             }
             // Any entry in the second set that is not in the merged set can be merged with an empty variant mask,
             // if there were a corresponding entry in set 1, it would have been merged in the previous loop
-            for (Map.Entry<String, VariantMasks> entry : masks2.entrySet()) {
+            for (Map.Entry<String, VariableVariantMasks> entry : masks2.entrySet()) {
                 if (!mergedMasks.containsKey(entry.getKey())) {
+                    // todo: store empty variant masks as sparse to avoid this awkward null check
                     mergedMasks.put(entry.getKey(), append(new VariantMasks(), entry.getValue()));
                 }
             }
             merged.put(key, mergedMasks);
         });
 
-        ConcurrentHashMap<String, VariantMasks> mergedMasks = new ConcurrentHashMap<>();
+        ConcurrentHashMap<String, VariableVariantMasks> mergedMasks = new ConcurrentHashMap<>();
         variantMaskStorage2.keys().forEach(key -> {
-            Map<String, VariantMasks> masks2 = variantMaskStorage2.get(key);
-            for (Map.Entry<String, VariantMasks> entry : masks2.entrySet()) {
+            Map<String, VariableVariantMasks> masks2 = variantMaskStorage2.get(key);
+            for (Map.Entry<String, VariableVariantMasks> entry : masks2.entrySet()) {
                 if (!mergedMasks.containsKey(entry.getKey())) {
-                    mergedMasks.put(entry.getKey(), append(new VariantMasks(), entry.getValue()));
+                    mergedMasks.put(entry.getKey(), append(new VariableVariantMasks(), entry.getValue()));
                 }
             }
         });
         return merged;
-    }
-
-    public VariantMasks append(VariantMasks variantMasks1, VariantMasks variantMasks2) {
-        VariantMasks appendedMasks = new VariantMasks();
-        appendedMasks.homozygousMask = appendMask(variantMasks1.homozygousMask, variantMasks2.homozygousMask);
-        appendedMasks.heterozygousMask = appendMask(variantMasks1.heterozygousMask, variantMasks2.heterozygousMask);
-        appendedMasks.homozygousNoCallMask = appendMask(variantMasks1.homozygousNoCallMask, variantMasks2.homozygousNoCallMask);
-        appendedMasks.heterozygousNoCallMask = appendMask(variantMasks1.heterozygousNoCallMask, variantMasks2.heterozygousNoCallMask);
-        return appendedMasks;
-    }
-
-    /**
-     * Appends one mask to another. This assumes the masks are both padded with '11' on each end
-     * to prevent overflow issues.
-     */
-    public BigInteger appendMask(BigInteger mask1, BigInteger mask2) {
-        if (mask1 == null && mask2 == null) {
-            return null;
-        }
-        if (mask1 == null) {
-            mask1 = variantStore1.emptyBitmask();
-        }
-        if (mask2 == null) {
-            mask2 = variantStore2.emptyBitmask();
-        }
-        String binaryMask1 = mask1.toString(2);
-        String binaryMask2 = mask2.toString(2);
-        String appendedString = binaryMask1.substring(0, binaryMask1.length() - 2) +
-                binaryMask2.substring(2);
-        return new BigInteger(appendedString, 2);
     }
 }
