@@ -3,6 +3,7 @@ package edu.harvard.hms.dbmi.avillach.hpds.processing;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.InfoColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMasks;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHolder;
@@ -16,12 +17,9 @@ import java.math.BigInteger;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * This genomic processor assumes child nodes all have the same patient set
- */
-public class GenomicProcessorParentImpl implements GenomicProcessor {
+public class GenomicProcessorPatientMergingParentImpl implements GenomicProcessor {
 
-    private static Logger log = LoggerFactory.getLogger(GenomicProcessorParentImpl.class);
+    private static Logger log = LoggerFactory.getLogger(GenomicProcessorPatientMergingParentImpl.class);
 
     private final List<GenomicProcessor> nodes;
 
@@ -36,10 +34,11 @@ public class GenomicProcessorParentImpl implements GenomicProcessor {
     });
 
     private final List<InfoColumnMeta> infoColumnsMeta;
+
     private final List<String> patientIds;
     private final Set<String> infoStoreColumns;
 
-    public GenomicProcessorParentImpl(List<GenomicProcessor> nodes) {
+    public GenomicProcessorPatientMergingParentImpl(List<GenomicProcessor> nodes) {
         this.nodes = nodes;
 
         patientIds = initializePatientIds();
@@ -50,18 +49,27 @@ public class GenomicProcessorParentImpl implements GenomicProcessor {
     @Override
     public Mono<BigInteger> getPatientMask(DistributableQuery distributableQuery) {
         Mono<BigInteger> result = Flux.just(nodes.toArray(GenomicProcessor[]::new))
-                .flatMap(node -> node.getPatientMask(distributableQuery))
-                .reduce(BigInteger::or);
+                .flatMapSequential(node -> node.getPatientMask(distributableQuery))
+                .reduce(this::appendMask);
         return result;
+    }
+
+    public BigInteger appendMask(BigInteger mask1, BigInteger mask2) {
+        String binaryMask1 = mask1.toString(2);
+        String binaryMask2 = mask2.toString(2);
+        String appendedString = binaryMask1.substring(0, binaryMask1.length() - 2) +
+                binaryMask2.substring(2);
+        return new BigInteger(appendedString, 2);
     }
 
     @Override
     public Set<Integer> patientMaskToPatientIdSet(BigInteger patientMask) {
         Set<Integer> ids = new HashSet<>();
         String bitmaskString = patientMask.toString(2);
+        List<String> patientIds = getPatientIds();
         for(int x = 2;x < bitmaskString.length()-2;x++) {
             if('1'==bitmaskString.charAt(x)) {
-                String patientId = getPatientIds().get(x-2).trim();
+                String patientId = patientIds.get(x-2).trim();
                 ids.add(Integer.parseInt(patientId));
             }
         }
@@ -92,34 +100,25 @@ public class GenomicProcessorParentImpl implements GenomicProcessor {
     }
 
     private List<String> initializePatientIds() {
-        List<String> patientIds = Flux.just(nodes.toArray(GenomicProcessor[]::new))
-                .flatMap(node -> Mono.fromCallable(node::getPatientIds).subscribeOn(Schedulers.boundedElastic()))
-                .reduce((patientIds1, patientIds2) -> {
-                    if (patientIds1.size() != patientIds2.size()) {
-                        throw new IllegalStateException("Patient lists from partitions do not match");
-                    } else {
-                        for (int i = 0; i < patientIds1.size(); i++) {
-                            if (!patientIds1.get(i).equals(patientIds2.get(i))) {
-                                throw new IllegalStateException("Patient lists from partitions do not match");
-                            }
-                        }
-                    }
-                    return patientIds1;
+        List<String> result = Flux.just(nodes.toArray(GenomicProcessor[]::new))
+                .flatMapSequential(node -> Mono.fromCallable(node::getPatientIds).subscribeOn(Schedulers.boundedElastic()))
+                .reduce((list1, list2) -> {
+                    List<String> concatenatedList = new ArrayList<>(list1);
+                    concatenatedList.addAll(list2);
+                    return concatenatedList;
                 }).block();
-
-        return patientIds;
+        Set<String> distinctPatientIds = new HashSet<>(result);
+        if (distinctPatientIds.size() != result.size()) {
+            log.warn((result.size() - distinctPatientIds.size()) + " duplicate patients found in patient partitions");
+        }
+        log.info(distinctPatientIds.size() + " patient ids loaded from patient partitions");
+        return ImmutableList.copyOf(result);
     }
 
     @Override
     public Optional<VariantMasks> getMasks(String path, VariantBucketHolder<VariantMasks> variantMasksVariantBucketHolder) {
-        // TODO: test. only used in variant explorer
-        for (GenomicProcessor node : nodes) {
-            Optional<VariantMasks> masks = node.getMasks(path, variantMasksVariantBucketHolder);
-            if (masks.isPresent()) {
-                return masks;
-            }
-        }
-        return Optional.empty();
+        // TODO: implement this. only used in variant explorer
+        throw new RuntimeException("Method not implemented");
     }
 
     @Override
