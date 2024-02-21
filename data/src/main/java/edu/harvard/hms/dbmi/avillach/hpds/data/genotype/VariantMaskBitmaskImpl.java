@@ -40,6 +40,16 @@ public class VariantMaskBitmaskImpl implements VariantMask {
         }
     }
 
+    @Override
+    public boolean testBit(int bit) {
+        return bitmask.testBit(bit);
+    }
+
+    @Override
+    public int bitCount() {
+        return bitmask.bitCount();
+    }
+
     private VariantMask union(VariantMaskBitmaskImpl variantMaskBitmask) {
         return new VariantMaskBitmaskImpl(variantMaskBitmask.bitmask.and(this.bitmask));
     }

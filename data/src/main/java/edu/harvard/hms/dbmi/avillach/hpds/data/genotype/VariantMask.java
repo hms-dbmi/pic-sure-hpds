@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import java.math.BigInteger;
+import java.util.Set;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
@@ -20,6 +21,14 @@ public interface VariantMask {
     VariantMask intersection(VariantMask variantMask);
 
     VariantMask union(VariantMask variantMask);
+
+    boolean testBit(int bit);
+
+    int bitCount();
+
+    static VariantMask emptyInstance() {
+        return new VariantMaskSparseImpl(Set.of());
+    }
 
     static VariantMask union(VariantMaskSparseImpl variantMaskSparse, VariantMaskBitmaskImpl variantMaskBitmask) {
         BigInteger union = variantMaskBitmask.bitmask;

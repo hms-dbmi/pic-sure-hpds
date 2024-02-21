@@ -34,6 +34,16 @@ public class VariantMaskSparseImpl implements VariantMask {
         }
     }
 
+    @Override
+    public boolean testBit(int bit) {
+        return patientIndexes.contains(bit);
+    }
+
+    @Override
+    public int bitCount() {
+        return patientIndexes.size();
+    }
+
     private VariantMask union(VariantMaskSparseImpl variantMask) {
         HashSet<Integer> union = new HashSet<>(variantMask.patientIndexes);
         union.addAll(this.patientIndexes);

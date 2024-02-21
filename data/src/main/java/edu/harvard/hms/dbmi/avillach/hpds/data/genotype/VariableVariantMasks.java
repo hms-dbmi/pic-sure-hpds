@@ -6,6 +6,7 @@ import java.io.Serializable;
 import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class VariableVariantMasks implements Serializable {
 	private static final long serialVersionUID = 6225420483804601477L;
@@ -133,7 +134,7 @@ public class VariableVariantMasks implements Serializable {
 		return Objects.hash(homozygousMask, heterozygousMask, homozygousNoCallMask, heterozygousNoCallMask);
 	}
 
-	public BigInteger emptyBitmask(int length) {
+	public static BigInteger emptyBitmask(int length) {
 		BigInteger emptyBitmask = emptyBitmaskMap.get(length);
 		if (emptyBitmask == null) {
 			String emptyVariantMask = "";
@@ -178,7 +179,7 @@ public class VariableVariantMasks implements Serializable {
 		return appendedMasks;
 	}
 
-	private VariantMask appendMask(VariantMask variantMask1, VariantMask variantMask2, int length1, int length2) {
+	public static VariantMask appendMask(VariantMask variantMask1, VariantMask variantMask2, int length1, int length2) {
 		if (variantMask1 instanceof  VariantMaskSparseImpl) {
 			if (variantMask2 instanceof VariantMaskSparseImpl) {
 				return append((VariantMaskSparseImpl) variantMask1, (VariantMaskSparseImpl) variantMask2, length1, length2);
@@ -194,18 +195,18 @@ public class VariableVariantMasks implements Serializable {
 		}
 	}
 
-	private VariantMask append(VariantMaskSparseImpl variantMask1, VariantMaskBitmaskImpl variantMask2, int length1, int length2) {
+	private static VariantMask append(VariantMaskSparseImpl variantMask1, VariantMaskBitmaskImpl variantMask2, int length1, int length2) {
 		BigInteger mask1 = emptyBitmask(length1);
 		for (Integer patientId : variantMask1.patientIndexes) {
 			mask1 = mask1.setBit(patientId);
 		}
 		String binaryMask1 = mask1.toString(2);
 		String binaryMask2 = variantMask2.bitmask.toString(2);
-		String appendedString = binaryMask1.substring(0, binaryMask1.length() - 2) +
-				binaryMask2.substring(2);
+		String appendedString = binaryMask2.substring(0, binaryMask1.length() - 2) +
+				binaryMask1.substring(2);
 		return new VariantMaskBitmaskImpl(new BigInteger(appendedString, 2));
 	}
-	private VariantMask append(VariantMaskSparseImpl variantMask1, VariantMaskSparseImpl variantMask2, int length1, int length2) {
+	private static VariantMask append(VariantMaskSparseImpl variantMask1, VariantMaskSparseImpl variantMask2, int length1, int length2) {
 		if (variantMask1.patientIndexes.size() + variantMask2.patientIndexes.size() > SPARSE_VARIANT_THRESHOLD) {
 			// todo: performance test this vs byte array
 			BigInteger mask = emptyBitmask(length1 + length2);
@@ -224,6 +225,27 @@ public class VariableVariantMasks implements Serializable {
 			patientIndexSet.addAll(variantMask2.patientIndexes);
 			return new VariantMaskSparseImpl(patientIndexSet);
 		}
+	}
+
+	public static Set<Integer> patientMaskToPatientIdSet(VariantMask patientMask, List<String> patientIds) {
+		if (patientMask instanceof VariantMaskBitmaskImpl) {
+			Set<Integer> ids = new HashSet<>();
+			String bitmaskString = ((VariantMaskBitmaskImpl) patientMask).getBitmask().toString(2);
+			for(int x = 2;x < bitmaskString.length()-2;x++) {
+				if('1'==bitmaskString.charAt(x)) {
+					String patientId = patientIds.get(x-2).trim();
+					ids.add(Integer.parseInt(patientId));
+				}
+			}
+			return ids;
+		} else if (patientMask instanceof VariantMaskSparseImpl) {
+			return ((VariantMaskSparseImpl) patientMask).getPatientIndexes().stream()
+					.map(patientIds::get)
+					.map(String::trim)
+					.map(Integer::parseInt)
+					.collect(Collectors.toSet());
+		}
+		throw new IllegalArgumentException("Unknown VariantMask implementation");
 	}
 
 /*	if (mask1 == null) {

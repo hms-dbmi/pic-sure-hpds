@@ -3,8 +3,7 @@ package edu.harvard.hms.dbmi.avillach.hpds.processing;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMasks;
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantSpec;
+import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.*;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +24,7 @@ public class PatientVariantJoinHandler {
         this.variantService = variantService;
     }
 
-    public BigInteger getPatientIdsForIntersectionOfVariantSets(Set<Integer> patientSubset,
+    public VariantMask getPatientIdsForIntersectionOfVariantSets(Set<Integer> patientSubset,
                                                                         VariantIndex intersectionOfInfoFilters) {
 
         if(!intersectionOfInfoFilters.isEmpty()) {
@@ -45,10 +44,10 @@ public class PatientVariantJoinHandler {
             // If genomic data is sharded by studies, it may be possible that the node this is running in does not have genomic
             // data for any of the patients in the phenotypic query. In which case, we don't have to look for matching patients
             if (patientsInScope.isEmpty()) {
-                return variantService.emptyBitmask();
+                return new VariantMaskSparseImpl(Set.of());
             }
 
-            BigInteger[] matchingPatients = new BigInteger[] {variantService.emptyBitmask()};
+            VariantMask[] matchingPatients = new VariantMask[] {new VariantMaskSparseImpl(Set.of())};
 
             Set<String> variantsInScope = intersectionOfInfoFilters.mapToVariantSpec(variantService.getVariantIndex());
 
@@ -71,23 +70,23 @@ public class PatientVariantJoinHandler {
             log.info("and partitioned those into " + variantBucketPartitions.size() + " groups");
 
             int patientsInScopeSize = patientsInScope.size();
-            BigInteger patientsInScopeMask = createMaskForPatientSet(patientsInScope);
+            VariantMask patientsInScopeMask = new VariantMaskBitmaskImpl(createMaskForPatientSet(patientsInScope));
             for(int x = 0;
-                x < variantBucketPartitions.size() && matchingPatients[0].bitCount() < patientsInScopeSize + 4;
+                x < variantBucketPartitions.size() /*&& matchingPatients[0].bitCount() < patientsInScopeSize + 4*/;
                 x++) {
                 List<List<String>> variantBuckets = variantBucketPartitions.get(x);
                 variantBuckets.parallelStream().forEach(variantBucket -> {
-                    VariantBucketHolder<VariantMasks> bucketCache = new VariantBucketHolder<>();
+                    VariantBucketHolder<VariableVariantMasks> bucketCache = new VariantBucketHolder<>();
                     List<String> missingVariants = new ArrayList<>();
                     variantBucket.forEach(variantSpec -> {
-                        Optional<VariantMasks> variantMask = variantService.getMasks(variantSpec, bucketCache);
+                        Optional<VariableVariantMasks> variantMask = variantService.getMasks(variantSpec, bucketCache);
                         variantMask.ifPresentOrElse(masks -> {
-                            BigInteger heteroMask = masks.heterozygousMask == null ? variantService.emptyBitmask() : masks.heterozygousMask;
-                            BigInteger homoMask = masks.homozygousMask == null ? variantService.emptyBitmask() : masks.homozygousMask;
-                            BigInteger orMasks = heteroMask.or(homoMask);
-                            log.info("Patients with variant " + variantSpec + ": " + (orMasks.bitCount() - 4));
+                            VariantMask heteroMask = masks.heterozygousMask;
+                            VariantMask homoMask = masks.homozygousMask;
+                            VariantMask orMasks = heteroMask.union(homoMask);
+                            //log.info("Patients with variant " + variantSpec + ": " + (orMasks.bitCount() - 4));
                             synchronized(matchingPatients) {
-                                matchingPatients[0] = matchingPatients[0].or(orMasks);
+                                matchingPatients[0] = matchingPatients[0].union(orMasks);
                             }
                         }, () -> missingVariants.add(variantSpec));
                     });
@@ -97,13 +96,14 @@ public class PatientVariantJoinHandler {
                     }
                 });
             }
-            return matchingPatients[0].and(patientsInScopeMask);
+            return matchingPatients[0].intersection(patientsInScopeMask);
         }else {
             log.error("No matches found for info filters.");
-            return createMaskForPatientSet(new HashSet<>());
+            return new VariantMaskSparseImpl(Set.of());
         }
     }
 
+    // todo: return VariantMask
     public BigInteger createMaskForPatientSet(Set<Integer> patientSubset) {
         StringBuilder builder = new StringBuilder("11"); //variant bitmasks are bookended with '11'
         for(String patientId : variantService.getPatientIds()) {
