@@ -52,9 +52,9 @@ public class VariantMasksSerializationTest {
     @Test
     public void testVariableVariantMasks() throws JsonProcessingException {
         VariableVariantMasks variableVariantMasks = new VariableVariantMasks();
-        variableVariantMasks.heterozygousMask = new VariantMaskSparseImpl(Set.of(1, 2, 3), 1000);
-        variableVariantMasks.homozygousMask = new VariantMaskBitmaskImpl(new BigInteger("1010101010101010"));
-        variableVariantMasks.heterozygousNoCallMask = new VariantMaskSparseImpl(Set.of(), 1000);
+        variableVariantMasks.heterozygousMask = new VariantMaskSparseImpl(Set.of(1, 2, 3));
+        variableVariantMasks.homozygousMask = new VariantMaskBitmaskImpl(new BigInteger("1101010101010101011"));
+        variableVariantMasks.heterozygousNoCallMask = new VariantMaskSparseImpl(Set.of());
         variableVariantMasks.homozygousNoCallMask = null;
 
         ObjectMapper objectMapper = new ObjectMapper();

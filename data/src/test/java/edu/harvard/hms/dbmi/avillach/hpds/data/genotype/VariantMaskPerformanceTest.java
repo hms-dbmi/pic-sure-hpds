@@ -1,7 +1,5 @@
 package edu.harvard.hms.dbmi.avillach.hpds.data.genotype;
 
-import org.junit.jupiter.api.Test;
-
 import java.math.BigInteger;
 import java.util.Random;
 import java.util.Set;
@@ -18,9 +16,9 @@ public class VariantMaskPerformanceTest {
         VariantMaskBitmaskImpl mask100k2 = new VariantMaskBitmaskImpl(generateRandomBitmask(100_000));
         VariantMaskBitmaskImpl mask1m = new VariantMaskBitmaskImpl(generateRandomBitmask(1_000_000));
         VariantMaskBitmaskImpl mask1m2 = new VariantMaskBitmaskImpl(generateRandomBitmask(1_000_000));
-        VariantMaskSparseImpl sparseMask100k = new VariantMaskSparseImpl(Set.of(100, 200, 400, 50_000, 90_000), 100_000);
-        VariantMaskSparseImpl sparseMask100k2 = new VariantMaskSparseImpl(Set.of(100, 101, 200, 300, 400, 1000, 20_000, 30_000, 50_000, 90_000), 100_000);
-        VariantMaskSparseImpl sparseMask1m = new VariantMaskSparseImpl(Set.of(100, 200, 400, 50_000, 90_000, 300_000, 420_000, 555_555, 867_530, 999_999), 1_000_000);
+        VariantMaskSparseImpl sparseMask100k = new VariantMaskSparseImpl(Set.of(100, 200, 400, 50_000, 90_000));
+        VariantMaskSparseImpl sparseMask100k2 = new VariantMaskSparseImpl(Set.of(100, 101, 200, 300, 400, 1000, 20_000, 30_000, 50_000, 90_000));
+        VariantMaskSparseImpl sparseMask1m = new VariantMaskSparseImpl(Set.of(100, 200, 400, 50_000, 90_000, 300_000, 420_000, 555_555, 867_530, 999_999));
 
         long time = System.currentTimeMillis();
         for (int k = 0; k < 1000; k++) {
@@ -32,13 +30,13 @@ public class VariantMaskPerformanceTest {
         for (int k = 0; k < 1000; k++) {
             VariantMask and = sparseMask100k.union(mask100k);
         }
-        System.out.println(mask100k.getBitmask().bitLength() + " bitmask and " + sparseMask100k.patientIds.size() + " sparse union completed in " + (System.currentTimeMillis() - time) + " ms");
+        System.out.println(mask100k.getBitmask().bitLength() + " bitmask and " + sparseMask100k.patientIndexes.size() + " sparse union completed in " + (System.currentTimeMillis() - time) + " ms");
 
         time = System.currentTimeMillis();
         for (int k = 0; k < 1000; k++) {
             VariantMask and = sparseMask100k2.union(mask100k);
         }
-        System.out.println(mask100k.getBitmask().bitLength() + " bitmask and " + sparseMask100k2.patientIds.size() + " sparse union completed in " + (System.currentTimeMillis() - time) + " ms");
+        System.out.println(mask100k.getBitmask().bitLength() + " bitmask and " + sparseMask100k2.patientIndexes.size() + " sparse union completed in " + (System.currentTimeMillis() - time) + " ms");
 
         time = System.currentTimeMillis();
         for (int k = 0; k < 1000; k++) {
@@ -50,17 +48,18 @@ public class VariantMaskPerformanceTest {
         for (int k = 0; k < 1000; k++) {
             VariantMask and = sparseMask100k.union(mask1m);
         }
-        System.out.println(mask1m.getBitmask().bitLength() + " bitmask and " + sparseMask100k.patientIds.size() + " sparse union completed in " + (System.currentTimeMillis() - time) + " ms");
+        System.out.println(mask1m.getBitmask().bitLength() + " bitmask and " + sparseMask100k.patientIndexes.size() + " sparse union completed in " + (System.currentTimeMillis() - time) + " ms");
 
         time = System.currentTimeMillis();
         for (int k = 0; k < 1000; k++) {
             VariantMask and = sparseMask1m.union(mask1m);
         }
-        System.out.println(mask1m.getBitmask().bitLength() + " bitmask and " + sparseMask1m.patientIds.size() + " sparse union completed in " + (System.currentTimeMillis() - time) + " ms");
+        System.out.println(mask1m.getBitmask().bitLength() + " bitmask and " + sparseMask1m.patientIndexes.size() + " sparse union completed in " + (System.currentTimeMillis() - time) + " ms");
 
     }
 
     private BigInteger generateRandomBitmask(int patients) {
         return new BigInteger(patients + 4, new Random());
     }
+
 }

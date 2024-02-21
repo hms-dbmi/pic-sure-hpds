@@ -23,7 +23,7 @@ public interface VariantMask {
 
     static VariantMask union(VariantMaskSparseImpl variantMaskSparse, VariantMaskBitmaskImpl variantMaskBitmask) {
         BigInteger union = variantMaskBitmask.bitmask;
-        for (Integer patientId : variantMaskSparse.patientIds) {
+        for (Integer patientId : variantMaskSparse.patientIndexes) {
             union = union.setBit(patientId + 2);
         }
         return new VariantMaskBitmaskImpl(union);

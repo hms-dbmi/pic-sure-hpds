@@ -235,7 +235,7 @@ public class GenomicDatasetMerger {
                 if (variantMasks2 == null) {
                     // this will have all null masks, which will result in null when
                     // appended to a null, or be replaced with an empty bitmask otherwise
-                    variantMasks2 = new VariableVariantMasks();
+                    variantMasks2 = new VariableVariantMasks(variantStore2.getPatientIds().length);
                 }
                 mergedMasks.put(entry.getKey(), entry.getValue().append(variantMasks2));
             }
@@ -243,8 +243,7 @@ public class GenomicDatasetMerger {
             // if there were a corresponding entry in set 1, it would have been merged in the previous loop
             for (Map.Entry<String, VariableVariantMasks> entry : masks2.entrySet()) {
                 if (!mergedMasks.containsKey(entry.getKey())) {
-                    // todo: store empty variant masks as sparse to avoid this awkward null check
-                    mergedMasks.put(entry.getKey(), append(new VariantMasks(), entry.getValue()));
+                    mergedMasks.put(entry.getKey(), new VariableVariantMasks(variantStore1.getPatientIds().length).append(entry.getValue()));
                 }
             }
             merged.put(key, mergedMasks);
@@ -255,10 +254,31 @@ public class GenomicDatasetMerger {
             Map<String, VariableVariantMasks> masks2 = variantMaskStorage2.get(key);
             for (Map.Entry<String, VariableVariantMasks> entry : masks2.entrySet()) {
                 if (!mergedMasks.containsKey(entry.getKey())) {
-                    mergedMasks.put(entry.getKey(), append(new VariableVariantMasks(), entry.getValue()));
+                    mergedMasks.put(entry.getKey(), new VariableVariantMasks(variantStore1.getPatientIds().length).append(entry.getValue()));
                 }
             }
         });
         return merged;
     }
+
+    /**
+     * Appends one mask to another. This assumes the masks are both padded with '11' on each end
+     * to prevent overflow issues.
+     */
+    /*public BigInteger appendMask(BigInteger mask1, BigInteger mask2) {
+        if (mask1 == null && mask2 == null) {
+            return null;
+        }
+        if (mask1 == null) {
+            mask1 = variantStore1.emptyBitmask();
+        }
+        if (mask2 == null) {
+            mask2 = variantStore2.emptyBitmask();
+        }
+        String binaryMask1 = mask1.toString(2);
+        String binaryMask2 = mask2.toString(2);
+        String appendedString = binaryMask1.substring(0, binaryMask1.length() - 2) +
+                binaryMask2.substring(2);
+        return new BigInteger(appendedString, 2);
+    }*/
 }

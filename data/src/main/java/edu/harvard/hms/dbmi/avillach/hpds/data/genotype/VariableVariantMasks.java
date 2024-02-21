@@ -1,15 +1,10 @@
 package edu.harvard.hms.dbmi.avillach.hpds.data.genotype;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 
 import java.io.Serializable;
 import java.math.BigInteger;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class VariableVariantMasks implements Serializable {
@@ -28,7 +23,7 @@ public class VariableVariantMasks implements Serializable {
 
 	private static Map<Integer, BigInteger> emptyBitmaskMap = new ConcurrentHashMap<>();
 
-	private static int SPARSE_VARIANT_THRESHOLD = 5;
+	public static int SPARSE_VARIANT_THRESHOLD = 5;
 
 	/*
 	 * These indices result from the char values of the 3 characters in a VCF sample
@@ -68,121 +63,45 @@ public class VariableVariantMasks implements Serializable {
 	// .|. = (46 + 124 + 46) % 7 = 6
 	public static final int HOMO_NOCALL_CHAR_INDEX = 6;
 
-	public VariableVariantMasks(String[] values) {
-		char[] homozygousBits = new char[values.length];
-		char[] heterozygousBits = new char[values.length];
-		char[] homozygousNoCallBits = new char[values.length];
-		char[] heterozygousNoCallBits = new char[values.length];
-		length = values.length;
-		boolean hasHetero = false;
-		boolean hasHomo = false;
-		boolean hasHeteroNoCall = false;
-		boolean hasHomoNoCall = false;
-
-		for(int x = 0;x<values.length;x++) {
-			homozygousBits[x]=zero;
-			heterozygousBits[x]=zero;
-			homozygousNoCallBits[x]=zero;
-			heterozygousNoCallBits[x]=zero;
-			if(values[x]!=null) {
-				switch(values[x]) {
-				case hetero:{
-					heterozygousBits[x] = one;
-					hasHetero = true;
-					break;
-				}
-				case heteroPhased:{
-					heterozygousBits[x] = one;
-					hasHetero = true;
-					break;
-				}
-				case heteroPhased2:{
-					heterozygousBits[x] = one;
-					hasHetero = true;
-					break;
-				}
-				case heteroDel:{
-					heterozygousBits[x] = one;
-					hasHetero = true;
-					break;
-				}
-				case homo:{
-					homozygousBits[x] = one;
-					hasHomo = true;
-					break;
-				}
-				case homoPhased:{
-					homozygousBits[x] = one;
-					hasHomo = true;
-					break;
-				}
-				case heteroNoCall:{
-					heterozygousNoCallBits[x] = one;
-					hasHeteroNoCall = true;
-					break;
-				}
-				case homoNoCall:{
-					homozygousNoCallBits[x] = one;
-					hasHomoNoCall = true;
-					break;
-				}
-				}
-			}
-
-		}
-		if(hasHetero) {
-			StringBuilder heteroString = new StringBuilder(values.length + 4);
-			heteroString.append(oneone);
-			heteroString.append(heterozygousBits);
-			heteroString.append(oneone);
-			heterozygousMask = new VariantMaskBitmaskImpl(new BigInteger(heteroString.toString(), 2));
-		}
-		if(hasHomo) {
-			StringBuilder homoString = new StringBuilder(values.length + 4);
-			homoString.append(oneone);
-			homoString.append(homozygousBits);
-			homoString.append(oneone);
-			homozygousMask = new VariantMaskBitmaskImpl(new BigInteger(homoString.toString(), 2));
-		}
-		if(hasHomoNoCall) {
-			StringBuilder homoNoCallString = new StringBuilder(values.length + 4);
-			homoNoCallString.append(oneone);
-			homoNoCallString.append(homozygousNoCallBits);
-			homoNoCallString.append(oneone);
-			homozygousNoCallMask = new VariantMaskBitmaskImpl(new BigInteger(homoNoCallString.toString(), 2));
-		}
-		if(hasHeteroNoCall) {
-			StringBuilder heteroNoCallString = new StringBuilder(values.length + 4);
-			heteroNoCallString.append(oneone);
-			heteroNoCallString.append(heterozygousNoCallBits);
-			heteroNoCallString.append(oneone);
-			heterozygousNoCallMask = new VariantMaskBitmaskImpl(new BigInteger(heteroNoCallString.toString(), 2));
-		}
-	}
-
 	public VariableVariantMasks(char[][] maskValues) {
 		String heteroMaskStringRaw = new String(maskValues[ZERO_ONE_CHAR_INDEX]);
 		String homoMaskStringRaw = new String(maskValues[ONE_ONE_CHAR_INDEX]);
 		String heteroNoCallMaskStringRaw = new String(maskValues[HETERO_NOCALL_VARIANT_CHAR_INDEX]);
 		String homoNoCallMaskStringRaw = new String(maskValues[HOMO_NOCALL_CHAR_INDEX]);
-		if(heteroMaskStringRaw.contains("1")) {
-			heterozygousMask = new VariantMaskBitmaskImpl(new BigInteger(oneone + heteroMaskStringRaw + oneone, 2));
-		}
-		if(homoMaskStringRaw.contains("1")) {
-			homozygousMask = new VariantMaskBitmaskImpl(new BigInteger(oneone + homoMaskStringRaw + oneone, 2));
-		}
-		if(heteroNoCallMaskStringRaw.contains("1")) {
-			heterozygousNoCallMask = new VariantMaskBitmaskImpl(new BigInteger(oneone + heteroNoCallMaskStringRaw + oneone, 2));
-		}
-		if(homoNoCallMaskStringRaw.contains("1")) {
-			homozygousNoCallMask = new VariantMaskBitmaskImpl(new BigInteger(oneone + homoNoCallMaskStringRaw + oneone, 2));
+
+		heterozygousMask = variantMaskFromRawString(heteroMaskStringRaw);
+		homozygousMask = variantMaskFromRawString(homoMaskStringRaw);
+		heterozygousNoCallMask = variantMaskFromRawString(heteroNoCallMaskStringRaw);
+		homozygousNoCallMask = variantMaskFromRawString(homoNoCallMaskStringRaw);
+	}
+
+	private VariantMask variantMaskFromRawString(String maskStringRaw) {
+		if (!maskStringRaw.contains("1")) {
+			return new VariantMaskSparseImpl(Set.of());
 		}
 
+		VariantMask variantMask;
+		BigInteger bitmask = new BigInteger(oneone + maskStringRaw + oneone, 2);
+		if (bitmask.bitCount() - 4 > VariableVariantMasks.SPARSE_VARIANT_THRESHOLD) {
+			variantMask = new VariantMaskBitmaskImpl(bitmask);
+		} else {
+			Set<Integer> patientIndexes = new HashSet<>();
+			for(int i = 2; i < bitmask.bitLength() - 2; i++) {
+				if (bitmask.testBit(i)) {
+					patientIndexes.add(i);
+				}
+			}
+			variantMask = new VariantMaskSparseImpl(patientIndexes);
+		}
+		return variantMask;
 	}
 
 	public VariableVariantMasks() {
 	}
 
+	public VariableVariantMasks(int length) {
+		this.length = length;
+	}
 
 	@JsonProperty("ho")
 	public VariantMask homozygousMask;
@@ -252,14 +171,69 @@ public class VariableVariantMasks implements Serializable {
 
 	public VariableVariantMasks append(VariableVariantMasks variantMasks) {
 		VariableVariantMasks appendedMasks = new VariableVariantMasks();
-		appendedMasks.homozygousMask = appendMask(this.homozygousMask, variantMasks.homozygousMask);
-		appendedMasks.heterozygousMask = appendMask(this.heterozygousMask, variantMasks.heterozygousMask);
-		appendedMasks.homozygousNoCallMask = appendMask(this.homozygousNoCallMask, variantMasks.homozygousNoCallMask);
-		appendedMasks.heterozygousNoCallMask = appendMask(this.heterozygousNoCallMask, variantMasks.heterozygousNoCallMask);
+		appendedMasks.homozygousMask = appendMask(this.homozygousMask, variantMasks.homozygousMask, this.length, variantMasks.length);
+		appendedMasks.heterozygousMask = appendMask(this.heterozygousMask, variantMasks.heterozygousMask, this.length, variantMasks.length);
+		appendedMasks.homozygousNoCallMask = appendMask(this.homozygousNoCallMask, variantMasks.homozygousNoCallMask, this.length, variantMasks.length);
+		appendedMasks.heterozygousNoCallMask = appendMask(this.heterozygousNoCallMask, variantMasks.heterozygousNoCallMask, this.length, variantMasks.length);
 		return appendedMasks;
 	}
 
-	private VariantMask appendMask(VariantMask homozygousMask, VariantMask homozygousMask1) {
-		return null;
+	private VariantMask appendMask(VariantMask variantMask1, VariantMask variantMask2, int length1, int length2) {
+		if (variantMask1 instanceof  VariantMaskSparseImpl) {
+			if (variantMask2 instanceof VariantMaskSparseImpl) {
+				return append((VariantMaskSparseImpl) variantMask1, (VariantMaskSparseImpl) variantMask2, length1, length2);
+			} else if (variantMask2 instanceof  VariantMaskBitmaskImpl) {
+				return append((VariantMaskSparseImpl) variantMask1, (VariantMaskBitmaskImpl) variantMask2, length1, length2);
+			} else {
+				throw new RuntimeException("Unknown VariantMask implementation");
+			}
+		}
+		// todo: bitmask
+		else {
+			throw new RuntimeException("Unknown VariantMask implementation");
+		}
 	}
+
+	private VariantMask append(VariantMaskSparseImpl variantMask1, VariantMaskBitmaskImpl variantMask2, int length1, int length2) {
+		BigInteger mask1 = emptyBitmask(length1);
+		for (Integer patientId : variantMask1.patientIndexes) {
+			mask1 = mask1.setBit(patientId);
+		}
+		String binaryMask1 = mask1.toString(2);
+		String binaryMask2 = variantMask2.bitmask.toString(2);
+		String appendedString = binaryMask1.substring(0, binaryMask1.length() - 2) +
+				binaryMask2.substring(2);
+		return new VariantMaskBitmaskImpl(new BigInteger(appendedString, 2));
+	}
+	private VariantMask append(VariantMaskSparseImpl variantMask1, VariantMaskSparseImpl variantMask2, int length1, int length2) {
+		if (variantMask1.patientIndexes.size() + variantMask2.patientIndexes.size() > SPARSE_VARIANT_THRESHOLD) {
+			// todo: performance test this vs byte array
+			BigInteger mask = emptyBitmask(length1 + length2);
+			for (Integer patientId : variantMask1.patientIndexes) {
+				mask = mask.setBit(patientId + 2);
+			}
+			// todo: explain this. it is not intuitive
+			for (Integer patientId : variantMask2.patientIndexes) {
+				mask = mask.setBit(patientId + length1 + 2);
+			}
+			return new VariantMaskBitmaskImpl(mask);
+		}
+		else {
+			Set<Integer> patientIndexSet = new HashSet<>();
+			patientIndexSet.addAll(variantMask1.patientIndexes);
+			patientIndexSet.addAll(variantMask2.patientIndexes);
+			return new VariantMaskSparseImpl(patientIndexSet);
+		}
+	}
+
+/*	if (mask1 == null) {
+		mask1 = variantStore1.emptyBitmask();
+	}
+        if (mask2 == null) {
+		mask2 = variantStore2.emptyBitmask();
+	}
+	String binaryMask1 = mask1.toString(2);
+	String binaryMask2 = mask2.toString(2);
+	String appendedString = binaryMask1.substring(0, binaryMask1.length() - 2) +
+			binaryMask2.substring(2);*/
 }
