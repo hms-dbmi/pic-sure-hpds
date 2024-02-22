@@ -1,5 +1,6 @@
 package edu.harvard.hms.dbmi.avillach.hpds.data.genotype;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.io.Serializable;
@@ -105,20 +106,23 @@ public class VariableVariantMasks implements Serializable {
 	}
 
 	@JsonProperty("ho")
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public VariantMask homozygousMask;
 
 	@JsonProperty("he")
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public VariantMask heterozygousMask;
 
 	@JsonProperty("hon")
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public VariantMask homozygousNoCallMask;
 
 	@JsonProperty("hen")
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public VariantMask heterozygousNoCallMask;
 
 	@JsonProperty("l")
 	public int length;
-
 
 
 	@Override
@@ -126,12 +130,12 @@ public class VariableVariantMasks implements Serializable {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
 		VariableVariantMasks that = (VariableVariantMasks) o;
-		return Objects.equals(homozygousMask, that.homozygousMask) && Objects.equals(heterozygousMask, that.heterozygousMask) && Objects.equals(homozygousNoCallMask, that.homozygousNoCallMask) && Objects.equals(heterozygousNoCallMask, that.heterozygousNoCallMask);
+		return length == that.length && Objects.equals(homozygousMask, that.homozygousMask) && Objects.equals(heterozygousMask, that.heterozygousMask) && Objects.equals(homozygousNoCallMask, that.homozygousNoCallMask) && Objects.equals(heterozygousNoCallMask, that.heterozygousNoCallMask);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(homozygousMask, heterozygousMask, homozygousNoCallMask, heterozygousNoCallMask);
+		return Objects.hash(homozygousMask, heterozygousMask, homozygousNoCallMask, heterozygousNoCallMask, length);
 	}
 
 	public static BigInteger emptyBitmask(int length) {
@@ -248,14 +252,6 @@ public class VariableVariantMasks implements Serializable {
 		throw new IllegalArgumentException("Unknown VariantMask implementation");
 	}
 
-/*	if (mask1 == null) {
-		mask1 = variantStore1.emptyBitmask();
-	}
-        if (mask2 == null) {
-		mask2 = variantStore2.emptyBitmask();
-	}
-	String binaryMask1 = mask1.toString(2);
-	String binaryMask2 = mask2.toString(2);
-	String appendedString = binaryMask1.substring(0, binaryMask1.length() - 2) +
-			binaryMask2.substring(2);*/
+
+
 }

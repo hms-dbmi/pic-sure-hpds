@@ -3,6 +3,7 @@ package edu.harvard.hms.dbmi.avillach.hpds.data.genotype;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 public class VariantMaskSparseImpl implements VariantMask {
@@ -48,5 +49,18 @@ public class VariantMaskSparseImpl implements VariantMask {
         HashSet<Integer> union = new HashSet<>(variantMask.patientIndexes);
         union.addAll(this.patientIndexes);
         return new VariantMaskSparseImpl(union);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        VariantMaskSparseImpl that = (VariantMaskSparseImpl) o;
+        return Objects.equals(patientIndexes, that.patientIndexes);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(patientIndexes);
     }
 }
