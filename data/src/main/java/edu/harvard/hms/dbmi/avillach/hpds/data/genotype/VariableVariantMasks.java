@@ -78,7 +78,7 @@ public class VariableVariantMasks implements Serializable {
 
 	private VariantMask variantMaskFromRawString(String maskStringRaw) {
 		if (!maskStringRaw.contains("1")) {
-			return new VariantMaskSparseImpl(Set.of());
+			return null;
 		}
 
 		VariantMask variantMask;
