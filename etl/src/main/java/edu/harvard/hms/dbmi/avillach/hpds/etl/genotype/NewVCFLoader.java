@@ -470,8 +470,19 @@ public class NewVCFLoader {
 		}
 
 		private String currentSpecNotation() {
+			String[] variantInfo = currentLineSplit[7].split("[=;]");
+			String gene = "NULL";
+			String consequence = "NULL";
+			for (int i = 0; i < variantInfo.length; i = i + 2) {
+				if ("Gene_with_variant".equals(variantInfo[i])) {
+					gene = variantInfo[i + 1];
+				}
+				if ("Variant_consequence_calculated".equals(variantInfo[i])) {
+					consequence = variantInfo[i + 1];
+				}
+			}
 			return currentLineSplit[0] + "," + currentLineSplit[1] + "," + currentLineSplit[3] + ","
-					+ currentLineSplit[4];
+					+ currentLineSplit[4] + "," + gene + "," + consequence;
 		}
 
 		public void readHeaders(ConcurrentHashMap<String, InfoStore> infoStores) throws IOException {
