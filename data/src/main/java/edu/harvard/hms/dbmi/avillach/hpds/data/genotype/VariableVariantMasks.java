@@ -152,28 +152,6 @@ public class VariableVariantMasks implements Serializable {
 		return emptyBitmask;
 	}
 
-	/**
-	 * Appends one mask to another. This assumes the masks are both padded with '11' on each end
-	 * to prevent overflow issues.
-	 */
-	public BigInteger appendMask(BigInteger mask1, int mask1Length, BigInteger mask2, int mask2length) {
-		if (mask1 == null && mask2 == null) {
-			return null;
-		}
-		if (mask1 == null) {
-			// todo: unit test this funcitonality
-			mask1 = emptyBitmask(mask1Length);
-		}
-		if (mask2 == null) {
-			mask2 = emptyBitmask(mask2length);
-		}
-		String binaryMask1 = mask1.toString(2);
-		String binaryMask2 = mask2.toString(2);
-		String appendedString = binaryMask1.substring(0, binaryMask1.length() - 2) +
-				binaryMask2.substring(2);
-		return new BigInteger(appendedString, 2);
-	}
-
 	public VariableVariantMasks append(VariableVariantMasks variantMasks) {
 		VariableVariantMasks appendedMasks = new VariableVariantMasks();
 		appendedMasks.homozygousMask = appendMask(this.homozygousMask, variantMasks.homozygousMask, this.length, variantMasks.length);
@@ -193,7 +171,15 @@ public class VariableVariantMasks implements Serializable {
 				throw new RuntimeException("Unknown VariantMask implementation");
 			}
 		}
-		// todo: bitmask
+		else if (variantMask1 instanceof  VariantMaskBitmaskImpl) {
+			if (variantMask2 instanceof VariantMaskSparseImpl) {
+				return append((VariantMaskBitmaskImpl) variantMask1, (VariantMaskSparseImpl) variantMask2, length1, length2);
+			} else if (variantMask2 instanceof  VariantMaskBitmaskImpl) {
+				return append((VariantMaskBitmaskImpl) variantMask1, (VariantMaskBitmaskImpl) variantMask2, length1, length2);
+			} else {
+				throw new RuntimeException("Unknown VariantMask implementation");
+			}
+		}
 		else {
 			throw new RuntimeException("Unknown VariantMask implementation");
 		}
@@ -210,9 +196,32 @@ public class VariableVariantMasks implements Serializable {
 				binaryMask1.substring(2);
 		return new VariantMaskBitmaskImpl(new BigInteger(appendedString, 2));
 	}
+
+	private static VariantMask append(VariantMaskBitmaskImpl variantMask1, VariantMaskSparseImpl variantMask2, int length1, int length2) {
+		String binaryMask1 = variantMask1.bitmask.toString(2);
+
+		BigInteger mask2 = emptyBitmask(length2);
+		for (Integer patientId : variantMask2.patientIndexes) {
+			mask2 = mask2.setBit(patientId);
+		}
+		String binaryMask2 = mask2.toString(2);
+
+		String appendedString = binaryMask2.substring(0, binaryMask1.length() - 2) +
+				binaryMask1.substring(2);
+		return new VariantMaskBitmaskImpl(new BigInteger(appendedString, 2));
+	}
+
+	private static VariantMask append(VariantMaskBitmaskImpl variantMask1, VariantMaskBitmaskImpl variantMask2, int length1, int length2) {
+		String binaryMask1 = variantMask1.bitmask.toString(2);
+		String binaryMask2 = variantMask2.bitmask.toString(2);
+
+		String appendedString = binaryMask2.substring(0, binaryMask1.length() - 2) +
+				binaryMask1.substring(2);
+		return new VariantMaskBitmaskImpl(new BigInteger(appendedString, 2));
+	}
+
 	private static VariantMask append(VariantMaskSparseImpl variantMask1, VariantMaskSparseImpl variantMask2, int length1, int length2) {
 		if (variantMask1.patientIndexes.size() + variantMask2.patientIndexes.size() > SPARSE_VARIANT_THRESHOLD) {
-			// todo: performance test this vs byte array
 			BigInteger mask = emptyBitmask(length1 + length2);
 			for (Integer patientId : variantMask1.patientIndexes) {
 				mask = mask.setBit(patientId + 2);

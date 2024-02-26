@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import java.math.BigInteger;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
@@ -28,13 +29,5 @@ public interface VariantMask {
 
     static VariantMask emptyInstance() {
         return new VariantMaskSparseImpl(Set.of());
-    }
-
-    static VariantMask union(VariantMaskSparseImpl variantMaskSparse, VariantMaskBitmaskImpl variantMaskBitmask) {
-        BigInteger union = variantMaskBitmask.bitmask;
-        for (Integer patientId : variantMaskSparse.patientIndexes) {
-            union = union.setBit(patientId + 2);
-        }
-        return new VariantMaskBitmaskImpl(union);
     }
 }

@@ -26,7 +26,13 @@ public class VariantMaskBitmaskImpl implements VariantMask {
 
     @Override
     public VariantMask intersection(VariantMask variantMask) {
-        throw new RuntimeException("Not implemented yet");
+        if (variantMask instanceof VariantMaskBitmaskImpl) {
+            return intersection((VariantMaskBitmaskImpl) variantMask);
+        } else if (variantMask instanceof  VariantMaskSparseImpl) {
+            return variantMask.intersection(this);
+        } else {
+            throw new RuntimeException("Unknown VariantMask implementation");
+        }
     }
 
     @Override
@@ -34,7 +40,7 @@ public class VariantMaskBitmaskImpl implements VariantMask {
         if (variantMask instanceof VariantMaskBitmaskImpl) {
             return union((VariantMaskBitmaskImpl) variantMask);
         } else if (variantMask instanceof  VariantMaskSparseImpl) {
-            return VariantMask.union((VariantMaskSparseImpl) variantMask, this);
+            return variantMask.union(this);
         } else {
             throw new RuntimeException("Unknown VariantMask implementation");
         }
@@ -42,7 +48,7 @@ public class VariantMaskBitmaskImpl implements VariantMask {
 
     @Override
     public boolean testBit(int bit) {
-        return bitmask.testBit(bit);
+        return bitmask.testBit(bit + 2);
     }
 
     @Override
@@ -51,6 +57,11 @@ public class VariantMaskBitmaskImpl implements VariantMask {
     }
 
     private VariantMask union(VariantMaskBitmaskImpl variantMaskBitmask) {
+        return new VariantMaskBitmaskImpl(variantMaskBitmask.bitmask.or(this.bitmask));
+    }
+    private VariantMask intersection(VariantMaskBitmaskImpl variantMaskBitmask) {
+        // we could consider using a sparse variant index here if we are ever going to be storing the
+        // result of this anywhere
         return new VariantMaskBitmaskImpl(variantMaskBitmask.bitmask.and(this.bitmask));
     }
 

@@ -2,9 +2,11 @@ package edu.harvard.hms.dbmi.avillach.hpds.data.genotype;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.math.BigInteger;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class VariantMaskSparseImpl implements VariantMask {
 
@@ -21,13 +23,15 @@ public class VariantMaskSparseImpl implements VariantMask {
 
     @Override
     public VariantMask intersection(VariantMask variantMask) {
-        throw new RuntimeException("Not implemented yet");
+        return new VariantMaskSparseImpl(this.patientIndexes.stream()
+                .filter(variantMask::testBit)
+                .collect(Collectors.toSet()));
     }
 
     @Override
     public VariantMask union(VariantMask variantMask) {
         if (variantMask instanceof VariantMaskBitmaskImpl) {
-            return VariantMask.union(this, (VariantMaskBitmaskImpl) variantMask);
+            return union((VariantMaskBitmaskImpl) variantMask);
         } else if (variantMask instanceof  VariantMaskSparseImpl) {
             return union((VariantMaskSparseImpl) variantMask);
         } else {
@@ -49,6 +53,14 @@ public class VariantMaskSparseImpl implements VariantMask {
         HashSet<Integer> union = new HashSet<>(variantMask.patientIndexes);
         union.addAll(this.patientIndexes);
         return new VariantMaskSparseImpl(union);
+    }
+
+    private VariantMask union(VariantMaskBitmaskImpl variantMaskBitmask) {
+        BigInteger union = variantMaskBitmask.bitmask;
+        for (Integer patientId : this.patientIndexes) {
+            union = union.setBit(patientId + 2);
+        }
+        return new VariantMaskBitmaskImpl(union);
     }
 
     @Override
