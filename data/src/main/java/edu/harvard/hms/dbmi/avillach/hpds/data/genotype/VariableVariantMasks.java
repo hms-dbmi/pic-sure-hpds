@@ -162,6 +162,12 @@ public class VariableVariantMasks implements Serializable {
 	}
 
 	public static VariantMask appendMask(VariantMask variantMask1, VariantMask variantMask2, int length1, int length2) {
+		if (variantMask1 == null) {
+			variantMask1 = VariantMask.emptyInstance();
+		}
+		if (variantMask2 == null) {
+			variantMask2 = VariantMask.emptyInstance();
+		}
 		if (variantMask1 instanceof  VariantMaskSparseImpl) {
 			if (variantMask2 instanceof VariantMaskSparseImpl) {
 				return append((VariantMaskSparseImpl) variantMask1, (VariantMaskSparseImpl) variantMask2, length1, length2);
