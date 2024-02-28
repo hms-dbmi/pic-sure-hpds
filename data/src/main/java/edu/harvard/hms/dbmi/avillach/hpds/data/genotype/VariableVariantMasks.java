@@ -198,7 +198,7 @@ public class VariableVariantMasks implements Serializable {
 		}
 		String binaryMask1 = mask1.toString(2);
 		String binaryMask2 = variantMask2.bitmask.toString(2);
-		String appendedString = binaryMask2.substring(0, binaryMask1.length() - 2) +
+		String appendedString = binaryMask2.substring(0, binaryMask2.length() - 2) +
 				binaryMask1.substring(2);
 		return new VariantMaskBitmaskImpl(new BigInteger(appendedString, 2));
 	}
@@ -212,7 +212,7 @@ public class VariableVariantMasks implements Serializable {
 		}
 		String binaryMask2 = mask2.toString(2);
 
-		String appendedString = binaryMask2.substring(0, binaryMask1.length() - 2) +
+		String appendedString = binaryMask2.substring(0, binaryMask2.length() - 2) +
 				binaryMask1.substring(2);
 		return new VariantMaskBitmaskImpl(new BigInteger(appendedString, 2));
 	}
@@ -221,7 +221,7 @@ public class VariableVariantMasks implements Serializable {
 		String binaryMask1 = variantMask1.bitmask.toString(2);
 		String binaryMask2 = variantMask2.bitmask.toString(2);
 
-		String appendedString = binaryMask2.substring(0, binaryMask1.length() - 2) +
+		String appendedString = binaryMask2.substring(0, binaryMask2.length() - 2) +
 				binaryMask1.substring(2);
 		return new VariantMaskBitmaskImpl(new BigInteger(appendedString, 2));
 	}
