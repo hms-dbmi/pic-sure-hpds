@@ -249,13 +249,16 @@ public class GenomicDatasetMerger {
             merged.put(key, mergedMasks);
         });
 
-        ConcurrentHashMap<String, VariableVariantMasks> mergedMasks = new ConcurrentHashMap<>();
         variantMaskStorage2.keys().forEach(key -> {
-            Map<String, VariableVariantMasks> masks2 = variantMaskStorage2.get(key);
-            for (Map.Entry<String, VariableVariantMasks> entry : masks2.entrySet()) {
-                if (!mergedMasks.containsKey(entry.getKey())) {
-                    mergedMasks.put(entry.getKey(), new VariableVariantMasks(variantStore1.getPatientIds().length).append(entry.getValue()));
+            if (variantMaskStorage1.get(key) == null) {
+                ConcurrentHashMap<String, VariableVariantMasks> mergedMasks = new ConcurrentHashMap<>();
+                Map<String, VariableVariantMasks> masks2 = variantMaskStorage2.get(key);
+                for (Map.Entry<String, VariableVariantMasks> entry : masks2.entrySet()) {
+                    if (!mergedMasks.containsKey(entry.getKey())) {
+                        mergedMasks.put(entry.getKey(), new VariableVariantMasks(variantStore1.getPatientIds().length).append(entry.getValue()));
+                    }
                 }
+                merged.put(key, mergedMasks);
             }
         });
         return merged;
