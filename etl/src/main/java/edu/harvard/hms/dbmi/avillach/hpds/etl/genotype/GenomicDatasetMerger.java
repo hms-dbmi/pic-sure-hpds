@@ -117,7 +117,7 @@ public class GenomicDatasetMerger {
             throw new IllegalStateException("Info stores do not match");
         }
         //for (Map.Entry<String, FileBackedByteIndexedInfoStore> infoStores1Entry : infoStores1.entrySet()) {
-        infoStores1.entrySet().parallelStream().forEach(infoStores1Entry -> {
+        infoStores1.entrySet().stream().forEach(infoStores1Entry -> {
             FileBackedByteIndexedInfoStore infoStore2 = infoStores2.get(infoStores1Entry.getKey());
 
             FileBackedByteIndexedStorage<String, Integer[]> allValuesStore1 = infoStores1Entry.getValue().getAllValues();
@@ -222,7 +222,7 @@ public class GenomicDatasetMerger {
         FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>> variantMaskStorage2 = variantStore2.getVariantMaskStorage().get(chromosome);
 
         FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>> merged = new FileBackedStorageVariantMasksImpl(new File(outputDirectory + chromosome + "masks.bin"));
-        variantMaskStorage1.keys().parallelStream().forEach(key -> {
+        variantMaskStorage1.keys().stream().forEach(key -> {
             Map<String, VariableVariantMasks> masks1 = variantMaskStorage1.get(key);
             Map<String, VariableVariantMasks> masks2 = variantMaskStorage2.get(key);
             if (masks2 == null) {
