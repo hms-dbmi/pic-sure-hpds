@@ -226,6 +226,7 @@ public class GenomicDatasetMerger {
             Map<String, VariableVariantMasks> masks1 = variantMaskStorage1.get(key);
             Map<String, VariableVariantMasks> masks2 = variantMaskStorage2.get(key);
             if (masks2 == null) {
+                log.info("Key " + key + " not found in dataset 2");
                 masks2 = Map.of();
             }
 
@@ -251,6 +252,7 @@ public class GenomicDatasetMerger {
 
         variantMaskStorage2.keys().forEach(key -> {
             if (variantMaskStorage1.get(key) == null) {
+                log.info("Key " + key + " not found in dataset 1");
                 ConcurrentHashMap<String, VariableVariantMasks> mergedMasks = new ConcurrentHashMap<>();
                 Map<String, VariableVariantMasks> masks2 = variantMaskStorage2.get(key);
                 for (Map.Entry<String, VariableVariantMasks> entry : masks2.entrySet()) {
