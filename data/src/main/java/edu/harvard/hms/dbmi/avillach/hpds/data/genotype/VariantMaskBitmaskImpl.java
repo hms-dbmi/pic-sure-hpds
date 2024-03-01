@@ -20,7 +20,11 @@ public class VariantMaskBitmaskImpl implements VariantMask {
     }
 
     @JsonCreator
-    public VariantMaskBitmaskImpl(@JsonProperty("mask") BigInteger bitmask) {
+    public VariantMaskBitmaskImpl(@JsonProperty("mask") String stringMask) {
+        this.bitmask = new BigInteger(stringMask);
+    }
+
+    public VariantMaskBitmaskImpl(BigInteger bitmask) {
         this.bitmask = bitmask;
     }
 
