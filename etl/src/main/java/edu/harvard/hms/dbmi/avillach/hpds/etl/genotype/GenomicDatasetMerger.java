@@ -1,5 +1,6 @@
 package edu.harvard.hms.dbmi.avillach.hpds.etl.genotype;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.Sets;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.*;
 import edu.harvard.hms.dbmi.avillach.hpds.data.storage.FileBackedStorageVariantMasksImpl;
@@ -249,6 +250,9 @@ public class GenomicDatasetMerger {
             if (merged.keys().contains(key)) {
                 log.warn("Merged already contains key: " + key);
             } else {
+                if (key == 61713) {
+                    log.info("Loop 1 adding masks to key 61713: " + Joiner.on(",").join(mergedMasks.keySet()));
+                }
                 merged.put(key, mergedMasks);
             }
         });
@@ -265,6 +269,9 @@ public class GenomicDatasetMerger {
                 if (merged.keys().contains(key)) {
                     log.warn("Second loop: merged already contains key: " + key);
                 } else {
+                    if (key == 61713) {
+                        log.info("Loop 2 adding masks to key 61713: " + Joiner.on(",").join(mergedMasks.keySet()));
+                    }
                     merged.put(key, mergedMasks);
                 }
             }
