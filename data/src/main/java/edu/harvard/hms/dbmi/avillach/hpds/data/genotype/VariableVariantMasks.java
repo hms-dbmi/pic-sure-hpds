@@ -1,5 +1,6 @@
 package edu.harvard.hms.dbmi.avillach.hpds.data.genotype;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -121,6 +122,7 @@ public class VariableVariantMasks implements Serializable {
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public VariantMask heterozygousNoCallMask;
 
+	@JsonIgnore
 	@JsonProperty("l")
 	public int length;
 
@@ -168,6 +170,10 @@ public class VariableVariantMasks implements Serializable {
 		if (variantMask2 == null) {
 			variantMask2 = VariantMask.emptyInstance();
 		}
+		if (variantMask1.equals(VariantMask.emptyInstance()) && variantMask2.equals(VariantMask.emptyInstance())) {
+			return null;
+		}
+
 		if (variantMask1 instanceof  VariantMaskSparseImpl) {
 			if (variantMask2 instanceof VariantMaskSparseImpl) {
 				return append((VariantMaskSparseImpl) variantMask1, (VariantMaskSparseImpl) variantMask2, length1, length2);
