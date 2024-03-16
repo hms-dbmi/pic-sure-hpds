@@ -81,12 +81,18 @@ public class PatientVariantJoinHandler {
                     variantBucket.forEach(variantSpec -> {
                         Optional<VariableVariantMasks> variantMask = variantService.getMasks(variantSpec, bucketCache);
                         variantMask.ifPresentOrElse(masks -> {
-                            VariantMask heteroMask = masks.heterozygousMask;
-                            VariantMask homoMask = masks.homozygousMask;
-                            VariantMask orMasks = heteroMask.union(homoMask);
+                            VariantMask heterozygousMask = masks.heterozygousMask;
+                            VariantMask homozygousMask = masks.homozygousMask;
                             //log.info("Patients with variant " + variantSpec + ": " + (orMasks.bitCount() - 4));
-                            synchronized(matchingPatients) {
-                                matchingPatients[0] = matchingPatients[0].union(orMasks);
+                            if (heterozygousMask != null) {
+                                synchronized(matchingPatients) {
+                                    matchingPatients[0] = matchingPatients[0].union(heterozygousMask);
+                                }
+                            }
+                            if (homozygousMask != null) {
+                                synchronized(matchingPatients) {
+                                    matchingPatients[0] = matchingPatients[0].union(homozygousMask);
+                                }
                             }
                         }, () -> missingVariants.add(variantSpec));
                     });
