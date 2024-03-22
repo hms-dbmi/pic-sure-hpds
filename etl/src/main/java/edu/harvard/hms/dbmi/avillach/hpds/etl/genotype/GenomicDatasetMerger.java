@@ -283,7 +283,8 @@ public class GenomicDatasetMerger {
             ConcurrentHashMap<String, VariableVariantMasks> maskMap = merged.get(key);
             maskMap.keySet().stream().sorted().limit(5).forEach(variantSpec -> {
                 VariableVariantMasks variableVariantMasks = maskMap.get(variantSpec);
-                Set<Integer> patientsWithVariant = VariableVariantMasks.patientMaskToPatientIdSet(variableVariantMasks.heterozygousMask.union(variableVariantMasks.homozygousMask), Arrays.asList(mergedVariantStore.getPatientIds()));
+                VariantMask union = Optional.ofNullable(variableVariantMasks.heterozygousMask).orElse(VariantMask.emptyInstance()).union(Optional.ofNullable(variableVariantMasks.homozygousMask).orElse(VariantMask.emptyInstance()));
+                Set<Integer> patientsWithVariant = VariableVariantMasks.patientMaskToPatientIdSet(union, Arrays.asList(mergedVariantStore.getPatientIds()));
                 log.info("Patients with variant [" + variantSpec + "]: " + Joiner.on(",").join(patientsWithVariant));
             });
 
