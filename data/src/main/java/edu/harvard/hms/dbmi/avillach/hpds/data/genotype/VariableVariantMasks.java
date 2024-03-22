@@ -154,12 +154,21 @@ public class VariableVariantMasks implements Serializable {
 		return emptyBitmask;
 	}
 
-	public VariableVariantMasks append(VariableVariantMasks variantMasks) {
+	/*public VariableVariantMasks append(VariableVariantMasks variantMasks) {
 		VariableVariantMasks appendedMasks = new VariableVariantMasks();
 		appendedMasks.homozygousMask = appendMask(this.homozygousMask, variantMasks.homozygousMask, this.length, variantMasks.length);
 		appendedMasks.heterozygousMask = appendMask(this.heterozygousMask, variantMasks.heterozygousMask, this.length, variantMasks.length);
 		appendedMasks.homozygousNoCallMask = appendMask(this.homozygousNoCallMask, variantMasks.homozygousNoCallMask, this.length, variantMasks.length);
 		appendedMasks.heterozygousNoCallMask = appendMask(this.heterozygousNoCallMask, variantMasks.heterozygousNoCallMask, this.length, variantMasks.length);
+		return appendedMasks;
+	}*/
+
+	public static VariableVariantMasks append(VariableVariantMasks masks1, int length1, VariableVariantMasks masks2, int length2) {
+		VariableVariantMasks appendedMasks = new VariableVariantMasks();
+		appendedMasks.homozygousMask = appendMask(masks1.homozygousMask, masks2.homozygousMask, length1, length2);
+		appendedMasks.heterozygousMask = appendMask(masks1.heterozygousMask, masks2.heterozygousMask, length1, length2);
+		appendedMasks.homozygousNoCallMask = appendMask(masks1.homozygousNoCallMask, masks2.homozygousNoCallMask, length1, length2);
+		appendedMasks.heterozygousNoCallMask = appendMask(masks1.heterozygousNoCallMask, masks2.heterozygousNoCallMask, length1, length2);
 		return appendedMasks;
 	}
 
@@ -238,7 +247,7 @@ public class VariableVariantMasks implements Serializable {
 			for (Integer patientId : variantMask1.patientIndexes) {
 				mask = mask.setBit(patientId + 2);
 			}
-			// todo: explain this. it is not intuitive
+			// We start writing mask 2 where mask 1 ends. So the 0th index of mask 2 is now following the last bit of mask 1
 			for (Integer patientId : variantMask2.patientIndexes) {
 				mask = mask.setBit(patientId + length1 + 2);
 			}
@@ -247,7 +256,9 @@ public class VariableVariantMasks implements Serializable {
 		else {
 			Set<Integer> patientIndexSet = new HashSet<>();
 			patientIndexSet.addAll(variantMask1.patientIndexes);
-			patientIndexSet.addAll(variantMask2.patientIndexes);
+			// The indexes for mask 2 are shifted by the length of mask 1, corresponding to the corresponding patient id array
+			// for mask 2 being appended to those of mask 1
+			patientIndexSet.addAll(variantMask2.patientIndexes.stream().map(i -> i + length1).collect(Collectors.toSet()));
 			return new VariantMaskSparseImpl(patientIndexSet);
 		}
 	}

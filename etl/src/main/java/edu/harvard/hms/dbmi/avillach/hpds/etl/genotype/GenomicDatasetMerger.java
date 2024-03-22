@@ -10,7 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -24,6 +23,9 @@ public class GenomicDatasetMerger {
     private final VariantStore variantStore1;
     private final VariantStore variantStore2;
 
+    private final int variantStore1PatientCount;
+    private final int variantStore2PatientCount;
+
     private final Map<String, FileBackedByteIndexedInfoStore> infoStores1;
     private final Map<String, FileBackedByteIndexedInfoStore> infoStores2;
 
@@ -33,7 +35,9 @@ public class GenomicDatasetMerger {
 
     public GenomicDatasetMerger(VariantStore variantStore1, VariantStore variantStore2, Map<String, FileBackedByteIndexedInfoStore> infoStores1, Map<String, FileBackedByteIndexedInfoStore> infoStores2, String outputDirectory) {
         this.variantStore1 = variantStore1;
+        this.variantStore1PatientCount = variantStore1.getPatientIds().length;
         this.variantStore2 = variantStore2;
+        this.variantStore2PatientCount = variantStore2.getPatientIds().length;
         this.mergedVariantStore = new VariantStore();
         this.infoStores1 = infoStores1;
         this.infoStores2 = infoStores2;
@@ -238,21 +242,21 @@ public class GenomicDatasetMerger {
                     // appended to a null, or be replaced with an empty bitmask otherwise
                     variantMasks2 = new VariableVariantMasks(variantStore2.getPatientIds().length);
                 }
-                mergedMasks.put(entry.getKey(), entry.getValue().append(variantMasks2));
+
+                VariableVariantMasks mergeResult = VariableVariantMasks.append(entry.getValue(), variantStore1PatientCount, variantMasks2, variantStore2PatientCount);
+                mergedMasks.put(entry.getKey(), mergeResult);
             }
             // Any entry in the second set that is not in the merged set can be merged with an empty variant mask,
             // if there were a corresponding entry in set 1, it would have been merged in the previous loop
             for (Map.Entry<String, VariableVariantMasks> entry : masks2.entrySet()) {
                 if (!mergedMasks.containsKey(entry.getKey())) {
-                    mergedMasks.put(entry.getKey(), new VariableVariantMasks(variantStore1.getPatientIds().length).append(entry.getValue()));
+                    VariableVariantMasks appendedMasks = VariableVariantMasks.append(new VariableVariantMasks(), variantStore1PatientCount, entry.getValue(), variantStore2PatientCount);
+                    mergedMasks.put(entry.getKey(), appendedMasks);
                 }
             }
             if (merged.keys().contains(key)) {
                 log.warn("Merged already contains key: " + key);
             } else {
-                if (key == 61713) {
-                    log.info("Loop 1 adding masks to key 61713: " + Joiner.on(",").join(mergedMasks.keySet()));
-                }
                 merged.put(key, mergedMasks);
             }
         });
@@ -263,18 +267,26 @@ public class GenomicDatasetMerger {
                 Map<String, VariableVariantMasks> masks2 = variantMaskStorage2.get(key);
                 for (Map.Entry<String, VariableVariantMasks> entry : masks2.entrySet()) {
                     if (!mergedMasks.containsKey(entry.getKey())) {
-                        mergedMasks.put(entry.getKey(), new VariableVariantMasks(variantStore1.getPatientIds().length).append(entry.getValue()));
+                        VariableVariantMasks appendedMasks = VariableVariantMasks.append(new VariableVariantMasks(), variantStore1PatientCount, entry.getValue(), variantStore2PatientCount);
+                        mergedMasks.put(entry.getKey(), appendedMasks);
                     }
                 }
                 if (merged.keys().contains(key)) {
                     log.warn("Second loop: merged already contains key: " + key);
                 } else {
-                    if (key == 61713) {
-                        log.info("Loop 2 adding masks to key 61713: " + Joiner.on(",").join(mergedMasks.keySet()));
-                    }
                     merged.put(key, mergedMasks);
                 }
             }
+        });
+
+        merged.keys().stream().sorted().limit(3).forEach(key -> {
+            ConcurrentHashMap<String, VariableVariantMasks> maskMap = merged.get(key);
+            maskMap.keySet().stream().sorted().limit(5).forEach(variantSpec -> {
+                VariableVariantMasks variableVariantMasks = maskMap.get(variantSpec);
+                Set<Integer> patientsWithVariant = VariableVariantMasks.patientMaskToPatientIdSet(variableVariantMasks.heterozygousMask.union(variableVariantMasks.homozygousMask), Arrays.asList(mergedVariantStore.getPatientIds()));
+                log.info("Patients with variant [" + variantSpec + "]: " + Joiner.on(",").join(patientsWithVariant));
+            });
+
         });
         return merged;
     }
