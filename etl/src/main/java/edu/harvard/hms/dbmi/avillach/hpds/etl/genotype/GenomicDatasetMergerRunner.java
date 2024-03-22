@@ -46,6 +46,7 @@ public class GenomicDatasetMergerRunner {
         Map<String, FileBackedByteIndexedInfoStore> infoStores2 = loadInfoStores(genomicDirectory2);
 
         GenomicDatasetMerger genomicDatasetMerger = new GenomicDatasetMerger(VariantStore.readInstance(genomicDirectory1),VariantStore.readInstance(genomicDirectory2), infoStores1, infoStores2, outputDirectory);
+        genomicDatasetMerger.mergePatients();
 
         Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>>> mergedChromosomeMasks = genomicDatasetMerger.mergeChromosomeMasks();
         VariantStore mergedVariantStore = genomicDatasetMerger.mergeVariantStore(mergedChromosomeMasks);

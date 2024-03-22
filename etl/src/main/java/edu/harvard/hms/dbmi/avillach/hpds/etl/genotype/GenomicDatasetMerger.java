@@ -60,8 +60,10 @@ public class GenomicDatasetMerger {
 
     public VariantStore mergeVariantStore(Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>>> mergedChromosomeMasks) {
         mergedVariantStore.setVariantMaskStorage(mergedChromosomeMasks);
-        mergedVariantStore.setPatientIds(mergePatientIds());
         return mergedVariantStore;
+    }
+    public void mergePatients() {
+        mergedVariantStore.setPatientIds(mergePatientIds());
     }
 
     /**
