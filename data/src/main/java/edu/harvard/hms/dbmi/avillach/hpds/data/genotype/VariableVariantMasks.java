@@ -3,6 +3,8 @@ package edu.harvard.hms.dbmi.avillach.hpds.data.genotype;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.math.BigInteger;
@@ -11,6 +13,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class VariableVariantMasks implements Serializable {
+
+	private static Logger log = LoggerFactory.getLogger(VariableVariantMasks.class);
+
 	private static final long serialVersionUID = 6225420483804601477L;
 	private static final String oneone = "11";
 	private static final char one = '1';

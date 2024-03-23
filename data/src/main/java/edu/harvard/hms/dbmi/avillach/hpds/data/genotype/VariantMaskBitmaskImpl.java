@@ -81,4 +81,11 @@ public class VariantMaskBitmaskImpl implements VariantMask {
     public int hashCode() {
         return Objects.hash(bitmask);
     }
+
+    @Override
+    public String toString() {
+        return "VariantMaskBitmaskImpl{" +
+                "bitmask=" + bitmask.toString() +
+                '}';
+    }
 }
