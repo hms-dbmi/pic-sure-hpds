@@ -295,37 +295,17 @@ public class GenomicDatasetMerger {
             }
         });
 
-        merged.keys().stream().sorted().limit(3).forEach(key -> {
-            ConcurrentHashMap<String, VariableVariantMasks> maskMap = merged.get(key);
-            maskMap.keySet().stream().sorted().limit(5).forEach(variantSpec -> {
-                VariableVariantMasks variableVariantMasks = maskMap.get(variantSpec);
-                VariantMask heteroMask = Optional.ofNullable(variableVariantMasks.heterozygousMask).orElse(VariantMask.emptyInstance());
-                Set<Integer> patientsWithVariant = VariableVariantMasks.patientMaskToPatientIdSet(heteroMask, Arrays.asList(mergedVariantStore.getPatientIds()));
-                log.info("Patients with variant [" + variantSpec + "]: " + Joiner.on(",").join(patientsWithVariant));
+        if (log.isDebugEnabled()) {
+            merged.keys().stream().sorted().limit(3).forEach(key -> {
+                ConcurrentHashMap<String, VariableVariantMasks> maskMap = merged.get(key);
+                maskMap.keySet().stream().sorted().limit(5).forEach(variantSpec -> {
+                    VariableVariantMasks variableVariantMasks = maskMap.get(variantSpec);
+                    VariantMask heteroMask = Optional.ofNullable(variableVariantMasks.heterozygousMask).orElse(VariantMask.emptyInstance());
+                    Set<Integer> patientsWithVariant = VariableVariantMasks.patientMaskToPatientIdSet(heteroMask, Arrays.asList(mergedVariantStore.getPatientIds()));
+                    log.debug("Patients with variant [" + variantSpec + "]: " + Joiner.on(",").join(patientsWithVariant));
+                });
             });
-
-        });
+        }
         return merged;
     }
-
-    /**
-     * Appends one mask to another. This assumes the masks are both padded with '11' on each end
-     * to prevent overflow issues.
-     */
-    /*public BigInteger appendMask(BigInteger mask1, BigInteger mask2) {
-        if (mask1 == null && mask2 == null) {
-            return null;
-        }
-        if (mask1 == null) {
-            mask1 = variantStore1.emptyBitmask();
-        }
-        if (mask2 == null) {
-            mask2 = variantStore2.emptyBitmask();
-        }
-        String binaryMask1 = mask1.toString(2);
-        String binaryMask2 = mask2.toString(2);
-        String appendedString = binaryMask1.substring(0, binaryMask1.length() - 2) +
-                binaryMask2.substring(2);
-        return new BigInteger(appendedString, 2);
-    }*/
 }
