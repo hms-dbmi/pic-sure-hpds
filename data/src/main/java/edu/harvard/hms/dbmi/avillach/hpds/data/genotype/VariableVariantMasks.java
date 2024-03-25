@@ -94,8 +94,9 @@ public class VariableVariantMasks implements Serializable {
 			variantMask = new VariantMaskBitmaskImpl(bitmask);
 		} else {
 			Set<Integer> patientIndexes = new HashSet<>();
-			for(int i = 2; i < bitmask.bitLength() - 2; i++) {
-				if (bitmask.testBit(i)) {
+			for(int i = 0; i < bitmask.bitLength() - 4; i++) {
+				// i + 2 because the mask is padded with 2 bits on each end
+				if (bitmask.testBit(i + 2)) {
 					patientIndexes.add(i);
 				}
 			}
