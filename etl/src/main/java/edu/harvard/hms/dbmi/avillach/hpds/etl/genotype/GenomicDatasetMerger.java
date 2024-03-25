@@ -242,7 +242,7 @@ public class GenomicDatasetMerger {
                 if (variantMasks2 == null) {
                     // this will have all null masks, which will result in null when
                     // appended to a null, or be replaced with an empty bitmask otherwise
-                    variantMasks2 = new VariableVariantMasks(variantStore2.getPatientIds().length);
+                    variantMasks2 = new VariableVariantMasks();
                 }
 
                 VariableVariantMasks mergeResult = VariableVariantMasks.append(entry.getValue(), variantStore1PatientCount, variantMasks2, variantStore2PatientCount);

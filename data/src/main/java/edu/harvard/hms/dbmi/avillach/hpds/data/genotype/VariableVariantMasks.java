@@ -1,6 +1,5 @@
 package edu.harvard.hms.dbmi.avillach.hpds.data.genotype;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
@@ -108,10 +107,6 @@ public class VariableVariantMasks implements Serializable {
 	public VariableVariantMasks() {
 	}
 
-	public VariableVariantMasks(int length) {
-		this.length = length;
-	}
-
 	@JsonProperty("ho")
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public VariantMask homozygousMask;
@@ -128,22 +123,17 @@ public class VariableVariantMasks implements Serializable {
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public VariantMask heterozygousNoCallMask;
 
-	@JsonIgnore
-	@JsonProperty("l")
-	public int length;
-
-
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
 		VariableVariantMasks that = (VariableVariantMasks) o;
-		return length == that.length && Objects.equals(homozygousMask, that.homozygousMask) && Objects.equals(heterozygousMask, that.heterozygousMask) && Objects.equals(homozygousNoCallMask, that.homozygousNoCallMask) && Objects.equals(heterozygousNoCallMask, that.heterozygousNoCallMask);
+		return Objects.equals(homozygousMask, that.homozygousMask) && Objects.equals(heterozygousMask, that.heterozygousMask) && Objects.equals(homozygousNoCallMask, that.homozygousNoCallMask) && Objects.equals(heterozygousNoCallMask, that.heterozygousNoCallMask);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(homozygousMask, heterozygousMask, homozygousNoCallMask, heterozygousNoCallMask, length);
+		return Objects.hash(homozygousMask, heterozygousMask, homozygousNoCallMask, heterozygousNoCallMask);
 	}
 
 	public static BigInteger emptyBitmask(int length) {
