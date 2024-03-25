@@ -295,7 +295,7 @@ public class GenomicDatasetMerger {
             }
         });
 
-        if (log.isDebugEnabled()) {
+        /*if (log.isDebugEnabled()) {
             merged.keys().stream().sorted().limit(3).forEach(key -> {
                 ConcurrentHashMap<String, VariableVariantMasks> maskMap = merged.get(key);
                 maskMap.keySet().stream().sorted().limit(5).forEach(variantSpec -> {
@@ -305,7 +305,7 @@ public class GenomicDatasetMerger {
                     log.debug("Patients with variant [" + variantSpec + "]: " + Joiner.on(",").join(patientsWithVariant));
                 });
             });
-        }
+        }*/
         return merged;
     }
 }
