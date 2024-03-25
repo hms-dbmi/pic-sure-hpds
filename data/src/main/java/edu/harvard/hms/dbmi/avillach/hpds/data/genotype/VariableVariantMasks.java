@@ -271,10 +271,10 @@ public class VariableVariantMasks implements Serializable {
 	public static Set<Integer> patientMaskToPatientIdSet(VariantMask patientMask, List<String> patientIds) {
 		if (patientMask instanceof VariantMaskBitmaskImpl) {
 			Set<Integer> ids = new HashSet<>();
-			String bitmaskString = ((VariantMaskBitmaskImpl) patientMask).getBitmask().toString(2);
-			for(int x = 2;x < bitmaskString.length()-2;x++) {
-				if('1'==bitmaskString.charAt(x)) {
-					String patientId = patientIds.get(x-2).trim();
+			BigInteger bigInteger = ((VariantMaskBitmaskImpl) patientMask).getBitmask();
+			for(int x = 0;x < bigInteger.bitLength()-4;x++) {
+				if(patientMask.testBit(x)) {
+					String patientId = patientIds.get(x).trim();
 					ids.add(Integer.parseInt(patientId));
 				}
 			}
