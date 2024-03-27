@@ -99,15 +99,14 @@ public class BucketIndexBySample implements Serializable {
 							// For each patient set the patientBucketCharMask entry to 0 or 1 if they have a variant in the bucket.
 
 							// todo: implement for variant explorer
-							/*int maxIndex = patientMaskForBucket[0].bitLength() - 1;
 							int indexOfBucket = Collections.binarySearch(bucketList, bucketKey) + 2; //patientBucketCharMasks has bookend bits
-							for(int x = 2;x<patientMaskForBucket[0].bitLength()-2;x++) {
-								if(patientMaskForBucket[0].testBit(maxIndex - x)) {  //testBit uses inverted indexes
-									patientBucketCharMasks[x-2][indexOfBucket] = '1';									
+							for(int x = 0; x < patientIds.size(); x++) {
+								if(patientMaskForBucket[0].testBit(x)) {
+									patientBucketCharMasks[x][indexOfBucket] = '1';
 								}else {
-									patientBucketCharMasks[x-2][indexOfBucket] = '0';
+									patientBucketCharMasks[x][indexOfBucket] = '0';
 								}
-							}*/
+							}
 						});
 			} else {
 				log.info("null entry for contig " + contig);

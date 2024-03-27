@@ -88,7 +88,7 @@ public class VariableVariantMasks implements Serializable {
 		}
 
 		VariantMask variantMask;
-		BigInteger bitmask = new BigInteger(oneone + maskStringRaw + oneone, 2);
+		BigInteger bitmask = new BigInteger(oneone + new StringBuilder(maskStringRaw).reverse() + oneone, 2);
 		if (bitmask.bitCount() - 4 > VariableVariantMasks.SPARSE_VARIANT_THRESHOLD) {
 			variantMask = new VariantMaskBitmaskImpl(bitmask);
 		} else {
