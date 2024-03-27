@@ -2,13 +2,8 @@ package edu.harvard.hms.dbmi.avillach.hpds.processing;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.KeyAndValue;
@@ -46,7 +41,8 @@ public class TimelineProcessor implements HpdsProcessor {
 		query.setRequiredFields(new ArrayList<>());
 
 		// list patients involved
-		Set<Integer> patientIds = abstractProcessor.getPatientSubsetForQuery(query);
+		List<Integer> patientIds = new ArrayList<>(abstractProcessor.getPatientSubsetForQuery(query));
+		patientIds.sort(Integer::compareTo);
 
 		// get start time for the timeline
 		long startTime = Long.MAX_VALUE;
