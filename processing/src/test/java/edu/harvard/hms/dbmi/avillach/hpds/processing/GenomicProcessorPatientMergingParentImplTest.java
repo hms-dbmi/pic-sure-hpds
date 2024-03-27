@@ -43,7 +43,7 @@ public class GenomicProcessorPatientMergingParentImplTest {
         when(mockProcessor2.getPatientMask(distributableQuery)).thenReturn(Mono.just(new VariantMaskBitmaskImpl(new BigInteger("110001100011", 2))));
         when(mockProcessor3.getPatientMask(distributableQuery)).thenReturn(Mono.just(new VariantMaskBitmaskImpl(new BigInteger("11000111", 2))));
         VariantMask patientMask = patientMergingParent.getPatientMask(distributableQuery).block();
-        VariantMask expectedPatientMask = new VariantMaskBitmaskImpl(new BigInteger("11011000011000000111", 2));
+        VariantMask expectedPatientMask = new VariantMaskBitmaskImpl(new BigInteger("11000100011000011011", 2));
         assertEquals(expectedPatientMask, patientMask);
     }
 
@@ -54,7 +54,7 @@ public class GenomicProcessorPatientMergingParentImplTest {
         when(mockProcessor2.getPatientMask(distributableQuery)).thenReturn(Mono.just(new VariantMaskBitmaskImpl(new BigInteger("110000000011", 2))));
         when(mockProcessor3.getPatientMask(distributableQuery)).thenReturn(Mono.just(new VariantMaskBitmaskImpl(new BigInteger("11000011", 2))));
         VariantMask patientMask = patientMergingParent.getPatientMask(distributableQuery).block();
-        VariantMask expectedPatientMask = new VariantMaskBitmaskImpl(new BigInteger("11011000000000000011", 2));
+        VariantMask expectedPatientMask = new VariantMaskBitmaskImpl(new BigInteger("11000000000000011011", 2));
         assertEquals(expectedPatientMask, patientMask);
     }
 
@@ -65,7 +65,7 @@ public class GenomicProcessorPatientMergingParentImplTest {
         when(mockProcessor2.getPatientMask(distributableQuery)).thenReturn(Mono.just(new VariantMaskBitmaskImpl(new BigInteger("1111", 2))));
         when(mockProcessor3.getPatientMask(distributableQuery)).thenReturn(Mono.just(new VariantMaskBitmaskImpl(new BigInteger("11000111", 2))));
         VariantMask patientMask = patientMergingParent.getPatientMask(distributableQuery).block();
-        VariantMask expectedPatientMask = new VariantMaskBitmaskImpl(new BigInteger("110110000111", 2));
+        VariantMask expectedPatientMask = new VariantMaskBitmaskImpl(new BigInteger("110001011011", 2));
         assertEquals(expectedPatientMask, patientMask);
     }
 

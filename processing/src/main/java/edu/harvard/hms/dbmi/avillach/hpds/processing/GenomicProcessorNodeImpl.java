@@ -139,7 +139,7 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
 
     @Override
     public Set<Integer> patientMaskToPatientIdSet(VariantMask patientMask) {
-        return VariableVariantMasks.patientMaskToPatientIdSet(patientMask, getPatientIds());
+        return patientMask.patientMaskToPatientIdSet(getPatientIds());
     }
 
     private List<VariantIndex> getVariantsMatchingFilters(Query.VariantInfoFilter filter) {

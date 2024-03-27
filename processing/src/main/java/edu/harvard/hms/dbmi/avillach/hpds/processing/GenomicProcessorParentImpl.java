@@ -56,7 +56,7 @@ public class GenomicProcessorParentImpl implements GenomicProcessor {
 
     @Override
     public Set<Integer> patientMaskToPatientIdSet(VariantMask patientMask) {
-        return VariableVariantMasks.patientMaskToPatientIdSet(patientMask, getPatientIds());
+        return patientMask.patientMaskToPatientIdSet(getPatientIds());
     }
 
     @Override

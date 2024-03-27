@@ -84,7 +84,7 @@ public class GenomicProcessorPatientMergingParentImpl implements GenomicProcesso
 
     @Override
     public Set<Integer> patientMaskToPatientIdSet(VariantMask patientMask) {
-        return VariableVariantMasks.patientMaskToPatientIdSet(patientMask, getPatientIds());
+        return patientMask.patientMaskToPatientIdSet(getPatientIds());
     }
 
     @Override
