@@ -67,7 +67,7 @@ public class VariantMaskBitmaskImpl implements VariantMask {
     public Set<Integer> patientMaskToPatientIdSet(List<String> patientIds) {
         Set<Integer> ids = new HashSet<>();
         for(int x = 0;x < bitmask.bitLength()-4;x++) {
-            if(testBit(x + 2)) {
+            if(testBit(x)) {
                 String patientId = patientIds.get(x).trim();
                 ids.add(Integer.parseInt(patientId));
             }

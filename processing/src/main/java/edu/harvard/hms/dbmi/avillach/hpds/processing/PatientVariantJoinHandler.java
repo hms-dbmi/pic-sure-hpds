@@ -112,8 +112,9 @@ public class PatientVariantJoinHandler {
     // todo: return VariantMask
     public BigInteger createMaskForPatientSet(Set<Integer> patientSubset) {
         StringBuilder builder = new StringBuilder("11"); //variant bitmasks are bookended with '11'
-        for(String patientId : variantService.getPatientIds()) {
-            Integer idInt = Integer.parseInt(patientId);
+
+        for (int i = variantService.getPatientIds().length - 1; i >= 0; i--) {
+            Integer idInt = Integer.parseInt(variantService.getPatientIds()[i]);
             if(patientSubset.contains(idInt)){
                 builder.append("1");
             } else {
@@ -121,8 +122,6 @@ public class PatientVariantJoinHandler {
             }
         }
         builder.append("11"); // masks are bookended with '11' set this so we don't count those
-
-//		log.debug("PATIENT MASK: " + builder.toString());
 
         BigInteger patientMasks = new BigInteger(builder.toString(), 2);
         return patientMasks;
