@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.math.BigInteger;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -47,6 +48,15 @@ public class VariantMaskSparseImpl implements VariantMask {
     @Override
     public int bitCount() {
         return patientIndexes.size();
+    }
+
+    @Override
+    public Set<Integer> patientMaskToPatientIdSet(List<String> patientIds) {
+        return patientIndexes.stream()
+                .map(patientIds::get)
+                .map(String::trim)
+                .map(Integer::parseInt)
+                .collect(Collectors.toSet());
     }
 
     private VariantMask union(VariantMaskSparseImpl variantMask) {

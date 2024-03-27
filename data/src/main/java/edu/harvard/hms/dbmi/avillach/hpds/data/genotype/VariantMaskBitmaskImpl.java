@@ -6,7 +6,10 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 
 import java.math.BigInteger;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 public class VariantMaskBitmaskImpl implements VariantMask {
 
@@ -58,6 +61,18 @@ public class VariantMaskBitmaskImpl implements VariantMask {
     @Override
     public int bitCount() {
         return bitmask.bitCount();
+    }
+
+    @Override
+    public Set<Integer> patientMaskToPatientIdSet(List<String> patientIds) {
+        Set<Integer> ids = new HashSet<>();
+        for(int x = 0;x < bitmask.bitLength()-4;x++) {
+            if(testBit(x + 2)) {
+                String patientId = patientIds.get(x).trim();
+                ids.add(Integer.parseInt(patientId));
+            }
+        }
+        return ids;
     }
 
     private VariantMask union(VariantMaskBitmaskImpl variantMaskBitmask) {

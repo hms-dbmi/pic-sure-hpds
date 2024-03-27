@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import java.math.BigInteger;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -30,4 +31,6 @@ public interface VariantMask {
     static VariantMask emptyInstance() {
         return new VariantMaskSparseImpl(Set.of());
     }
+
+    Set<Integer> patientMaskToPatientIdSet(List<String> patientIds);
 }

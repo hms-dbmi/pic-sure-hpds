@@ -295,17 +295,17 @@ public class GenomicDatasetMerger {
             }
         });
 
-        /*if (log.isDebugEnabled()) {
+        if (log.isTraceEnabled()) {
             merged.keys().stream().sorted().limit(3).forEach(key -> {
                 ConcurrentHashMap<String, VariableVariantMasks> maskMap = merged.get(key);
                 maskMap.keySet().stream().sorted().limit(5).forEach(variantSpec -> {
                     VariableVariantMasks variableVariantMasks = maskMap.get(variantSpec);
                     VariantMask heteroMask = Optional.ofNullable(variableVariantMasks.heterozygousMask).orElse(VariantMask.emptyInstance());
                     Set<Integer> patientsWithVariant = VariableVariantMasks.patientMaskToPatientIdSet(heteroMask, Arrays.asList(mergedVariantStore.getPatientIds()));
-                    log.debug("Patients with variant [" + variantSpec + "]: " + Joiner.on(",").join(patientsWithVariant));
+                    log.trace("Patients with variant [" + variantSpec + "]: " + Joiner.on(",").join(patientsWithVariant));
                 });
             });
-        }*/
+        }
         return merged;
     }
 }

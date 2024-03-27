@@ -233,22 +233,22 @@ public class NewVCFLoader {
 	}
 
 	private static String sampleIdsForMask(String[] sampleIds, VariantMask variantMask) {
-		String idList = "";
+		StringBuilder idList = new StringBuilder();
 		if (variantMask != null) {
 			if (variantMask instanceof VariantMaskBitmaskImpl) {
 				BigInteger mask = ((VariantMaskBitmaskImpl) variantMask).getBitmask();
-				for (int x = 2; x < mask.bitLength() - 2; x++) {
-					if (mask.testBit(mask.bitLength() - 1 - x)) {
-						idList += sampleIds[x - 2] + ",";
+				for (int x = 0; x < mask.bitLength() - 4; x++) {
+					if (variantMask.testBit(x)) {
+						idList.append(sampleIds[x]).append(",");
 					}
 				}
 			} else if (variantMask instanceof VariantMaskSparseImpl) {
 				for (Integer patientIndex : ((VariantMaskSparseImpl) variantMask).getPatientIndexes()) {
-					idList += sampleIds[patientIndex] + ",";
+					idList.append(sampleIds[patientIndex]).append(",");
 				}
 			}
 		}
-		return idList;
+		return idList.toString();
 	}
 
 	private static void flipChunk(String lastContigProcessed, int lastChunkProcessed, int currentChunk,
