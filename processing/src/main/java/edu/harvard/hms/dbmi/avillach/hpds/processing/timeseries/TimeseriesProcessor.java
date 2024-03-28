@@ -98,11 +98,14 @@ public class TimeseriesProcessor implements HpdsProcessor {
 		pathList.addAll(query.getRequiredFields());
 		pathList.addAll(query.getCategoryFilters().keySet());
 		pathList.addAll(query.getNumericFilters().keySet());
-		
-		addDataForConcepts(pathList, exportedConceptPaths, idList, result);
+
+		ArrayList<Integer> ids = new ArrayList<>(idList);
+		ids.sort(Integer::compareTo);
+
+		addDataForConcepts(pathList, exportedConceptPaths, ids, result);
 	}
 
-	private void addDataForConcepts(Collection<String> pathList, Set<String> exportedConceptPaths, TreeSet<Integer> idList, AsyncResult result) throws IOException {
+	private void addDataForConcepts(Collection<String> pathList, Set<String> exportedConceptPaths, List<Integer> idList, AsyncResult result) throws IOException {
 		for (String conceptPath : pathList) {
 			//skip concepts we may already have encountered
 			if(exportedConceptPaths.contains(conceptPath)) {
