@@ -217,14 +217,15 @@ public class PhenoCube<V extends Comparable<V>> implements Serializable {
 		this.loadingMap= newMap ;
 	}
 
-	public List<KeyAndValue<V>> getValuesForKeys(Set<Integer> patientIds) {
+	public List<KeyAndValue<V>> getValuesForKeys(List<Integer> sortedPatientIds) {
 		List<KeyAndValue<V>> values = new ArrayList<>();
 		int x = 0;
-		for(Integer id : patientIds) {
-			while(x < sortedByKey.length && sortedByKey[x].key<id) {
+		for(Integer id : sortedPatientIds) {
+			while(x < sortedByKey.length && sortedByKey[x].key < id) {
 				x++;
 			}
-			while(x < sortedByKey.length && sortedByKey[x].key==id) {
+			if (x >= sortedByKey.length) { return values; }
+			while(x < sortedByKey.length && sortedByKey[x].key == id) {
 				values.add(sortedByKey[x]);
 				x++;
 			}
