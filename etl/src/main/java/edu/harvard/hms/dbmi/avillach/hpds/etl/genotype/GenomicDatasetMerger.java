@@ -246,20 +246,6 @@ public class GenomicDatasetMerger {
                 }
 
                 VariableVariantMasks mergeResult = VariableVariantMasks.append(entry.getValue(), variantStore1PatientCount, variantMasks2, variantStore2PatientCount);
-                if (entry.getKey().equals("chr3,11805,T,A,LINC01986,splice_donor_region_variant")) {
-                    log.info("Mask 1: " + Optional.ofNullable(entry.getValue().heterozygousMask).map(VariantMask::toString).orElse("empty"));
-                    log.info("Mask 2: " + Optional.ofNullable(variantMasks2.heterozygousMask).map(VariantMask::toString).orElse("empty"));
-                    log.info("Merged mask: " + Optional.ofNullable(mergeResult.heterozygousMask).map(VariantMask::toString).orElse("empty"));
-
-                    Set<Integer> patientIds1 = Optional.ofNullable(entry.getValue().heterozygousMask).orElse(VariantMask.emptyInstance()).patientMaskToPatientIdSet(List.of(variantStore1.getPatientIds()));
-                    log.info("Patients 1: " + Joiner.on(",").join(patientIds1));
-
-                    Set<Integer> patientIds2 = Optional.ofNullable(variantMasks2.heterozygousMask).orElse(VariantMask.emptyInstance()).patientMaskToPatientIdSet(List.of(variantStore2.getPatientIds()));
-                    log.info("Patients 2: " + Joiner.on(",").join(patientIds2));
-
-                    Set<Integer> mergedPatientIds = Optional.ofNullable(mergeResult.heterozygousMask).orElse(VariantMask.emptyInstance()).patientMaskToPatientIdSet(List.of(mergedVariantStore.getPatientIds()));
-                    log.info("Merged patient ids: " + Joiner.on(",").join(mergedPatientIds));
-                }
                 mergedMasks.put(entry.getKey(), mergeResult);
             }
             // Any entry in the second set that is not in the merged set can be merged with an empty variant mask,
