@@ -119,11 +119,12 @@ public class QueryService {
 		default : 
 			throw new RuntimeException("UNSUPPORTED RESULT TYPE");
 		}
-		
+
+		queryDecorator.setId(query);
 		AsyncResult result = new AsyncResult(query, p.getHeaderRow(query));
 		result.status = AsyncResult.Status.PENDING;
 		result.queuedTime = System.currentTimeMillis();
-		queryDecorator.setId(query);
+
 		result.id = query.getId();
 		result.processor = p;
 		results.put(result.id, result);
