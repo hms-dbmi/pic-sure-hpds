@@ -94,5 +94,11 @@ public enum ResultType {
 	 * is suitable to time series analysis and/or loading into another 
 	 * instance of HPDS.
 	 */
-	DATAFRAME_TIMESERIES
+	DATAFRAME_TIMESERIES,
+
+	/**
+	 * Count number of patients and number of available concept paths. Useful for federated networks
+	 * where not every concept path in a query is guaranteed to be in a specific portal
+	 */
+	PATIENT_AND_CONCEPT_COUNT
 }
