@@ -17,8 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.util.AssertionErrors.assertEquals;
 import static org.springframework.test.util.AssertionErrors.assertNotNull;
 
-// todo: enable when variant explorer is implemented
-@Disabled
 public class VariantMetadataIndexTest {
 
 	//From file 1 14	19038291	rs550062154	C	A
@@ -34,11 +32,11 @@ public class VariantMetadataIndexTest {
 	VariantBucketHolder<String[]> bucketCache = new VariantBucketHolder<String[]>();
 	
 	//Some known variant specs from the input file.  These have been designed for testing partially overlapping specs
-	private static final String spec1 = "4,9856624,CAAAAA,C";  	private static final String spec1Info = "AC=401;AF=8.00719e-02;NS=2504;AN=5008;EAS_AF=3.37000e-02;EUR_AF=4.97000e-02;AFR_AF=1.64100e-01;AMR_AF=3.75000e-02;SAS_AF=7.57000e-02;DP=18352;AA=G|||;VT=SNP";
-	private static final String spec2 = "4,9856624,CAAA,C";		private static final String spec2Info = "AC=62;AF=1.23802e-02;NS=2504;AN=5008;EAS_AF=0.00000e+00;EUR_AF=1.00000e-03;AFR_AF=4.54000e-02;AMR_AF=1.40000e-03;SAS_AF=0.00000e+00;DP=18328;AA=T|||;VT=SNP";
-	private static final String spec3 = "4,9856624,CA,C";		private static final String spec3Info = "AC=8;AF=1.59744e-03;NS=2504;AN=5008;EAS_AF=0.00000e+00;EUR_AF=0.00000e+00;AFR_AF=6.10000e-03;AMR_AF=0.00000e+00;SAS_AF=0.00000e+00;DP=18519;AA=T|||;VT=SNP";
-	private static final String spec4 = "4,9856624,C,CA";		private static final String spec4Info = "AC=75;AF=1.49760e-02;NS=2504;AN=5008;EAS_AF=3.27000e-02;EUR_AF=2.49000e-02;AFR_AF=6.80000e-03;AMR_AF=4.30000e-03;SAS_AF=5.10000e-03;DP=18008;AA=A|||;VT=SNP";
-	private static final String spec5 = "4,9856624,CAAAAA,CA";	private static final String spec5Info = "AC=3033;AF=6.05631e-01;NS=2504;AN=5008;EAS_AF=5.23800e-01;EUR_AF=7.54500e-01;AFR_AF=4.28900e-01;AMR_AF=7.82400e-01;SAS_AF=6.50300e-01;DP=20851;VT=INDEL";
+	private static final String spec1 = "4,9856624,CAAAAA,C,TVP23A,splice_acceptor_variant";  	private static final String spec1Info = "Gene_with_variant=TVP23A;Variant_consequence_calculated=splice_acceptor_variant;AC=401;AF=8.00719e-02;NS=2504;AN=5008;EAS_AF=3.37000e-02;EUR_AF=4.97000e-02;AFR_AF=1.64100e-01;AMR_AF=3.75000e-02;SAS_AF=7.57000e-02;DP=18352;AA=G|||;VT=SNP";
+	private static final String spec2 = "4,9856624,CAAA,C,TVP23A,splice_acceptor_variant";		private static final String spec2Info = "Gene_with_variant=TVP23A;Variant_consequence_calculated=splice_acceptor_variant;AC=62;AF=1.23802e-02;NS=2504;AN=5008;EAS_AF=0.00000e+00;EUR_AF=1.00000e-03;AFR_AF=4.54000e-02;AMR_AF=1.40000e-03;SAS_AF=0.00000e+00;DP=18328;AA=T|||;VT=SNP";
+	private static final String spec3 = "4,9856624,CA,C,TVP23A,splice_acceptor_variant";		private static final String spec3Info = "Gene_with_variant=TVP23A;Variant_consequence_calculated=splice_acceptor_variant;AC=8;AF=1.59744e-03;NS=2504;AN=5008;EAS_AF=0.00000e+00;EUR_AF=0.00000e+00;AFR_AF=6.10000e-03;AMR_AF=0.00000e+00;SAS_AF=0.00000e+00;DP=18519;AA=T|||;VT=SNP";
+	private static final String spec4 = "4,9856624,C,CA,TVP23A,splice_acceptor_variant";		private static final String spec4Info = "Gene_with_variant=TVP23A;Variant_consequence_calculated=splice_acceptor_variant;AC=75;AF=1.49760e-02;NS=2504;AN=5008;EAS_AF=3.27000e-02;EUR_AF=2.49000e-02;AFR_AF=6.80000e-03;AMR_AF=4.30000e-03;SAS_AF=5.10000e-03;DP=18008;AA=A|||;VT=SNP";
+	private static final String spec5 = "4,9856624,CAAAAA,CA,TVP23A,splice_acceptor_variant";	private static final String spec5Info = "Gene_with_variant=TVP23A;Variant_consequence_calculated=splice_acceptor_variant;AC=3033;AF=6.05631e-01;NS=2504;AN=5008;EAS_AF=5.23800e-01;EUR_AF=7.54500e-01;AFR_AF=4.28900e-01;AMR_AF=7.82400e-01;SAS_AF=6.50300e-01;DP=20851;VT=INDEL";
 	
 
 	@BeforeAll
@@ -56,15 +54,15 @@ public class VariantMetadataIndexTest {
 	
 	@Test
 	public void test_2a_variantFromFile_1_WasLoaded() {
-		String[] data = vmi.findBySingleVariantSpec("14,19038291,C,A", bucketCache); 
-		String[] expecteds = {"AC=14;AF=2.79553e-03;NS=2504;AN=5008;EAS_AF=0.00000e+00;EUR_AF=1.09000e-02;AFR_AF=0.00000e+00;AMR_AF=4.30000e-03;SAS_AF=0.00000e+00;DP=32694;AA=.|||;VT=SNP"};
+		String[] data = vmi.findBySingleVariantSpec("14,19038291,C,A,ABC,splice_region_variant", bucketCache);
+		String[] expecteds = {"Gene_with_variant=ABC;Variant_severity=LOW;Variant_consequence_calculated=splice_region_variant;Variant_class=SNV;Variant_frequency_in_gnomAD=0.0001578;Variant_frequency_as_text=Rare"};
 		assertEquals("The expected values were not found.", expecteds, data);
 	}
 
 	@Test
 	public void test_2b_variantFromFile_2_WasLoaded() {
-		String[] data = vmi.findBySingleVariantSpec("14,21089541,A,G", bucketCache); 
-		String[] expecteds = {"AC=20;AF=3.99361e-03;NS=2504;AN=5008;EAS_AF=0.00000e+00;EUR_AF=0.00000e+00;AFR_AF=1.44000e-02;AMR_AF=1.40000e-03;SAS_AF=0.00000e+00;DP=18507;AA=A|||;VT=SNP"};
+		String[] data = vmi.findBySingleVariantSpec("14,21089541,A,G,DEF,missense_variant", bucketCache);
+		String[] expecteds = {"Gene_with_variant=DEF;Variant_severity=MODERATE;Variant_consequence_calculated=missense_variant;Variant_class=SNV;Variant_frequency_in_gnomAD=4.599e-05;Variant_frequency_as_text=Rare"};
 		assertEquals("The expected values were not found.", expecteds, data);
 	}
 
@@ -77,12 +75,12 @@ public class VariantMetadataIndexTest {
 	
 	@Test
 	public void test_4_MultipleVariantSpec() {
-		List<String> variants = List.of("14,19038291,C,A", "14,21089541,A,G");
+		List<String> variants = List.of("14,19038291,C,A,ABC,splice_region_variant", "14,21089541,A,G,DEF,missense_variant");
 		Map<String,String[]> expectedResult = Map.of(
-				"14,19038291,C,A"
-				, new String[]{"AC=14;AF=2.79553e-03;NS=2504;AN=5008;EAS_AF=0.00000e+00;EUR_AF=1.09000e-02;AFR_AF=0.00000e+00;AMR_AF=4.30000e-03;SAS_AF=0.00000e+00;DP=32694;AA=.|||;VT=SNP"}
-				,"14,21089541,A,G"
-				,new String[]{"AC=20;AF=3.99361e-03;NS=2504;AN=5008;EAS_AF=0.00000e+00;EUR_AF=0.00000e+00;AFR_AF=1.44000e-02;AMR_AF=1.40000e-03;SAS_AF=0.00000e+00;DP=18507;AA=A|||;VT=SNP"});
+				"14,19038291,C,A,ABC,splice_region_variant"
+				, new String[]{"Gene_with_variant=ABC;Variant_severity=LOW;Variant_consequence_calculated=splice_region_variant;Variant_class=SNV;Variant_frequency_in_gnomAD=0.0001578;Variant_frequency_as_text=Rare"}
+				,"14,21089541,A,G,DEF,missense_variant"
+				,new String[]{"Gene_with_variant=DEF;Variant_severity=MODERATE;Variant_consequence_calculated=missense_variant;Variant_class=SNV;Variant_frequency_in_gnomAD=4.599e-05;Variant_frequency_as_text=Rare"});
 		Map<String, String[]>[] data = new Map[] {vmi.findByMultipleVariantSpec(variants)}; 
 		
 		assertEquals("Wrong number of records in response.", data[0].size(), 2);

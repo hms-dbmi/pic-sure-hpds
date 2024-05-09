@@ -38,19 +38,19 @@ public class BucketIndexBySampleTest {
 	private static BucketIndexBySample bucketIndexBySample;
 	
 	//Some known variant specs from the input file. 
-	private static final String spec1 = "4,9856624,CAAAAA,C";  	
-	private static final String spec2 = "4,9856624,CAAA,C";		
-	private static final String spec3 = "4,9856624,CA,C";		
-	private static final String spec4 = "4,9856624,C,CA";		
-	private static final String spec5 = "4,9856624,CAAAAA,CA";	
+	private static final String spec1 = "4,9856624,CAAAAA,C,NULL,NULL";
+	private static final String spec2 = "4,9856624,CAAA,C,NULL,NULL";
+	private static final String spec3 = "4,9856624,CA,C,NULL,NULL";
+	private static final String spec4 = "4,9856624,C,CA,NULL,NULL";
+	private static final String spec5 = "4,9856624,CAAAAA,CA,NULL,NULL";
 	
-	private static final String spec6 = "14,19000060,C,G";
-	private static final String spec7 = "14,19000152,C,T";
-	private static final String spec8 = "14,19007733,C,T";
-	private static final String spec9 = "14,19010456,T,G";
-	private static final String spec10 = "14,21616875,T,C";    // patient 9 and 10 are 1/.
-	private static final String spec11 = "14,19001521,T,C";   //patient 9 and 10 are 0/.
-	private static final String spec12 = "14,19022646,A,G";    //patient 7 is ./.
+	private static final String spec6 = "14,19000060,C,G,NULL,NULL";
+	private static final String spec7 = "14,19000152,C,T,NULL,NULL";
+	private static final String spec8 = "14,19007733,C,T,NULL,NULL";
+	private static final String spec9 = "14,19010456,T,G,NULL,NULL";
+	private static final String spec10 = "14,21616875,T,C,NULL,NULL";    // patient 9 and 10 are 1/.
+	private static final String spec11 = "14,19001521,T,C,NULL,NULL";   //patient 9 and 10 are 0/.
+	private static final String spec12 = "14,19022646,A,G,NULL,NULL";    //patient 7 is ./.
 	
 //  ## Patient 1 - NO variants
 //	## Patient 2 - ALL variants
