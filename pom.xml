@@ -19,12 +19,13 @@
 		<module>service</module>
 		<module>etl</module>
 		<module>data</module>
-		<module>docker</module>
 		<module>processing</module>
-		<module>war</module>
 		<module>client-api</module>
 		<module>genomic-processor</module>
-	</modules>
+        <module>integration-test</module>
+		<module>docker</module>
+		<module>war</module>
+    </modules>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<dockerfile-maven-version>1.4.10</dockerfile-maven-version>

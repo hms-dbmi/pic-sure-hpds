@@ -144,6 +144,32 @@ public class VariantStore implements Serializable {
 		}
 		return bucketCache.lastValue == null ? Optional.empty() : Optional.ofNullable(bucketCache.lastValue.get(variant));
 	}
+	public List<VariableVariantMasks> getMasksForDbSnpSpec(String variant) {
+		String[] segments = variant.split(",");
+		if (segments.length < 2) {
+			log.error("Less than 2 segments found in this variant : " + variant);
+		}
+
+		int chrOffset = Integer.parseInt(segments[1]) / BUCKET_SIZE;
+		String contig = segments[0];
+
+//		if (Level.DEBUG.equals(log.getEffectiveLevel())) {
+//			log.debug("Getting masks for variant " + variant + "  Same bucket test: " + (bucketCache.lastValue != null
+//					&& contig.contentEquals(bucketCache.lastContig) && chrOffset == bucketCache.lastChunkOffset));
+//		}
+
+		// todo: don't bother doing a lookup if this node does not have the chromosome specified
+		FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>> indexedStorage = variantMaskStorage.get(contig);
+		if (indexedStorage == null) {
+			return List.of();
+		} else {
+			ConcurrentHashMap<String, VariableVariantMasks> specToMaskMap = indexedStorage.get(chrOffset);
+			return specToMaskMap.entrySet().stream()
+					.filter(entry -> entry.getKey().startsWith(variant))
+					.map(Map.Entry::getValue)
+					.collect(Collectors.toList());
+		}
+	}
 
 	public String[] getHeaders() {
 		return vcfHeaders;

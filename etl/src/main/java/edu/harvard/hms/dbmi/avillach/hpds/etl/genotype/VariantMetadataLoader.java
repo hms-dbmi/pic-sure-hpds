@@ -38,7 +38,7 @@ public class VariantMetadataLoader {
 	GZIP_FLAG_COLUMN=3,
 	FILE_COLUMN = 0;	
 	
-	public static void main(String[] args) throws Exception{  
+	public static void main(String[] args) throws IOException {
 		File vcfIndexFile;
 		
 		log.info(new File(".").getAbsolutePath());

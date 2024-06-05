@@ -110,7 +110,13 @@ public class PatientVariantJoinHandler {
     }
 
     // todo: return VariantMask
-    public BigInteger createMaskForPatientSet(Set<Integer> patientSubset) {
+    public BigInteger createMaskForPatientSet(Set<Integer> patientSet) {
+        Set<Integer> patientSubset = patientSet;
+        if (patientSet == null) {
+            patientSubset = Arrays.asList(
+                    variantService.getPatientIds()).stream().map((String id)->{
+                return Integer.parseInt(id);}).collect(Collectors.toSet());
+        }
         StringBuilder builder = new StringBuilder("11"); //variant bitmasks are bookended with '11'
 
         for (int i = variantService.getPatientIds().length - 1; i >= 0; i--) {
