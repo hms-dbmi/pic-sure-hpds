@@ -15,6 +15,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -35,11 +36,11 @@ public class VariantListProcessor implements HpdsProcessor {
 
 
 	@Autowired
-	public VariantListProcessor(AbstractProcessor abstractProcessor) {
+	public VariantListProcessor(AbstractProcessor abstractProcessor, @Value("${VCF_EXCERPT_ENABLED:false}") boolean vcfExcerptEnabled ) {
 		this.abstractProcessor = abstractProcessor;
 		this.metadataIndex = VariantMetadataIndex.createInstance(VariantMetadataIndex.VARIANT_METADATA_BIN_FILE);
 
-		VCF_EXCERPT_ENABLED = "TRUE".equalsIgnoreCase(System.getProperty("VCF_EXCERPT_ENABLED", "FALSE"));
+		VCF_EXCERPT_ENABLED = vcfExcerptEnabled;
 		//always enable aggregate queries if full queries are permitted.
 		AGGREGATE_VCF_EXCERPT_ENABLED = VCF_EXCERPT_ENABLED || "TRUE".equalsIgnoreCase(System.getProperty("AGGREGATE_VCF_EXCERPT_ENABLED", "FALSE"));
 		VARIANT_LIST_ENABLED = VCF_EXCERPT_ENABLED || AGGREGATE_VCF_EXCERPT_ENABLED;

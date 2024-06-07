@@ -43,7 +43,7 @@ public class VariantMetadataLoader {
 		
 		log.info(new File(".").getAbsolutePath());
 		if(args.length > 0 && new File(args[0]).exists()) {
-			log.info("using path from command line, is this a test");
+			log.info("using path from command line");
 			vcfIndexFile = new File(args[0]);
 			variantIndexPathForTests = args[1];
 			storagePathForTests = args[2];
