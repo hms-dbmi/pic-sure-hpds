@@ -222,6 +222,9 @@ public class VariantMetadataIndex implements Serializable {
 			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> fbbis1 = variantMetadataIndex1.indexMap.get(contig);
 			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> fbbis2 = variantMetadataIndex2.indexMap.get(contig);
 
+			fbbis1.updateStorageDirectory(new File(outputDirectory));
+			fbbis2.updateStorageDirectory(new File(outputDirectory));
+
 			fbbis1.keys().forEach(key -> {
 				mergedFbbis.put(key, fbbis1.get(key));
 			});
@@ -238,5 +241,9 @@ public class VariantMetadataIndex implements Serializable {
 			out.writeObject(merged);
 			out.flush();
 		}
+	}
+
+	public void updateStorageDirectory(File genomicDataDirectory) {
+		indexMap.values().forEach(value -> value.updateStorageDirectory(genomicDataDirectory));
 	}
 }
