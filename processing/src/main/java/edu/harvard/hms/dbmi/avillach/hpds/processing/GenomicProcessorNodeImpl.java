@@ -2,7 +2,6 @@ package edu.harvard.hms.dbmi.avillach.hpds.processing;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Range;
-import com.google.common.collect.Sets;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.*;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHolder;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Filter;
@@ -13,11 +12,12 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.*;
-import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
+
+import static edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMetadataIndex.VARIANT_METADATA_FILENAME;
 
 public class GenomicProcessorNodeImpl implements GenomicProcessor {
 
@@ -35,6 +35,8 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
 
     private final VariantService variantService;
 
+    private final VariantMetadataIndex variantMetadataIndex;
+
 
     private final String HOMOZYGOUS_VARIANT = "1/1";
     private final String HETEROZYGOUS_VARIANT = "0/1";
@@ -44,6 +46,7 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
         this.genomicDataDirectory = genomicDataDirectory;
         this.variantService = new VariantService(genomicDataDirectory);
         this.patientVariantJoinHandler = new PatientVariantJoinHandler(variantService);
+        this.variantMetadataIndex = VariantMetadataIndex.createInstance(genomicDataDirectory + VARIANT_METADATA_FILENAME);
 
         infoStores = new HashMap<>();
         File genomicDataDirectoryFile = new File(this.genomicDataDirectory);
@@ -395,5 +398,10 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
                         .build()
                 )
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public Map<String, String[]> getVariantMetadata(Collection<String> variantList) {
+        return variantMetadataIndex.findByMultipleVariantSpec(variantList);
     }
 }

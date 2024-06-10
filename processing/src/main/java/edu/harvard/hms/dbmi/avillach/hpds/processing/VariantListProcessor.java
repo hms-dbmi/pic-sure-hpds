@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class VariantListProcessor implements HpdsProcessor {
 
-	private final VariantMetadataIndex metadataIndex;
+	private final GenomicProcessor genomicProcessor;
 
 	private static Logger log = LoggerFactory.getLogger(VariantListProcessor.class);
 	
@@ -36,9 +36,9 @@ public class VariantListProcessor implements HpdsProcessor {
 
 
 	@Autowired
-	public VariantListProcessor(AbstractProcessor abstractProcessor, @Value("${VCF_EXCERPT_ENABLED:false}") boolean vcfExcerptEnabled ) {
+	public VariantListProcessor(AbstractProcessor abstractProcessor, GenomicProcessor genomicProcessor, @Value("${VCF_EXCERPT_ENABLED:false}") boolean vcfExcerptEnabled ) {
 		this.abstractProcessor = abstractProcessor;
-		this.metadataIndex = VariantMetadataIndex.createInstance(VariantMetadataIndex.VARIANT_METADATA_BIN_FILE);
+		this.genomicProcessor = genomicProcessor;
 
 		VCF_EXCERPT_ENABLED = vcfExcerptEnabled;
 		//always enable aggregate queries if full queries are permitted.
@@ -52,7 +52,7 @@ public class VariantListProcessor implements HpdsProcessor {
 
 	public VariantListProcessor(boolean isOnlyForTests, AbstractProcessor abstractProcessor)  {
 		this.abstractProcessor = abstractProcessor;
-		this.metadataIndex = null;
+		this.genomicProcessor = null;
 
 		VCF_EXCERPT_ENABLED = "TRUE".equalsIgnoreCase(System.getProperty("VCF_EXCERPT_ENABLED", "FALSE"));
 		//always enable aggregate queries if full queries are permitted.
@@ -141,7 +141,7 @@ public class VariantListProcessor implements HpdsProcessor {
 		
 		log.debug("variantList Size " + variantList.size());
 
-		Map<String, String[]> metadata = (metadataIndex == null ? null : metadataIndex.findByMultipleVariantSpec(variantList));
+		Map<String, String[]> metadata =  genomicProcessor.getVariantMetadata(variantList);
 
 		log.debug("metadata size " + metadata.size());
 		

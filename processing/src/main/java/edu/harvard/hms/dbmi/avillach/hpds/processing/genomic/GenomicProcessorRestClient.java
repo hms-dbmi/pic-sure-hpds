@@ -14,10 +14,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.math.BigInteger;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 public class GenomicProcessorRestClient implements GenomicProcessor {
 
@@ -116,5 +113,10 @@ public class GenomicProcessorRestClient implements GenomicProcessor {
                 .bodyToMono(INFO_COLUMNS_META_TYPE_REFERENCE)
                 .block();
         return result;
+    }
+
+    @Override
+    public Map<String, String[]> getVariantMetadata(Collection<String> variantList) {
+        throw new RuntimeException("Not implemented yet");
     }
 }

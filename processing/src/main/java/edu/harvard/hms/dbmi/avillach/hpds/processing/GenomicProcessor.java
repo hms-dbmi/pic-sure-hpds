@@ -8,10 +8,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHol
 import reactor.core.publisher.Mono;
 
 import java.math.BigInteger;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 public interface GenomicProcessor {
     Mono<VariantMask> getPatientMask(DistributableQuery distributableQuery);
@@ -31,4 +28,6 @@ public interface GenomicProcessor {
     Set<String> getInfoStoreValues(String conceptPath);
 
     List<InfoColumnMeta> getInfoColumnMeta();
+
+    Map<String, String[]> getVariantMetadata(Collection<String> variantList);
 }
