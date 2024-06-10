@@ -199,8 +199,10 @@ public class VariantMetadataIndex implements Serializable {
 
 	public static VariantMetadataIndex createInstance(String metadataIndexPath) {
 		try(ObjectInputStream in = new ObjectInputStream(new GZIPInputStream(
-				new FileInputStream(metadataIndexPath)))){
-			return (VariantMetadataIndex) in.readObject();
+				new FileInputStream(metadataIndexPath + VARIANT_METADATA_FILENAME)))){
+			VariantMetadataIndex variantMetadataIndex = (VariantMetadataIndex) in.readObject();
+			variantMetadataIndex.updateStorageDirectory(new File(metadataIndexPath));
+			return variantMetadataIndex;
 		} catch(Exception e) {
 			// todo: handle exceptions better
 			log.info("No Metadata Index found at " + metadataIndexPath);
@@ -221,9 +223,6 @@ public class VariantMetadataIndex implements Serializable {
 
 			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> fbbis1 = variantMetadataIndex1.indexMap.get(contig);
 			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> fbbis2 = variantMetadataIndex2.indexMap.get(contig);
-
-			fbbis1.updateStorageDirectory(new File(outputDirectory));
-			fbbis2.updateStorageDirectory(new File(outputDirectory));
 
 			fbbis1.keys().forEach(key -> {
 				mergedFbbis.put(key, fbbis1.get(key));

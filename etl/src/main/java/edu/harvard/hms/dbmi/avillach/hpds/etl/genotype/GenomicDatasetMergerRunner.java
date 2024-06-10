@@ -2,6 +2,7 @@ package edu.harvard.hms.dbmi.avillach.hpds.etl.genotype;
 
 import com.google.common.base.Preconditions;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.*;
+import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedJsonIndexStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,9 +54,8 @@ public class GenomicDatasetMergerRunner {
             variantIndex.write(new File(outputDirectory + variantIndex.column_key + "_" + INFO_STORE_JAVABIN_SUFFIX));
         });
 
-        // todo: merge these
-        VariantMetadataIndex variantMetadataIndex1 = VariantMetadataIndex.createInstance(genomicDirectory1 + "/VariantMetadata.javabin");
-        VariantMetadataIndex variantMetadataIndex2 = VariantMetadataIndex.createInstance(genomicDirectory2 + "/VariantMetadata.javabin");
+        VariantMetadataIndex variantMetadataIndex1 = VariantMetadataIndex.createInstance(genomicDirectory1);
+        VariantMetadataIndex variantMetadataIndex2 = VariantMetadataIndex.createInstance(genomicDirectory2);
 
         VariantMetadataIndex.merge(variantMetadataIndex1, variantMetadataIndex2, outputDirectory);
     }

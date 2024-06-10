@@ -46,7 +46,7 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
         this.genomicDataDirectory = genomicDataDirectory;
         this.variantService = new VariantService(genomicDataDirectory);
         this.patientVariantJoinHandler = new PatientVariantJoinHandler(variantService);
-        this.variantMetadataIndex = VariantMetadataIndex.createInstance(genomicDataDirectory + VARIANT_METADATA_FILENAME);
+        this.variantMetadataIndex = VariantMetadataIndex.createInstance(genomicDataDirectory);
 
         infoStores = new HashMap<>();
         File genomicDataDirectoryFile = new File(this.genomicDataDirectory);
