@@ -64,7 +64,7 @@ public class GenomicProcessorParentImpl implements GenomicProcessor {
         VariantMask result = nodes.parallelStream()
                 .map(node -> node.createMaskForPatientSet(patientSubset))
                 .reduce(VariantMask::union)
-                .orElse(VariantMask.emptyInstance());
+                .orElseGet(VariantMask::emptyInstance);
         return result;
     }
 

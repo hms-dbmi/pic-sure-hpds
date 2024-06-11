@@ -90,7 +90,11 @@ public class GenomicProcessorPatientMergingParentImpl implements GenomicProcesso
 
     @Override
     public VariantMask createMaskForPatientSet(Set<Integer> patientSubset) {
-        throw new RuntimeException("Not implemented");
+        return nodes.stream()
+                .map(node -> new SizedVariantMask(node.createMaskForPatientSet(patientSubset), node.getPatientIds().size()))
+                .reduce(this::appendMask)
+                .map(SizedVariantMask::getVariantMask)
+                .orElseGet(VariantMask::emptyInstance);
     }
 
     @Override
