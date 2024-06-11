@@ -61,7 +61,11 @@ public class GenomicProcessorParentImpl implements GenomicProcessor {
 
     @Override
     public VariantMask createMaskForPatientSet(Set<Integer> patientSubset) {
-        throw new RuntimeException("Not implemented");
+        VariantMask result = nodes.parallelStream()
+                .map(node -> node.createMaskForPatientSet(patientSubset))
+                .reduce(VariantMask::union)
+                .orElse(VariantMask.emptyInstance());
+        return result;
     }
 
     @Override
