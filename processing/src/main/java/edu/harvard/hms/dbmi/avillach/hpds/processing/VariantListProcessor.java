@@ -6,6 +6,7 @@ import java.math.BigInteger;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import org.checkerframework.checker.units.qual.C;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,6 +18,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -34,12 +36,14 @@ public class VariantListProcessor implements HpdsProcessor {
 	private final int CACHE_SIZE;
 
 	private final AbstractProcessor abstractProcessor;
+	private final ColumnSorter columnSorter;
 
 
 	@Autowired
-	public VariantListProcessor(AbstractProcessor abstractProcessor) {
+	public VariantListProcessor(AbstractProcessor abstractProcessor, ColumnSorter columnSorter) {
 		this.abstractProcessor = abstractProcessor;
 		this.metadataIndex = VariantMetadataIndex.createInstance(VariantMetadataIndex.VARIANT_METADATA_BIN_FILE);
+		this.columnSorter = columnSorter;
 
 		VCF_EXCERPT_ENABLED = "TRUE".equalsIgnoreCase(System.getProperty("VCF_EXCERPT_ENABLED", "FALSE"));
 		//always enable aggregate queries if full queries are permitted.
@@ -54,6 +58,7 @@ public class VariantListProcessor implements HpdsProcessor {
 	public VariantListProcessor(boolean isOnlyForTests, AbstractProcessor abstractProcessor)  {
 		this.abstractProcessor = abstractProcessor;
 		this.metadataIndex = null;
+		this.columnSorter = new ColumnSorter(List.of());
 
 		VCF_EXCERPT_ENABLED = "TRUE".equalsIgnoreCase(System.getProperty("VCF_EXCERPT_ENABLED", "FALSE"));
 		//always enable aggregate queries if full queries are permitted.
@@ -172,8 +177,9 @@ public class VariantListProcessor implements HpdsProcessor {
 		//5 columns for gene info
 		builder.append("CHROM\tPOSITION\tREF\tALT");
 
+		List<String> infoStoreColumns = columnSorter.sortInfoColumns(abstractProcessor.getInfoStoreColumns());
 		//now add the variant metadata column headers
-		for(String key : abstractProcessor.getInfoStoreColumns()) {
+		for(String key : infoStoreColumns) {
 			builder.append("\t" + key);
 		}
 
@@ -251,7 +257,7 @@ public class VariantListProcessor implements HpdsProcessor {
 			}
 
 			//need to make sure columns are pushed out in the right order; use same iterator as headers
-			for(String key : abstractProcessor.getInfoStoreColumns()) {
+			for(String key : infoStoreColumns) {
 				Set<String> columnMeta = variantColumnMap.get(key);
 				if(columnMeta != null) {
 					//collect our sets to a single entry
