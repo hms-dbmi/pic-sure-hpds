@@ -185,7 +185,7 @@ public class VariantListProcessor implements HpdsProcessor {
 		log.debug("identified " + patientSubset.size() + " patients from query");
 		Map<String, Integer> patientIndexMap = new LinkedHashMap<String, Integer>(); //keep a map for quick index lookups
 		VariantMask patientMasks = abstractProcessor.createMaskForPatientSet(patientSubset);
-		int index = 2; //variant bitmasks are bookended with '11'
+		int index = 0;
 
 		
 		for(String patientId : abstractProcessor.getPatientIds()) {
@@ -270,13 +270,13 @@ public class VariantListProcessor implements HpdsProcessor {
 
 			// Patient count = (hetero mask | homo mask) & patient mask
 			VariantMask heteroOrHomoMask = orNullableMasks(heteroMask, homoMask);
-			int patientCount = heteroOrHomoMask == null ? 0 :  (heteroOrHomoMask.intersection(patientMasks).bitCount() - 4);
+			int patientCount = heteroOrHomoMask == null ? 0 :  (heteroOrHomoMask.intersection(patientMasks).bitCount());
 
-			int bitCount = masks.heterozygousMask == null? 0 : (masks.heterozygousMask.bitCount() - 4);
-			bitCount += masks.homozygousMask == null? 0 : (masks.homozygousMask.bitCount() - 4);
+			int bitCount = masks.heterozygousMask == null? 0 : (masks.heterozygousMask.bitCount());
+			bitCount += masks.homozygousMask == null? 0 : (masks.homozygousMask.bitCount());
 
 			//count how many patients have genomic data available
-			Integer patientsWithVariantsCount = patientMasks.bitCount() - 4;
+			Integer patientsWithVariantsCount = patientMasks.bitCount();
 
 
 			// (patients with/total) in subset   \t   (patients with/total) out of subset.

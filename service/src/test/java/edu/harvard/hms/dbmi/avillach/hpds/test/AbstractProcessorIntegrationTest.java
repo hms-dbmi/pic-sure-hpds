@@ -19,12 +19,12 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 @ExtendWith(SpringExtension.class)
 @EnableAutoConfiguration
-@Disabled
-//@SpringBootTest(classes = edu.harvard.hms.dbmi.avillach.hpds.service.HpdsApplication.class)
+@SpringBootTest(classes = edu.harvard.hms.dbmi.avillach.hpds.service.HpdsApplication.class)
 @ActiveProfiles("integration-test")
 public class AbstractProcessorIntegrationTest {
 
@@ -46,7 +46,10 @@ public class AbstractProcessorIntegrationTest {
         query.setVariantInfoFilters(variantInfoFilters);
 
         Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
-        assertEquals(36, idList.size());
+        assertEquals(16, idList.size());
+        assertTrue(idList.contains(200972));
+        assertTrue(idList.contains(200971));
+        assertTrue(idList.contains(200975));
     }
 
     @Test
@@ -59,7 +62,7 @@ public class AbstractProcessorIntegrationTest {
         query.setVariantInfoFilters(variantInfoFilters);
 
         Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
-        assertEquals(39, idList.size());
+        assertEquals(22, idList.size());
     }
 
     @Test
@@ -73,7 +76,7 @@ public class AbstractProcessorIntegrationTest {
         query.setNumericFilters(Map.of("\\open_access-1000Genomes\\data\\SYNTHETIC_AGE\\", new Filter.DoubleFilter(35.0, 45.0)));
 
         Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
-        assertEquals(8, idList.size());
+        assertEquals(4, idList.size());
     }
 
     @Test
@@ -210,7 +213,7 @@ public class AbstractProcessorIntegrationTest {
         query.setVariantInfoFilters(variantInfoFilters);
 
         Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
-        assertEquals(24, idList.size());
+        assertEquals(8, idList.size());
     }
 
     // todo: test variant filters that use the phenotipic query, and edge cases
