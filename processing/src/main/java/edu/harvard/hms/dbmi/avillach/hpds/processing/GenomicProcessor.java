@@ -17,7 +17,7 @@ public interface GenomicProcessor {
 
     VariantMask createMaskForPatientSet(Set<Integer> patientSubset);
 
-    Mono<Collection<String>> getVariantList(DistributableQuery distributableQuery);
+    Mono<Set<String>> getVariantList(DistributableQuery distributableQuery);
 
     List<String> getPatientIds();
 
@@ -29,5 +29,6 @@ public interface GenomicProcessor {
 
     List<InfoColumnMeta> getInfoColumnMeta();
 
+    // todo: make the map value a Set instead of array
     Map<String, String[]> getVariantMetadata(Collection<String> variantList);
 }

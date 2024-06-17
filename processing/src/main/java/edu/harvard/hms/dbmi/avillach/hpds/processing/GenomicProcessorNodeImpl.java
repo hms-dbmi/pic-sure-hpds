@@ -252,10 +252,10 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
     }
 
     @Override
-    public Mono<Collection<String>> getVariantList(DistributableQuery query) {
+    public Mono<Set<String>> getVariantList(DistributableQuery query) {
         return Mono.fromCallable(() -> runGetVariantList(query)).subscribeOn(Schedulers.boundedElastic());
     }
-    public Collection<String> runGetVariantList(DistributableQuery query) {
+    public Set<String> runGetVariantList(DistributableQuery query) {
         boolean queryContainsVariantInfoFilters = query.getVariantInfoFilters().stream().anyMatch(variantInfoFilter ->
                 !variantInfoFilter.categoryVariantInfoFilters.isEmpty() || !variantInfoFilter.numericVariantInfoFilters.isEmpty()
         );
@@ -297,7 +297,7 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
                 return unionOfInfoFiltersVariantSpecs;
             }
         }
-        return new ArrayList<>();
+        return new HashSet<>();
     }
 
     private VariantMask getIdSetForVariantSpecCategoryFilter(String[] zygosities, String key, VariantBucketHolder<VariableVariantMasks> bucketCache) {

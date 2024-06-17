@@ -13,6 +13,7 @@ import reactor.core.scheduler.Schedulers;
 
 import java.math.BigInteger;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -61,19 +62,19 @@ public class GenomicProcessorParentImpl implements GenomicProcessor {
 
     @Override
     public VariantMask createMaskForPatientSet(Set<Integer> patientSubset) {
-        VariantMask result = nodes.parallelStream()
+        // all nodes have the same patient set --
+        VariantMask result = nodes.stream().findFirst()
                 .map(node -> node.createMaskForPatientSet(patientSubset))
-                .reduce(VariantMask::union)
                 .orElseGet(VariantMask::emptyInstance);
         return result;
     }
 
     @Override
-    public Mono<Collection<String>> getVariantList(DistributableQuery distributableQuery) {
-        Mono<Collection<String>> result = Flux.just(nodes.toArray(GenomicProcessor[]::new))
+    public Mono<Set<String>> getVariantList(DistributableQuery distributableQuery) {
+        Mono<Set<String>> result = Flux.just(nodes.toArray(GenomicProcessor[]::new))
                 .flatMap(node -> node.getVariantList(distributableQuery))
                 .reduce((variantList1, variantList2) -> {
-                    List<String> mergedResult = new ArrayList<>(variantList1.size() + variantList2.size());
+                    Set<String> mergedResult = new HashSet<>(variantList1.size() + variantList2.size());
                     mergedResult.addAll(variantList1);
                     mergedResult.addAll(variantList2);
                     return mergedResult;
@@ -141,13 +142,26 @@ public class GenomicProcessorParentImpl implements GenomicProcessor {
 
     @Override
     public Map<String, String[]> getVariantMetadata(Collection<String> variantList) {
-        return nodes.parallelStream()
+        // this is overly complicated because of the array type.
+        // todo: update this when we change the method signature from array to set
+        ConcurrentHashMap<String, Set<String>> result = new ConcurrentHashMap<>();
+        nodes.stream()
                 .map(node -> node.getVariantMetadata(variantList))
-                .reduce((p1, p2) -> {
-                    Map<String, String[]> mapCopy = new HashMap<>(p1);
-                    mapCopy.putAll(p2);
-                    return mapCopy;
-                }).orElseGet(Map::of);
+                .forEach(variantMap -> {
+                    variantMap.entrySet().forEach(entry -> {
+                        Set<String> metadata = result.get(entry.getKey());
+                        if (metadata != null) {
+                            metadata.addAll(Set.of(entry.getValue()));
+                        } else {
+                            result.put(entry.getKey(), new HashSet<>(Set.of(entry.getValue())));
+                        }
+                    });
+                });
+        return result.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().toArray(new String[] {})
+                ));
     }
 
     private List<InfoColumnMeta> initInfoColumnsMeta() {

@@ -27,7 +27,7 @@ public class GenomicProcessorNoOp implements GenomicProcessor {
     }
 
     @Override
-    public Mono<Collection<String>> getVariantList(DistributableQuery distributableQuery) {
+    public Mono<Set<String>> getVariantList(DistributableQuery distributableQuery) {
         return null;
     }
 

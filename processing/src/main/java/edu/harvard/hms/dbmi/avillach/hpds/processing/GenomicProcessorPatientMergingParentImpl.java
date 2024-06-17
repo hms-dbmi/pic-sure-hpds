@@ -98,11 +98,11 @@ public class GenomicProcessorPatientMergingParentImpl implements GenomicProcesso
     }
 
     @Override
-    public Mono<Collection<String>> getVariantList(DistributableQuery distributableQuery) {
-        Mono<Collection<String>> result = Flux.just(nodes.toArray(GenomicProcessor[]::new))
+    public Mono<Set<String>> getVariantList(DistributableQuery distributableQuery) {
+        Mono<Set<String>> result = Flux.just(nodes.toArray(GenomicProcessor[]::new))
                 .flatMap(node -> node.getVariantList(distributableQuery))
                 .reduce((variantList1, variantList2) -> {
-                    List<String> mergedResult = new ArrayList<>(variantList1.size() + variantList2.size());
+                    Set<String> mergedResult = new HashSet<>(variantList1.size() + variantList2.size());
                     mergedResult.addAll(variantList1);
                     mergedResult.addAll(variantList2);
                     return mergedResult;
