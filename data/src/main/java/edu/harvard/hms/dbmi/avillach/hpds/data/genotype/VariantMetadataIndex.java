@@ -228,8 +228,11 @@ public class VariantMetadataIndex implements Serializable {
 				mergedFbbis.put(key, fbbis1.get(key));
 			});
 			fbbis2.keys().forEach(key -> {
-				if (!mergedFbbis.keys().contains(key)) {
+				ConcurrentHashMap<String, String[]> metadataMap = mergedFbbis.get(key);
+				if (metadataMap == null) {
 					mergedFbbis.put(key, fbbis2.get(key));
+				} else {
+					metadataMap.putAll(fbbis2.get(key));
 				}
 			});
 			mergedFbbis.complete();
