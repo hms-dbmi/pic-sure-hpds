@@ -79,7 +79,7 @@ public class VariantListProcessor implements HpdsProcessor {
 	 * 
 	 * This should not actually do any filtering based on bitmasks, just INFO columns.
 	 * 
-	 * @param incomingQuery
+	 * @param query
 	 * @return a List of VariantSpec strings that would be eligible to filter patients if the incomingQuery was run as a COUNT query.
 	 * @throws IOException 
 	 */
@@ -96,7 +96,7 @@ public class VariantListProcessor implements HpdsProcessor {
 	/**
 	 * Process only variantInfoFilters to count the number of variants that would be included in evaluating the query.
 	 * 
-	 * @param incomingQuery
+	 * @param query
 	 * @return the number of variants that would be used to filter patients if the incomingQuery was run as a COUNT query.
 	 * @throws IOException 
 	 */
@@ -119,7 +119,7 @@ public class VariantListProcessor implements HpdsProcessor {
 	 *  The default patientId header value can be overridden by passing the ID_CUBE_NAME environment variable to 
 	 *  the java VM.
 	 *  
-	 *  @param Query A VCF_EXCERPT type query
+	 *  @param query A VCF_EXCERPT type query
 	 *  @param includePatientData whether to include patient specific data
 	 *  @return A Tab-separated string with one line per variant and one column per patient (plus variant data columns)
 	 * @throws IOException 
@@ -141,12 +141,12 @@ public class VariantListProcessor implements HpdsProcessor {
 		
 		log.debug("variantList Size " + variantList.size());
 
-		Map<String, String[]> metadata =  genomicProcessor.getVariantMetadata(variantList);
+		Map<String, Set<String>> metadata =  genomicProcessor.getVariantMetadata(variantList);
 
 		log.debug("metadata size " + metadata.size());
 		
 		// Sort the variantSpecs so that the user doesn't lose their mind
-		TreeMap<String, String[]> metadataSorted = new TreeMap<>((o1, o2) -> {
+		TreeMap<String, Set<String>> metadataSorted = new TreeMap<>((o1, o2) -> {
 			return new VariantSpec(o1).compareTo(new VariantSpec(o2));
 		});
 		metadataSorted.putAll(metadata);
@@ -217,7 +217,7 @@ public class VariantListProcessor implements HpdsProcessor {
 		VariantBucketHolder<VariableVariantMasks> variantMaskBucketHolder = new VariantBucketHolder<VariableVariantMasks>();
 
 		//loop over the variants identified, and build an output row
-		metadata.forEach((String variantSpec, String[] variantMetadata)->{
+		metadata.forEach((String variantSpec, Set<String> variantMetadata)->{
 
 			String[] variantDataColumns = variantSpec.split(",");
 			//4 fixed columns in variant ID (CHROM POSITION REF ALT)

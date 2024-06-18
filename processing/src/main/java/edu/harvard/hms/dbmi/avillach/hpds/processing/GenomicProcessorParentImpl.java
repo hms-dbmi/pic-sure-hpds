@@ -141,9 +141,7 @@ public class GenomicProcessorParentImpl implements GenomicProcessor {
     }
 
     @Override
-    public Map<String, String[]> getVariantMetadata(Collection<String> variantList) {
-        // this is overly complicated because of the array type.
-        // todo: update this when we change the method signature from array to set
+    public Map<String, Set<String>> getVariantMetadata(Collection<String> variantList) {
         ConcurrentHashMap<String, Set<String>> result = new ConcurrentHashMap<>();
         nodes.stream()
                 .map(node -> node.getVariantMetadata(variantList))
@@ -151,17 +149,13 @@ public class GenomicProcessorParentImpl implements GenomicProcessor {
                     variantMap.entrySet().forEach(entry -> {
                         Set<String> metadata = result.get(entry.getKey());
                         if (metadata != null) {
-                            metadata.addAll(Set.of(entry.getValue()));
+                            metadata.addAll(entry.getValue());
                         } else {
-                            result.put(entry.getKey(), new HashSet<>(Set.of(entry.getValue())));
+                            result.put(entry.getKey(), new HashSet<>(entry.getValue()));
                         }
                     });
                 });
-        return result.entrySet().stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> entry.getValue().toArray(new String[] {})
-                ));
+        return result;
     }
 
     private List<InfoColumnMeta> initInfoColumnsMeta() {

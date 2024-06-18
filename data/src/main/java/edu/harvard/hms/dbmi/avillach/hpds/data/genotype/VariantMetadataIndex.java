@@ -63,7 +63,7 @@ public class VariantMetadataIndex implements Serializable {
 	 * @param variantSpec
 	 * @return
 	 */
-	public String[] findBySingleVariantSpec(String variantSpec, VariantBucketHolder<String[]> bucketCache) {
+	public Set<String> findBySingleVariantSpec(String variantSpec, VariantBucketHolder<String[]> bucketCache) {
 		try {
 			String[] segments = variantSpec.split(",");
 			if (segments.length < 2) {
@@ -78,7 +78,7 @@ public class VariantMetadataIndex implements Serializable {
 					|| chrOffset != bucketCache.lastChunkOffset) {
 				FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> ContigFbbis = indexMap.get(contig);
 				if(ContigFbbis == null) {
-					return new String[0];
+					return Set.of();
 				}
 				bucketCache.lastValue = ContigFbbis.get(chrOffset);
 				bucketCache.lastContig = contig;
@@ -88,20 +88,20 @@ public class VariantMetadataIndex implements Serializable {
 			if( bucketCache.lastValue != null) {
 				if(bucketCache.lastValue.get(variantSpec) == null) {
 					log.warn("No variant data found for spec " + variantSpec);
-					return new String[0];
+					return Set.of();
 				}
-				return  bucketCache.lastValue.get(variantSpec);
+				return Set.of(bucketCache.lastValue.get(variantSpec));
 			}
 			log.warn("No bucket found for spec " + variantSpec + " in bucket " + chrOffset);
-			return new String[0];
+			return Set.of();
 		
 		} catch (UncheckedIOException e) {
 			log.warn("IOException caught looking up variantSpec : " + variantSpec, e);
-			return new String[0];
+			return Set.of();
 		}
 	}
 
-	public Map<String, String[]> findByMultipleVariantSpec(Collection<String> varientSpecList) {
+	public Map<String, Set<String>> findByMultipleVariantSpec(Collection<String> varientSpecList) {
 //		log.debug("SPEC list "  + varientSpecList.size() + " :: " + Arrays.deepToString(varientSpecList.toArray()));
 		
 		VariantBucketHolder<String[]> bucketCache = new VariantBucketHolder<String[]>();
@@ -164,7 +164,7 @@ public class VariantMetadataIndex implements Serializable {
 			if(contigFbbis == null) {
 				log.info("creating new file for " + contig);
 				String filePath = fileStoragePrefix + "_" + contig + ".bin";
-				contigFbbis = new FileBackedJavaIndexedStorage(Integer.class, (Class<ConcurrentHashMap<String, String[]>>)(Class<?>) ConcurrentHashMap.class, new File(filePath));
+				contigFbbis = new FileBackedJavaIndexedStorage(Integer.class, ConcurrentHashMap.class, new File(filePath));
 				indexMap.put(contig, contigFbbis);
 			}
 			
@@ -221,20 +221,24 @@ public class VariantMetadataIndex implements Serializable {
 			String filePath = outputDirectory + VARIANT_METADATA_STORAGE_FILE_PREFIX + "_" + contig + ".bin";
 			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> mergedFbbis = new FileBackedJavaIndexedStorage(Integer.class, ConcurrentHashMap.class, new File(filePath));
 
+			Map<Integer, ConcurrentHashMap<String, String[]>> mergedMockFbbis = new HashMap<>();
+
 			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> fbbis1 = variantMetadataIndex1.indexMap.get(contig);
 			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> fbbis2 = variantMetadataIndex2.indexMap.get(contig);
 
 			fbbis1.keys().forEach(key -> {
-				mergedFbbis.put(key, fbbis1.get(key));
+				mergedMockFbbis.put(key, fbbis1.get(key));
 			});
 			fbbis2.keys().forEach(key -> {
-				ConcurrentHashMap<String, String[]> metadataMap = mergedFbbis.get(key);
+				ConcurrentHashMap<String, String[]> metadataMap = mergedMockFbbis.get(key);
 				if (metadataMap == null) {
-					mergedFbbis.put(key, fbbis2.get(key));
+					mergedMockFbbis.put(key, fbbis2.get(key));
 				} else {
 					metadataMap.putAll(fbbis2.get(key));
 				}
 			});
+
+			mergedMockFbbis.forEach(mergedFbbis::put);
 			mergedFbbis.complete();
 			merged.indexMap.put(contig, mergedFbbis);
 		}

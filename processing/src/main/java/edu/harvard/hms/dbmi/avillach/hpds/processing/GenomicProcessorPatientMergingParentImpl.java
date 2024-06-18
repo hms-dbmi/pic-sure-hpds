@@ -160,11 +160,11 @@ public class GenomicProcessorPatientMergingParentImpl implements GenomicProcesso
     }
 
     @Override
-    public Map<String, String[]> getVariantMetadata(Collection<String> variantList) {
+    public Map<String, Set<String>> getVariantMetadata(Collection<String> variantList) {
         return nodes.parallelStream()
                 .map(node -> node.getVariantMetadata(variantList))
                 .reduce((p1, p2) -> {
-                    Map<String, String[]> mapCopy = new HashMap<>(p1);
+                    Map<String, Set<String>> mapCopy = new HashMap<>(p1);
                     mapCopy.putAll(p2);
                     return mapCopy;
                 }).orElseGet(Map::of);

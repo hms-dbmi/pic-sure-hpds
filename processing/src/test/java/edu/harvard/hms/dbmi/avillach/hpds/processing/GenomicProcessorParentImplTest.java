@@ -130,15 +130,28 @@ class GenomicProcessorParentImplTest {
     }
 
     @Test
+    public void getVariantMetadata_mixedEmptyVariants_mergedCorrectly() {
+        List<String> variantList = List.of("variant1", "variant2", "variant3");
+        when(mockProcessor1.getVariantMetadata(variantList)).thenReturn(Map.of());
+        when(mockProcessor2.getVariantMetadata(variantList)).thenReturn(Map.of("variant1", Set.of("metadata1", "metadata2")));
+        when(mockProcessor3.getVariantMetadata(variantList)).thenReturn(Map.of("variant3", Set.of("metadata31", "metadata32")));
+
+        Map<String, Set<String>> variantMetadata = parentProcessor.getVariantMetadata(variantList);
+        assertEquals(Set.of("metadata1", "metadata2"), variantMetadata.get("variant1"));
+        assertEquals(Set.of("metadata31", "metadata32"), variantMetadata.get("variant3"));
+        assertEquals(2, variantMetadata.size());
+    }
+
+    @Test
     public void getVariantMetadata_overlappingVariants_mergedCorrectly() {
         List<String> variantList = List.of("variant1", "variant2", "variant3");
-        when(mockProcessor1.getVariantMetadata(variantList)).thenReturn(Map.of("variant1", new String[]{"metadata1", "metadata2"}));
-        when(mockProcessor2.getVariantMetadata(variantList)).thenReturn(Map.of("variant1", new String[]{"metadata1", "metadata3"}));
-        when(mockProcessor3.getVariantMetadata(variantList)).thenReturn(Map.of("variant3", new String[]{"metadata31", "metadata32"}));
+        when(mockProcessor1.getVariantMetadata(variantList)).thenReturn(Map.of("variant1", Set.of("metadata1", "metadata2")));
+        when(mockProcessor2.getVariantMetadata(variantList)).thenReturn(Map.of("variant1", Set.of("metadata1", "metadata3")));
+        when(mockProcessor3.getVariantMetadata(variantList)).thenReturn(Map.of("variant3", Set.of("metadata31", "metadata32")));
 
-        Map<String, String[]> variantMetadata = parentProcessor.getVariantMetadata(variantList);
-        assertEquals(Set.of("metadata1", "metadata2", "metadata3"), Set.of(variantMetadata.get("variant1")));
-        assertEquals(Set.of("metadata31", "metadata32"), Set.of(variantMetadata.get("variant3")));
+        Map<String, Set<String>> variantMetadata = parentProcessor.getVariantMetadata(variantList);
+        assertEquals(Set.of("metadata1", "metadata2", "metadata3"), variantMetadata.get("variant1"));
+        assertEquals(Set.of("metadata31", "metadata32"), variantMetadata.get("variant3"));
         assertEquals(2, variantMetadata.size());
     }
 }

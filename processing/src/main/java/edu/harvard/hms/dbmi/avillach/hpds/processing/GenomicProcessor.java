@@ -30,5 +30,5 @@ public interface GenomicProcessor {
     List<InfoColumnMeta> getInfoColumnMeta();
 
     // todo: make the map value a Set instead of array
-    Map<String, String[]> getVariantMetadata(Collection<String> variantList);
+    Map<String, Set<String>> getVariantMetadata(Collection<String> variantList);
 }
