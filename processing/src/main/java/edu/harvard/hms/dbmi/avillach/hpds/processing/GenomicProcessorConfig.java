@@ -60,6 +60,23 @@ public class GenomicProcessorConfig {
 
         return new GenomicProcessorPatientMergingParentImpl(studyGroupedGenomicProcessors);
     }
+    @Bean(name = "localPatientOnlyDistributedGenomicProcessor")
+    @ConditionalOnProperty(prefix = "hpds.genomicProcessor", name = "impl", havingValue = "localPatientDistributed")
+    public GenomicProcessor localPatientOnlyDistributedGenomicProcessor() {
+        // assumed for now that all first level directories contain a genomic dataset for a group of studies
+        File[] directories = new File(hpdsGenomicDataDirectory).listFiles(File::isDirectory);
+        if (directories.length > 10) {
+            throw new IllegalArgumentException("Number of genomic partitions by studies exceeds maximum of 10 (" + directories.length + ")");
+        }
+
+        List<GenomicProcessor> studyGroupedGenomicProcessors = new ArrayList<>();
+
+        for (File directory : directories) {
+            studyGroupedGenomicProcessors.add(new GenomicProcessorNodeImpl(directory.getAbsolutePath()));
+        }
+
+        return new GenomicProcessorPatientMergingParentImpl(studyGroupedGenomicProcessors);
+    }
 
     @Bean(name = "remoteGenomicProcessor")
     @ConditionalOnProperty(prefix = "hpds.genomicProcessor", name = "impl", havingValue = "remote")
