@@ -77,7 +77,7 @@ public class GenomicProcessorConfig {
 
         for (File directory : directories) {
             log.info("Loading partition: " + directory.getName());
-            studyGroupedGenomicProcessors.add(new GenomicProcessorNodeImpl(directory.getAbsolutePath()));
+            studyGroupedGenomicProcessors.add(new GenomicProcessorNodeImpl(directory.getAbsolutePath() + "/"));
         }
 
         return new GenomicProcessorPatientMergingParentImpl(studyGroupedGenomicProcessors);
