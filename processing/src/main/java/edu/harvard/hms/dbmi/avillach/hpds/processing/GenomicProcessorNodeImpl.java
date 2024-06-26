@@ -69,7 +69,6 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
                             throw new RuntimeException(e);
                         }
                     });
-            this.variantMetadataIndex.updateStorageDirectory(genomicDataDirectoryFile);
         } else {
             throw new IllegalArgumentException("Not a valid genomicDataDirectory: " + this.genomicDataDirectory);
         }
