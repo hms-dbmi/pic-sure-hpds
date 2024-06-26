@@ -1,6 +1,8 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing;
 
 import edu.harvard.hms.dbmi.avillach.hpds.processing.genomic.GenomicProcessorRestClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -19,6 +21,8 @@ public class GenomicProcessorConfig {
 
     @Value("${HPDS_GENOMIC_DATA_DIRECTORY:/opt/local/hpds/all/}")
     private String hpdsGenomicDataDirectory;
+
+    private static Logger log = LoggerFactory.getLogger(GenomicProcessorConfig.class);
 
 
     @Bean(name = "localGenomicProcessor")
@@ -61,7 +65,7 @@ public class GenomicProcessorConfig {
         return new GenomicProcessorPatientMergingParentImpl(studyGroupedGenomicProcessors);
     }
     @Bean(name = "localPatientOnlyDistributedGenomicProcessor")
-    @ConditionalOnProperty(prefix = "hpds.genomicProcessor", name = "impl", havingValue = "localPatientDistributed")
+    @ConditionalOnProperty(prefix = "hpds.genomicProcessor", name = "impl", havingValue = "localPatientOnlyDistributed")
     public GenomicProcessor localPatientOnlyDistributedGenomicProcessor() {
         // assumed for now that all first level directories contain a genomic dataset for a group of studies
         File[] directories = new File(hpdsGenomicDataDirectory).listFiles(File::isDirectory);
@@ -72,6 +76,7 @@ public class GenomicProcessorConfig {
         List<GenomicProcessor> studyGroupedGenomicProcessors = new ArrayList<>();
 
         for (File directory : directories) {
+            log.info("Loading partition: " + directory.getName());
             studyGroupedGenomicProcessors.add(new GenomicProcessorNodeImpl(directory.getAbsolutePath()));
         }
 
