@@ -672,7 +672,7 @@ public class AbstractProcessor {
 	 * Useful for federated pic-sure's where there are fewer
 	 * guarantees about concept paths.
 	 */
-	public Optional<PhenoCube<?>> nullableGetCube(String path) {
+	protected Optional<PhenoCube<?>> nullableGetCube(String path) {
 		try {
 			return Optional.ofNullable(store.get(path));
 		} catch (InvalidCacheLoadException | ExecutionException e) {

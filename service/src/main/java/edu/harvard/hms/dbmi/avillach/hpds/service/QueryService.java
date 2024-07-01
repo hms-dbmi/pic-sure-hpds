@@ -7,7 +7,6 @@ import java.util.concurrent.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import edu.harvard.hms.dbmi.avillach.hpds.processing.timeseries.TimeseriesProcessor;
 import edu.harvard.hms.dbmi.avillach.hpds.service.util.QueryDecorator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
