@@ -455,9 +455,6 @@ public class PicSureService implements IResourceRS {
 		case COUNT:
 			return queryOkResponse(countProcessor.runCounts(incomingQuery), incomingQuery).build();
 
-		case PATIENT_AND_CONCEPT_COUNT:
-			return queryOkResponse(countProcessor.runPatientAndConceptCount(incomingQuery), incomingQuery).build();
-
 		default:
 			// no valid type
 			return Response.status(Status.BAD_REQUEST).build();
