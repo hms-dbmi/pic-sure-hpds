@@ -3,7 +3,6 @@ package edu.harvard.hms.dbmi.avillach.hpds.processing.timeseries;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import edu.harvard.hms.dbmi.avillach.hpds.processing.AbstractProcessor;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.AsyncResult;
@@ -95,7 +94,6 @@ public class TimeseriesProcessor implements HpdsProcessor {
 		//get a list of all fields mentioned in the query;  export all data associated with any included field
 		List<String> pathList = new LinkedList<String>();
 		pathList.addAll(query.getAnyRecordOf());
-		pathList.addAll(query.getAnyRecordOfMulti().stream().flatMap(Collection::stream).collect(Collectors.toList()));
 		pathList.addAll(query.getFields());
 		pathList.addAll(query.getRequiredFields());
 		pathList.addAll(query.getCategoryFilters().keySet());
