@@ -206,7 +206,6 @@ public class VariantMetadataIndex implements Serializable {
 		} catch(Exception e) {
 			// todo: handle exceptions better
 			log.info("No Metadata Index found at " + metadataIndexPath);
-			log.debug("Error loading metadata index:", e);
 			return null;
 		}
 	}
