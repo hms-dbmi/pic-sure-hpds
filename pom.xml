@@ -310,7 +310,11 @@
 				<version>1.18.30</version>
 				<scope>provided</scope>
 			</dependency>
-
+			<dependency>
+				<groupId>org.apache.avro</groupId>
+				<artifactId>avro</artifactId>
+				<version>1.11.3</version>
+			</dependency>
 
 		</dependencies>
 	</dependencyManagement>

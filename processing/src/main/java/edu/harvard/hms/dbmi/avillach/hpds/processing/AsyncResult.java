@@ -1,6 +1,9 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -17,7 +20,15 @@ import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
 public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 	
 	private static Logger log = LoggerFactory.getLogger(AsyncResult.class);
-	
+
+	public byte[] readAllBytes() {
+        try {
+            return stream.readAllBytes();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
 	public static enum Status{
 		SUCCESS {
 			@Override
@@ -52,29 +63,82 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 		public abstract PicSureStatus toPicSureStatus();
 	}
 	
-	public Query query;
+	private Query query;
+
+	public Query getQuery() {
+		return query;
+	}
+
+	private Status status;
+
+	public Status getStatus() {
+		return status;
+	}
+
+	public AsyncResult setStatus(Status status) {
+		this.status = status;
+		return this;
+	}
+
+	private long queuedTime;
+
+	public long getQueuedTime() {
+		return queuedTime;
+	}
+
+	public AsyncResult setQueuedTime(long queuedTime) {
+		this.queuedTime = queuedTime;
+		return this;
+	}
+
+	private long completedTime;
+
+	public long getCompletedTime() {
+		return completedTime;
+	}
+
+	private int retryCount;
 	
-	public Status status;
+	private int queueDepth;
+
+	public int getQueueDepth() {
+		return queueDepth;
+	}
+
+	public AsyncResult setQueueDepth(int queueDepth) {
+		this.queueDepth = queueDepth;
+		return this;
+	}
+
+	private int positionInQueue;
+
+	public AsyncResult setPositionInQueue(int positionInQueue) {
+		this.positionInQueue = positionInQueue;
+		return this;
+	}
+
+	private int numRows;
 	
-	public long queuedTime;
+	private int numColumns;
 	
-	public long completedTime;
-	
-	public int retryCount;
-	
-	public int queueDepth;
-	
-	public int positionInQueue;
-	
-	public int numRows;
-	
-	public int numColumns;
-	
-	public String id;
-	
+	private String id;
+
+	public String getId() {
+		return id;
+	}
+
+	public AsyncResult setId(String id) {
+		this.id = id;
+		return this;
+	}
+
 	@JsonIgnore
-	public ResultStoreStream stream;
-	
+	private ResultStoreStream stream;
+
+	public ResultStoreStream getStream() {
+		return stream;
+	}
+
 	@JsonIgnore
 	private String[] headerRow;
 
@@ -86,20 +150,47 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 	 * The actual exception is thrown in @see ResultStore#constructor
 	 */
 	@JsonIgnore
-	public ExecutorService jobQueue;
+	private ExecutorService jobQueue;
+
+	public ExecutorService getJobQueue() {
+		return jobQueue;
+	}
+
+	public AsyncResult setJobQueue(ExecutorService jobQueue) {
+		this.jobQueue = jobQueue;
+		return this;
+	}
 
 	@JsonIgnore
-	public HpdsProcessor processor;
+	private HpdsProcessor processor;
+
+	public HpdsProcessor getProcessor() {
+		return processor;
+	}
+
+	public AsyncResult setProcessor(HpdsProcessor processor) {
+		this.processor = processor;
+		return this;
+	}
 
 	public AsyncResult(Query query, String[] headerRow) {
 		this.query = query;
 		this.headerRow = headerRow;
 		try {
-			stream = new ResultStoreStream(headerRow, query.getExpectedResultType() == ResultType.DATAFRAME_MERGED);
+			stream = new ResultStoreStream(headerRow);
 		} catch (IOException e) {
 			log.error("Exception creating result stream", e);
 		}
 	}
+
+	public void appendResults(List<String[]> dataEntries) {
+		stream.appendResults(dataEntries);
+	}
+
+	public void appendResultStore(ResultStore resultStore) {
+		stream.appendResultStore(resultStore);
+	}
+
 
 	@Override
 	public void run() {
@@ -127,9 +218,15 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 		}
 	}
 
+	public void open() {
+		stream.open();
+	}
+
 	@Override
 	public int compareTo(AsyncResult o) {
 		return this.query.getId().compareTo(o.query.getId());
 	}
-	
+
+
+
 }

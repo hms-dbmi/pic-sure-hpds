@@ -43,6 +43,7 @@ public class QueryService {
 	private final QueryProcessor queryProcessor;
 	private final TimeseriesProcessor timeseriesProcessor;
 	private final CountProcessor countProcessor;
+	private final PfbProcessor pfbProcessor;
 
 	HashMap<String, AsyncResult> results = new HashMap<>();
 
@@ -52,6 +53,7 @@ public class QueryService {
 						 QueryProcessor queryProcessor,
 						 TimeseriesProcessor timeseriesProcessor,
 						 CountProcessor countProcessor,
+						 PfbProcessor pfbProcessor,
 						 @Value("${SMALL_JOB_LIMIT}") Integer smallJobLimit,
 						 @Value("${SMALL_TASK_THREADS}") Integer smallTaskThreads,
 						 @Value("${LARGE_TASK_THREADS}") Integer largeTaskThreads) {
@@ -59,6 +61,7 @@ public class QueryService {
 		this.queryProcessor = queryProcessor;
 		this.timeseriesProcessor = timeseriesProcessor;
 		this.countProcessor = countProcessor;
+		this.pfbProcessor = pfbProcessor;
 
 		SMALL_JOB_LIMIT = smallJobLimit;
 		SMALL_TASK_THREADS = smallTaskThreads;
@@ -85,17 +88,17 @@ public class QueryService {
 		
 		// This is all the validation we do for now.
 		if(!ensureAllFieldsExist(query)) {
-			result.status = Status.ERROR;
+			result.setStatus(Status.ERROR);
 		}else {
 			if(query.getFields().size() > SMALL_JOB_LIMIT) {
-				result.jobQueue = largeTaskExecutor;
+				result.setJobQueue(largeTaskExecutor);
 			} else {
-				result.jobQueue = smallTaskExecutor;
+				result.setJobQueue(smallTaskExecutor);
 			}
 
 			result.enqueue();
 		}
-		return getStatusFor(result.id);
+		return getStatusFor(result.getId());
 	}
 
 	ExecutorService countExecutor = Executors.newSingleThreadExecutor();
@@ -110,7 +113,6 @@ public class QueryService {
 		switch(query.getExpectedResultType()) {
 		case DATAFRAME :
 		case SECRET_ADMIN_DATAFRAME:
-		case DATAFRAME_MERGED :
 			p = queryProcessor;
 			break;
 		case DATAFRAME_TIMESERIES :
@@ -121,17 +123,20 @@ public class QueryService {
 		case CONTINUOUS_CROSS_COUNT :
 			p = countProcessor;
 			break;
+		case DATAFRAME_PFB:
+			p = pfbProcessor;
+			break;
 		default : 
 			throw new RuntimeException("UNSUPPORTED RESULT TYPE");
 		}
 		
-		AsyncResult result = new AsyncResult(query, p.getHeaderRow(query));
-		result.status = AsyncResult.Status.PENDING;
-		result.queuedTime = System.currentTimeMillis();
-		result.id = UUIDv5.UUIDFromString(query.toString()).toString();
-		result.processor = p;
-		query.setId(result.id);
-		results.put(result.id, result);
+		AsyncResult result = new AsyncResult(query, p.getHeaderRow(query))
+				.setStatus(AsyncResult.Status.PENDING)
+				.setQueuedTime(System.currentTimeMillis())
+				.setId(UUIDv5.UUIDFromString(query.toString()).toString())
+				.setProcessor(p);
+		query.setId(result.getId());
+		results.put(result.getId(), result);
 		return result;
 	}
 	
@@ -209,21 +214,21 @@ public class QueryService {
 
 	public AsyncResult getStatusFor(String queryId) {
 		AsyncResult asyncResult = results.get(queryId);
-		AsyncResult[] queue = asyncResult.query.getFields().size() > SMALL_JOB_LIMIT ?
+		AsyncResult[] queue = asyncResult.getQuery().getFields().size() > SMALL_JOB_LIMIT ?
 				largeTaskExecutionQueue.toArray(new AsyncResult[largeTaskExecutionQueue.size()]) :
 					smallTaskExecutionQueue.toArray(new AsyncResult[smallTaskExecutionQueue.size()]);
-				if(asyncResult.status == Status.PENDING) {
+				if(asyncResult.getStatus() == Status.PENDING) {
 					ArrayList<AsyncResult> queueSnapshot = new ArrayList<AsyncResult>();
 					for(int x = 0;x<queueSnapshot.size();x++) {
-						if(queueSnapshot.get(x).id.equals(queryId)) {
-							asyncResult.positionInQueue = x;
+						if(queueSnapshot.get(x).getId().equals(queryId)) {
+							asyncResult.setPositionInQueue(x);
 							break;
 						}
 					}
 				}else {
-					asyncResult.positionInQueue = -1;
+					asyncResult.setPositionInQueue(-1);
 				}
-				asyncResult.queueDepth = queue.length;
+				asyncResult.setQueueDepth(queue.length);
 				return asyncResult;
 	}
 

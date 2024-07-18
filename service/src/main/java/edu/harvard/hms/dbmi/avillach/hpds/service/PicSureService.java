@@ -181,17 +181,17 @@ public class PicSureService {
 
 	private QueryStatus convertToQueryStatus(AsyncResult entity) {
 		QueryStatus status = new QueryStatus();
-		status.setDuration(entity.completedTime == 0 ? 0 : entity.completedTime - entity.queuedTime);
-		status.setResourceResultId(entity.id);
-		status.setResourceStatus(entity.status.name());
-		if (entity.status == AsyncResult.Status.SUCCESS) {
-			status.setSizeInBytes(entity.stream.estimatedSize());
+		status.setDuration(entity.getCompletedTime() == 0 ? 0 : entity.getCompletedTime() - entity.getQueuedTime());
+		status.setResourceResultId(entity.getId());
+		status.setResourceStatus(entity.getStatus().name());
+		if (entity.getStatus() == AsyncResult.Status.SUCCESS) {
+			status.setSizeInBytes(entity.getStream().estimatedSize());
 		}
-		status.setStartTime(entity.queuedTime);
-		status.setStatus(entity.status.toPicSureStatus());
+		status.setStartTime(entity.getQueuedTime());
+		status.setStatus(entity.getStatus().toPicSureStatus());
 
 		Map<String, Object> metadata = new HashMap<String, Object>();
-		metadata.put("picsureQueryId", UUIDv5.UUIDFromString(entity.query.toString()));
+		metadata.put("picsureQueryId", UUIDv5.UUIDFromString(entity.getQuery().toString()));
 		status.setResultMetadata(metadata);
 		return status;
 	}
@@ -214,13 +214,13 @@ public class PicSureService {
 				return ResponseEntity.status(404).build();
 			}
 		}
-		if (result.status == AsyncResult.Status.SUCCESS) {
-			result.stream.open();
+		if (result.getStatus() == AsyncResult.Status.SUCCESS) {
+			result.open();
 			return ResponseEntity.ok()
 					.contentType(MediaType.TEXT_PLAIN)
-					.body(new String(result.stream.readAllBytes(), StandardCharsets.UTF_8));
+					.body(new String(result.readAllBytes(), StandardCharsets.UTF_8));
 		} else {
-			return ResponseEntity.status(400).body("Status : " + result.status.name());
+			return ResponseEntity.status(400).body("Status : " + result.getStatus().name());
 		}
 	}
 
@@ -283,20 +283,6 @@ public class PicSureService {
 
 		case DATAFRAME:
 		case SECRET_ADMIN_DATAFRAME:
-		case DATAFRAME_MERGED:
-			QueryStatus status = query(resultRequest).getBody();
-			while (status.getResourceStatus().equalsIgnoreCase("RUNNING")
-					|| status.getResourceStatus().equalsIgnoreCase("PENDING")) {
-				status = queryStatus(UUID.fromString(status.getResourceResultId()), null);
-			}
-			log.info(status.toString());
-
-			AsyncResult result = queryService.getResultFor(status.getResourceResultId());
-			if (result.status == AsyncResult.Status.SUCCESS) {
-				result.stream.open();
-				return queryOkResponse(new String(result.stream.readAllBytes(), StandardCharsets.UTF_8), incomingQuery, MediaType.TEXT_PLAIN);
-			}
-			return ResponseEntity.status(400).contentType(MediaType.APPLICATION_JSON).body("Status : " + result.status.name());
 
 		case CROSS_COUNT:
 			return queryOkResponse(countProcessor.runCrossCounts(incomingQuery), incomingQuery, MediaType.APPLICATION_JSON);
