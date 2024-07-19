@@ -7,11 +7,14 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+@Component
 public class PfbProcessor implements HpdsProcessor {
 
     public static final String PATIENT_ID_FIELD_NAME = "patient_id";
@@ -21,6 +24,7 @@ public class PfbProcessor implements HpdsProcessor {
     private Logger log = LoggerFactory.getLogger(PfbProcessor.class);
 
 
+    @Autowired
     public PfbProcessor(AbstractProcessor abstractProcessor) {
         this.abstractProcessor = abstractProcessor;
         ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
