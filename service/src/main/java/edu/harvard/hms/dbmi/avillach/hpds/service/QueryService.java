@@ -1,5 +1,6 @@
 package edu.harvard.hms.dbmi.avillach.hpds.service;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.*;
@@ -7,6 +8,9 @@ import java.util.concurrent.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import edu.harvard.hms.dbmi.avillach.hpds.data.query.ResultType;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.io.CsvWriter;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.io.ResultWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -111,30 +115,36 @@ public class QueryService {
 		
 		HpdsProcessor p;
 		switch(query.getExpectedResultType()) {
-		case DATAFRAME :
-		case SECRET_ADMIN_DATAFRAME:
-			p = queryProcessor;
-			break;
-		case DATAFRAME_TIMESERIES :
-			p = timeseriesProcessor;
-			break;
-		case COUNT :
-		case CATEGORICAL_CROSS_COUNT :
-		case CONTINUOUS_CROSS_COUNT :
-			p = countProcessor;
-			break;
-		case DATAFRAME_PFB:
-			p = pfbProcessor;
-			break;
-		default : 
-			throw new RuntimeException("UNSUPPORTED RESULT TYPE");
+			case DATAFRAME :
+			case SECRET_ADMIN_DATAFRAME:
+				p = queryProcessor;
+				break;
+			case DATAFRAME_TIMESERIES :
+				p = timeseriesProcessor;
+				break;
+			case COUNT :
+			case CATEGORICAL_CROSS_COUNT :
+			case CONTINUOUS_CROSS_COUNT :
+				p = countProcessor;
+				break;
+			case DATAFRAME_PFB:
+				p = pfbProcessor;
+				break;
+			default :
+				throw new RuntimeException("UNSUPPORTED RESULT TYPE");
 		}
-		
-		AsyncResult result = new AsyncResult(query, p.getHeaderRow(query))
+
+		ResultWriter writer;
+        if (ResultType.DATAFRAME_PFB.equals(query.getExpectedResultType())) {
+            writer = new CsvWriter(File.createTempFile("result-" + query.getId(), ".avro"));
+        } else {
+            writer = new CsvWriter(File.createTempFile("result-" + System.nanoTime(), ".sstmp"));
+        }
+
+		AsyncResult result = new AsyncResult(query, p, writer)
 				.setStatus(AsyncResult.Status.PENDING)
 				.setQueuedTime(System.currentTimeMillis())
-				.setId(UUIDv5.UUIDFromString(query.toString()).toString())
-				.setProcessor(p);
+				.setId(UUIDv5.UUIDFromString(query.toString()).toString());
 		query.setId(result.getId());
 		results.put(result.getId(), result);
 		return result;

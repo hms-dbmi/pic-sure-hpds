@@ -1,5 +1,6 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
@@ -7,6 +8,8 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 
+import edu.harvard.hms.dbmi.avillach.hpds.processing.io.CsvWriter;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.io.ResultWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -168,16 +171,11 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 		return processor;
 	}
 
-	public AsyncResult setProcessor(HpdsProcessor processor) {
-		this.processor = processor;
-		return this;
-	}
-
-	public AsyncResult(Query query, String[] headerRow) {
+	public AsyncResult(Query query, HpdsProcessor processor, ResultWriter writer) {
 		this.query = query;
-		this.headerRow = headerRow;
+		this.headerRow = processor.getHeaderRow(query);
 		try {
-			stream = new ResultStoreStream(headerRow);
+			stream = new ResultStoreStream(headerRow, writer);
 		} catch (IOException e) {
 			log.error("Exception creating result stream", e);
 		}

@@ -18,9 +18,8 @@ public class ResultStoreStream extends InputStream {
 	private int numRows;
 	private String[] originalHeader;
 
-	public ResultStoreStream(String[] header) throws IOException {
-		tempFile = File.createTempFile("result-"+ System.nanoTime(), ".sstmp");
-		writer = new CsvWriter(tempFile);
+	public ResultStoreStream(String[] header, ResultWriter writer) throws IOException {
+		this.writer = writer;
 		this.originalHeader = header;
 		writeHeader(this.originalHeader);
 		numRows = 0;
