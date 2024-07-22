@@ -24,4 +24,25 @@ public class PfbWriterTest {
         pfbWriter.close();
         // todo: validate this programatically
     }
+
+    @Test
+    public void formatFieldName_spacesAndBackslashes_replacedWithUnderscore() {
+        PfbWriter pfbWriter = new PfbWriter(new File("target/test-result.avro"));
+        String formattedName = pfbWriter.formatFieldName("\\Topmed Study Accession with Subject ID\\\\");
+        assertEquals("_Topmed_Study_Accession_with_Subject_ID__", formattedName);
+    }
+
+    @Test
+    public void formatFieldName_startsWithDigit_prependUnderscore() {
+        PfbWriter pfbWriter = new PfbWriter(new File("target/test-result.avro"));
+        String formattedName = pfbWriter.formatFieldName("123Topmed Study Accession with Subject ID\\\\");
+        assertEquals("_123Topmed_Study_Accession_with_Subject_ID__", formattedName);
+    }
+
+    @Test
+    public void formatFieldName_randomGarbage_replaceWithUnderscore() {
+        PfbWriter pfbWriter = new PfbWriter(new File("target/test-result.avro"));
+        String formattedName = pfbWriter.formatFieldName("$$$my garbage @vro var!able nam#");
+        assertEquals("___my_garbage__vro_var_able_nam_", formattedName);
+    }
 }

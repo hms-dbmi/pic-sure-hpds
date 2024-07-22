@@ -73,8 +73,12 @@ public class PfbWriter implements ResultWriter {
         writeMetadata();
     }
 
-    private String formatFieldName(String s) {
-        return s.replaceAll("\\\\", "_");
+    protected String formatFieldName(String s) {
+        String formattedFieldName = s.replaceAll("\\W", "_");
+        if (Character.isDigit(formattedFieldName.charAt(0))) {
+            return "_" + formattedFieldName;
+        }
+        return formattedFieldName;
     }
 
     private void writeMetadata() {
