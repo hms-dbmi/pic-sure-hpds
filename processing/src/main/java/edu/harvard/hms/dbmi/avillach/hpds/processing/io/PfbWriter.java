@@ -7,6 +7,8 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -15,6 +17,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class PfbWriter implements ResultWriter {
+
+    private Logger log = LoggerFactory.getLogger(PfbWriter.class);
 
     private final Schema metadataSchema;
     private final Schema nodeSchema;
@@ -65,6 +69,7 @@ public class PfbWriter implements ResultWriter {
         DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(entitySchema);
         dataFileWriter = new DataFileWriter<GenericRecord>(datumWriter);
         try {
+            log.info("Creating temp avro file at " + file.getAbsoluteFile());
             dataFileWriter.create(entitySchema, file);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
