@@ -11,7 +11,6 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 public class ResultStoreStream extends InputStream {
 
 	private ResultWriter writer;
-	private File tempFile;
 	private InputStream in;
 	private int value;
 	private boolean streamIsClosed = false;
@@ -79,10 +78,10 @@ public class ResultStoreStream extends InputStream {
 
 	public void open() {
 		try {
-			in = new BufferedInputStream(new FileInputStream(tempFile.getAbsolutePath()), 1024 * 1024 * 8);
+			in = new BufferedInputStream(new FileInputStream(writer.getFile().getAbsolutePath()), 1024 * 1024 * 8);
 			streamIsClosed = false;
 		} catch (FileNotFoundException e) {
-			throw new RuntimeException("temp file for result not found : " + tempFile.getAbsolutePath());
+			throw new RuntimeException("temp file for result not found : " + writer.getFile().getAbsolutePath());
 		}
     }
 
@@ -106,7 +105,7 @@ public class ResultStoreStream extends InputStream {
 	}
 
 	public long estimatedSize() {
-		return tempFile.length();
+		return writer.getFile().length();
 	}
 
 }

@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.ResultType;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.io.CsvWriter;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.io.PfbWriter;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.io.ResultWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -136,7 +137,7 @@ public class QueryService {
 
 		ResultWriter writer;
         if (ResultType.DATAFRAME_PFB.equals(query.getExpectedResultType())) {
-            writer = new CsvWriter(File.createTempFile("result-" + query.getId(), ".avro"));
+            writer = new PfbWriter(File.createTempFile("result-" + query.getId(), ".avro"));
         } else {
             writer = new CsvWriter(File.createTempFile("result-" + System.nanoTime(), ".sstmp"));
         }

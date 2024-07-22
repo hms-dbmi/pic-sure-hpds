@@ -26,7 +26,8 @@ public class PfbWriter implements ResultWriter {
     private Schema entitySchema;
     private Schema patientDataSchema;
 
-    public PfbWriter() {
+    public PfbWriter(File tempFile) {
+        file = tempFile;
         entityFieldAssembler = SchemaBuilder.record("entity")
                 .namespace("edu.harvard.dbmi")
                 .fields();
@@ -64,7 +65,6 @@ public class PfbWriter implements ResultWriter {
         DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(entitySchema);
         dataFileWriter = new DataFileWriter<GenericRecord>(datumWriter);
         try {
-            file = File.createTempFile("result-"+ System.nanoTime(), ".avro");
             dataFileWriter.create(entitySchema, file);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -135,5 +135,10 @@ public class PfbWriter implements ResultWriter {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    @Override
+    public File getFile() {
+        return file;
     }
 }

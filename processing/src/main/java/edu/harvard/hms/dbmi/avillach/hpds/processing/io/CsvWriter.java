@@ -13,7 +13,10 @@ public class CsvWriter implements ResultWriter {
 
     private final FileWriter fileWriter;
 
+    private final File file;
+
     public CsvWriter(File file) {
+        this.file = file;
         csvWriter = new de.siegmar.fastcsv.writer.CsvWriter();
         try {
             this.fileWriter = new FileWriter(file);
@@ -39,6 +42,11 @@ public class CsvWriter implements ResultWriter {
         } catch (IOException e) {
             throw new RuntimeException("IOException while appending to CSV file", e);
         }
+    }
+
+    @Override
+    public File getFile() {
+        return file;
     }
 
     @Override
