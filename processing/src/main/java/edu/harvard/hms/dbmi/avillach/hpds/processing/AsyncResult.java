@@ -173,6 +173,7 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 
 	public AsyncResult(Query query, HpdsProcessor processor, ResultWriter writer) {
 		this.query = query;
+		this.processor = processor;
 		this.headerRow = processor.getHeaderRow(query);
 		try {
 			stream = new ResultStoreStream(headerRow, writer);
