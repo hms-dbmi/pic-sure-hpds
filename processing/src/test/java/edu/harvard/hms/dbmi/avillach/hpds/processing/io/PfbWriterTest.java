@@ -19,7 +19,7 @@ public class PfbWriterTest {
         pfbWriter.writeHeader(new String[] {"\\demographics\\age\\", "\\phs123\\stroke\\"});
         pfbWriter.writeEntity(List.of(new String[]{"80", "Y"},
                 new String[]{"70", "N"},
-                new String[]{"75", "N"}
+                new String[]{"75", null}
         ));
         pfbWriter.close();
         // todo: validate this programatically

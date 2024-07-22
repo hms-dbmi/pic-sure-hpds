@@ -52,7 +52,7 @@ public class PfbWriter implements ResultWriter {
         SchemaBuilder.FieldAssembler<Schema> patientRecords = SchemaBuilder.record("patientData")
                 .fields();
 
-        fields.forEach(patientRecords::requiredString);
+        fields.forEach(field -> patientRecords.nullableString(field, "null"));
         patientDataSchema = patientRecords.endRecord();
 
         Schema objectSchema = Schema.createUnion(metadataSchema, patientDataSchema);
