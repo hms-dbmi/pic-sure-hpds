@@ -2,6 +2,8 @@ package edu.harvard.hms.dbmi.avillach.hpds.processing.io;
 
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
+import org.apache.avro.file.Codec;
+import org.apache.avro.file.CodecFactory;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -71,6 +73,7 @@ public class PfbWriter implements ResultWriter {
         try {
             log.info("Creating temp avro file at " + file.getAbsoluteFile());
             dataFileWriter.create(entitySchema, file);
+            dataFileWriter.setCodec(CodecFactory.deflateCodec(5));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
