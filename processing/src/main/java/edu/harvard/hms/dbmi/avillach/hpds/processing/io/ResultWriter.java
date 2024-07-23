@@ -11,5 +11,5 @@ public interface ResultWriter {
 
     File getFile();
 
-    void close() throws IOException;
+    void close();
 }

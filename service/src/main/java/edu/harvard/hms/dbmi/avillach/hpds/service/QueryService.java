@@ -137,7 +137,7 @@ public class QueryService {
 
 		ResultWriter writer;
         if (ResultType.DATAFRAME_PFB.equals(query.getExpectedResultType())) {
-            writer = new PfbWriter(File.createTempFile("result-" + query.getId(), ".avro"));
+            writer = new PfbWriter(File.createTempFile("result-" + System.nanoTime(), ".avro"));
         } else {
             writer = new CsvWriter(File.createTempFile("result-" + System.nanoTime(), ".sstmp"));
         }

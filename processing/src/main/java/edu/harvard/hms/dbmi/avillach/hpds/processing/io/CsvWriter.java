@@ -3,6 +3,7 @@ package edu.harvard.hms.dbmi.avillach.hpds.processing.io;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -50,7 +51,11 @@ public class CsvWriter implements ResultWriter {
     }
 
     @Override
-    public void close() throws IOException {
-        fileWriter.close();
+    public void close() {
+        try {
+            fileWriter.close();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

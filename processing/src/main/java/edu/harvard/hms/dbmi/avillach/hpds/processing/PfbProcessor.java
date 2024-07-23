@@ -56,6 +56,7 @@ public class PfbProcessor implements HpdsProcessor {
                     }).collect(Collectors.toList());
                     result.appendResults(fieldValuesPerPatient);
                 });
+        result.closeWriter();
     }
 
     private Map<String, Map<Integer, String>> buildResult(AsyncResult result, Query query, TreeSet<Integer> ids) {

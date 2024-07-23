@@ -32,6 +32,10 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
         }
     }
 
+	public void closeWriter() {
+		stream.closeWriter();
+	}
+
 	public static enum Status{
 		SUCCESS {
 			@Override

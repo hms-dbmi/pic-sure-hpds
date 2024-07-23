@@ -108,4 +108,7 @@ public class ResultStoreStream extends InputStream {
 		return writer.getFile().length();
 	}
 
+	public void closeWriter() {
+		writer.close();
+	}
 }
