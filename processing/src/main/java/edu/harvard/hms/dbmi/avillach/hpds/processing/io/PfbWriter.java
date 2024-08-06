@@ -58,7 +58,7 @@ public class PfbWriter implements ResultWriter {
         SchemaBuilder.FieldAssembler<Schema> patientRecords = SchemaBuilder.record("patientData")
                 .fields();
 
-        fields.forEach(field -> patientRecords.nullableString(field, "null"));
+        fields.forEach(field -> patientRecords.name(field).type(SchemaBuilder.array().items(SchemaBuilder.nullable().stringType())).noDefault());
         patientDataSchema = patientRecords.endRecord();
 
         Schema objectSchema = Schema.createUnion(metadataSchema, patientDataSchema);
@@ -124,8 +124,35 @@ public class PfbWriter implements ResultWriter {
             }
             GenericRecord patientData = new GenericData.Record(patientDataSchema);
             for(int i = 0; i < fields.size(); i++) {
-                patientData.put(fields.get(i), entity[i]);
+                List<String> fieldValue = entity[i] != null ? List.of(entity[i]) : List.of();
+                patientData.put(fields.get(i), fieldValue);
             }
+
+            GenericRecord entityRecord = new GenericData.Record(entitySchema);
+            entityRecord.put("object", patientData);
+            entityRecord.put("name", "patientData");
+            entityRecord.put("id", "192035");
+
+            try {
+                dataFileWriter.append(entityRecord);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
+    }
+
+    @Override
+    public void writeMultiValueEntity(Collection<List<List<String>>> entities) {
+        entities.forEach(entity -> {
+            if (entity.size() != fields.size()) {
+                throw new IllegalArgumentException("Entity length much match the number of fields in this document");
+            }
+            GenericRecord patientData = new GenericData.Record(patientDataSchema);
+            for(int i = 0; i < fields.size(); i++) {
+                List<String> fieldValue = entity.get(i) != null ? entity.get(i) : List.of();
+                patientData.put(fields.get(i), fieldValue);
+            }
+
 
             GenericRecord entityRecord = new GenericData.Record(entitySchema);
             entityRecord.put("object", patientData);

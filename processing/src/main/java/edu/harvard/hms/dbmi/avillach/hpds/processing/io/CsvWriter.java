@@ -46,6 +46,11 @@ public class CsvWriter implements ResultWriter {
     }
 
     @Override
+    public void writeMultiValueEntity(Collection<List<List<String>>> data) {
+        throw new RuntimeException("Method not implemented");
+    }
+
+    @Override
     public File getFile() {
         return file;
     }
