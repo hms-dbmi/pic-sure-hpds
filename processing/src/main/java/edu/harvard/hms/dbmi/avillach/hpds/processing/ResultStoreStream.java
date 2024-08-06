@@ -36,13 +36,20 @@ public class ResultStoreStream extends InputStream {
 		}
 		writeResultsToTempFile(results, batchSize, entries);
 	}
-	
+
 	/**
 	 * A more compact method to append data to the temp file without making assumptions about the composition.
 	 * @param entries
 	 */
 	public void appendResults(List<String[]> entries) {
 		writer.writeEntity(entries);
+	}
+	/**
+	 * A more compact method to append data to the temp file without making assumptions about the composition.
+	 * @param entries
+	 */
+	public void appendMultiValueResults(List<List<List<String>>> entries) {
+		writer.writeMultiValueEntity(entries);
 	}
 
 	private List<String[]> writeResultsToTempFile(ResultStore results, int batchSize,

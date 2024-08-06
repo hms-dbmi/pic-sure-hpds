@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Component
 public class PfbProcessor implements HpdsProcessor {
@@ -44,23 +45,24 @@ public class PfbProcessor implements HpdsProcessor {
         log.info("Processing " + idList.size() + " rows for result " + result.getId());
         Lists.partition(new ArrayList<>(idList), ID_BATCH_SIZE).stream()
                 .forEach(patientIds -> {
-                    Map<String, Map<Integer, String>> pathToPatientToValueMap = buildResult(result, query, new TreeSet<>(patientIds));
-                    List<String[]> fieldValuesPerPatient = patientIds.stream().map(patientId -> {
-                        return Arrays.stream(getHeaderRow(query)).map(field -> {
+                    Map<String, Map<Integer, List<String>>> pathToPatientToValueMap = buildResult(result, query, new TreeSet<>(patientIds));
+                    List<List<List<String>>> fieldValuesPerPatient = patientIds.stream().map(patientId -> {
+                        List<List<String>> objectStream = Arrays.stream(getHeaderRow(query)).map(field -> {
                             if (PATIENT_ID_FIELD_NAME.equals(field)) {
-                                return patientId.toString();
+                                return List.of(patientId.toString());
                             } else {
                                 return pathToPatientToValueMap.get(field).get(patientId);
                             }
-                        }).toArray(String[]::new);
+                        }).collect(Collectors.toList());
+                        return objectStream;
                     }).collect(Collectors.toList());
-                    result.appendResults(fieldValuesPerPatient);
+                    result.appendMultiValueResults(fieldValuesPerPatient);
                 });
         result.closeWriter();
     }
 
-    private Map<String, Map<Integer, String>> buildResult(AsyncResult result, Query query, TreeSet<Integer> ids) {
-        ConcurrentHashMap<String, Map<Integer, String>> pathToPatientToValueMap = new ConcurrentHashMap<>();
+    private Map<String, Map<Integer, List<String>>> buildResult(AsyncResult result, Query query, TreeSet<Integer> ids) {
+        ConcurrentHashMap<String, Map<Integer, List<String>>> pathToPatientToValueMap = new ConcurrentHashMap<>();
         List<ColumnMeta> columns = query.getFields().stream()
                 .map(abstractProcessor.getDictionary()::get)
                 .filter(Objects::nonNull)
@@ -76,16 +78,16 @@ public class PfbProcessor implements HpdsProcessor {
         // todo: investigate if the parallel stream will thrash the cache if the number of executors is > number of resident cubes
         columnIndex.parallelStream().forEach((columnId)->{
             String columnPath = paths.get(columnId-1);
-            Map<Integer, String> patientIdToValueMap = processColumn(ids, columnPath);
+            Map<Integer, List<String>> patientIdToValueMap = processColumn(ids, columnPath);
             pathToPatientToValueMap.put(columnPath, patientIdToValueMap);
         });
 
         return pathToPatientToValueMap;
     }
 
-    private Map<Integer, String> processColumn(TreeSet<Integer> patientIds, String path) {
+    private Map<Integer, List<String>> processColumn(TreeSet<Integer> patientIds, String path) {
 
-        Map<Integer, String> patientIdToValueMap = new HashMap<>();
+        Map<Integer, List<String>> patientIdToValueMap = new HashMap<>();
         PhenoCube<?> cube = abstractProcessor.getCube(path);
 
         KeyAndValue<?>[] cubeValues = cube.sortedByKey();
@@ -98,9 +100,7 @@ public class PfbProcessor implements HpdsProcessor {
                     idPointer++;
                 } else if(key == patientId){
                     String value = getResultField(cube, cubeValues, idPointer);
-                    patientIdToValueMap.put(patientId, value);
-                    idPointer++;
-                    break;
+                    patientIdToValueMap.computeIfAbsent(patientId, k -> new ArrayList<>()).add(value);
                 } else {
                     break;
                 }

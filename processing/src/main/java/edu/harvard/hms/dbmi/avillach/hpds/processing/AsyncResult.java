@@ -189,6 +189,9 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 	public void appendResults(List<String[]> dataEntries) {
 		stream.appendResults(dataEntries);
 	}
+	public void appendMultiValueResults(List<List<List<String>>> dataEntries) {
+		stream.appendMultiValueResults(dataEntries);
+	}
 
 	public void appendResultStore(ResultStore resultStore) {
 		stream.appendResultStore(resultStore);
