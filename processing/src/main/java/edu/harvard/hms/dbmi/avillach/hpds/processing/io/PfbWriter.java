@@ -32,6 +32,8 @@ public class PfbWriter implements ResultWriter {
     private Schema entitySchema;
     private Schema patientDataSchema;
 
+    private static final Set<String> SINGULAR_FIELDS = Set.of("patient_id");
+
     public PfbWriter(File tempFile) {
         file = tempFile;
         entityFieldAssembler = SchemaBuilder.record("entity")
@@ -58,7 +60,14 @@ public class PfbWriter implements ResultWriter {
         SchemaBuilder.FieldAssembler<Schema> patientRecords = SchemaBuilder.record("patientData")
                 .fields();
 
-        fields.forEach(field -> patientRecords.name(field).type(SchemaBuilder.array().items(SchemaBuilder.nullable().stringType())).noDefault());
+        fields.forEach(field -> {
+            if (isSingularField(field)) {
+                patientRecords.nullableString(field, "null");
+            } else {
+                patientRecords.name(field).type(SchemaBuilder.array().items(SchemaBuilder.nullable().stringType())).noDefault();
+            }
+
+        });
         patientDataSchema = patientRecords.endRecord();
 
         Schema objectSchema = Schema.createUnion(metadataSchema, patientDataSchema);
@@ -79,6 +88,10 @@ public class PfbWriter implements ResultWriter {
         }
 
         writeMetadata();
+    }
+
+    private boolean isSingularField(String field) {
+        return SINGULAR_FIELDS.contains(field);
     }
 
     protected String formatFieldName(String s) {
@@ -118,27 +131,7 @@ public class PfbWriter implements ResultWriter {
 
     @Override
     public void writeEntity(Collection<String[]> entities) {
-        entities.forEach(entity -> {
-            if (entity.length != fields.size()) {
-                throw new IllegalArgumentException("Entity length much match the number of fields in this document");
-            }
-            GenericRecord patientData = new GenericData.Record(patientDataSchema);
-            for(int i = 0; i < fields.size(); i++) {
-                List<String> fieldValue = entity[i] != null ? List.of(entity[i]) : List.of();
-                patientData.put(fields.get(i), fieldValue);
-            }
-
-            GenericRecord entityRecord = new GenericData.Record(entitySchema);
-            entityRecord.put("object", patientData);
-            entityRecord.put("name", "patientData");
-            entityRecord.put("id", "192035");
-
-            try {
-                dataFileWriter.append(entityRecord);
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        });
+        throw new RuntimeException("Method not supported, use writeMultiValueEntity instead");
     }
 
     @Override
@@ -149,8 +142,13 @@ public class PfbWriter implements ResultWriter {
             }
             GenericRecord patientData = new GenericData.Record(patientDataSchema);
             for(int i = 0; i < fields.size(); i++) {
-                List<String> fieldValue = entity.get(i) != null ? entity.get(i) : List.of();
-                patientData.put(fields.get(i), fieldValue);
+                if (isSingularField(fields.get(i))) {
+                    String entityValue = (entity.get(i) != null && !entity.get(i).isEmpty()) ? entity.get(i).get(0) : "";
+                    patientData.put(fields.get(i), entityValue);
+                } else {
+                    List<String> fieldValue = entity.get(i) != null ? entity.get(i) : List.of();
+                    patientData.put(fields.get(i), fieldValue);
+                }
             }
 
 

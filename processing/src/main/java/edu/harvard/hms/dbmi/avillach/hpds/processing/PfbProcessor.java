@@ -101,6 +101,7 @@ public class PfbProcessor implements HpdsProcessor {
                 } else if(key == patientId){
                     String value = getResultField(cube, cubeValues, idPointer);
                     patientIdToValueMap.computeIfAbsent(patientId, k -> new ArrayList<>()).add(value);
+                    idPointer++;
                 } else {
                     break;
                 }

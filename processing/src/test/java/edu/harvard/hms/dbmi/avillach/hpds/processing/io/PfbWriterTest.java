@@ -16,10 +16,11 @@ public class PfbWriterTest {
     public void writeValidPFB() {
         PfbWriter pfbWriter = new PfbWriter(new File("target/test-result.avro"));
 
-        pfbWriter.writeHeader(new String[] {"\\demographics\\age\\", "\\phs123\\stroke\\"});
-        pfbWriter.writeEntity(List.of(new String[]{"80", "Y"},
-                new String[]{"70", "N"},
-                new String[]{"75", null}
+        pfbWriter.writeHeader(new String[] {"patient_id", "\\demographics\\age\\", "\\phs123\\stroke\\"});
+        pfbWriter.writeMultiValueEntity(List.of(
+                List.of(List.of("123"), List.of("80"), List.of("Y")),
+                List.of(List.of("456"), List.of("70"),List.of("N", "Y")),
+                List.of(List.of("789"), List.of("75"), List.of())
         ));
         pfbWriter.close();
         // todo: validate this programatically
