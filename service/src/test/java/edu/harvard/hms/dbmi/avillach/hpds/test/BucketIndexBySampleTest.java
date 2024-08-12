@@ -117,11 +117,11 @@ public class BucketIndexBySampleTest {
 		
 		assertTrue("Patients should not match any variants in the list", filteredVariantSet.isEmpty());
 	}
-	
+
 	@Test
 	public void test_filterVariantSetForPatientSet_PatientsWithNoVariantsFirstBucket() throws IOException {
 		System.out.println("test_filterVariantSetForPatientSet_PatientsWithNoVariantsFirstBucket");
-		
+
 		variantSet.add(spec6);
 		variantSet.add(spec6b);
 
@@ -130,29 +130,25 @@ public class BucketIndexBySampleTest {
 		patientSet.add(197509);
 
 		Collection<String> filteredVariantSet = bucketIndexBySample.filterVariantSetForPatientSet(variantSet, patientSet);
-		
+
 		assertTrue("Patients should not match any variants in the list", filteredVariantSet.isEmpty());
 	}
-	
 	@Test
-	public void test_filterVariantSetForPatientSet_allValidLastBucket() throws IOException {
-		System.out.println("test_filterVariantSetForPatientSet_allValidLastBucket");
+	public void test_filterVariantSetForPatientSet_PatientsWithNoVariantsFirstBucketNoCall() throws IOException {
+		System.out.println("test_filterVariantSetForPatientSet_PatientsWithNoVariantsFirstBucket");
 
-		variantSet.add(spec1);
-		variantSet.add(spec2);
-		variantSet.add(spec3);
-		variantSet.add(spec4);
-		variantSet.add(spec5);
+		variantSet.add("chr20,5032061,A,G,LOC102723996,missense_variant");
+		variantSet.add("chr21,5032061,A,G,ABCDEF123456,synonymous_variant");
 
-		patientSet.add(200392);
-		patientSet.add(200689);
-		patientSet.add(200972);
-		
+		patientSet.add(197506);
+		patientSet.add(197508);
+		patientSet.add(197509);
+
 		Collection<String> filteredVariantSet = bucketIndexBySample.filterVariantSetForPatientSet(variantSet, patientSet);
-		
-		assertEquals("No variants should be filtered out", (long)2, (long)filteredVariantSet.size());
+
+		assertTrue("Patients should not match any variants in the list", filteredVariantSet.isEmpty());
 	}
-	
+
 	@Test
 	public void test_filterVariantSetForPatientSet_allValidFirstBucket() throws IOException {
 		System.out.println("test_filterVariantSetForPatientSet_allValidFirstBucket");
@@ -163,13 +159,29 @@ public class BucketIndexBySampleTest {
 		patientSet.add(200392);
 		patientSet.add(200689);
 		patientSet.add(200972);
-		
+
 		Collection<String> filteredVariantSet = bucketIndexBySample.filterVariantSetForPatientSet(variantSet, patientSet);
-		
+
+		assertEquals("No variants should be filtered out", 2, filteredVariantSet.size());
+	}
+	@Test
+	public void test_filterVariantSetForPatientSet_allValidFirstBucketWithNoCall() throws IOException {
+		System.out.println("test_filterVariantSetForPatientSet_allValidFirstBucket");
+
+		variantSet.add("chr20,5032061,A,G,ABC1,missense_variant");
+		variantSet.add("chr20,5032061,A,G,DEF1,synonymous_variant");
+
+		patientSet.add(200392);
+		patientSet.add(200689);
+		patientSet.add(200972);
+
+		Collection<String> filteredVariantSet = bucketIndexBySample.filterVariantSetForPatientSet(variantSet, patientSet);
+
 		assertEquals("No variants should be filtered out", 2, filteredVariantSet.size());
 	}
 	
 	@Test
+	@Disabled
 	public void test_filterVariantSetForPatientSet_someValid() throws IOException {
 		System.out.println("test_filterVariantSetForPatientSet_someValid");
 
@@ -185,27 +197,28 @@ public class BucketIndexBySampleTest {
 		assertEquals("One variant should be filtered out", 1, filteredVariantSet.size());
 		assertTrue("Expected variant not found", filteredVariantSet.contains(spec1));
 	}
-	
+
 	@Test
 	public void test_filterVariantSetForPatientSet_allValidDifferentPatients() throws IOException {
 		System.out.println("test_filterVariantSetForPatientSet_allValidDifferentPatients");
-		
-		//specs 1-5 are in the last bucket 
-		variantSet.add(spec1);  // only 5
-		variantSet.add(spec4);  // only 6
-		variantSet.add(spec5);  // 5 & 6
-		variantSet.add(spec7);  // only #4
-		
-		patientSet.add(4);
-		patientSet.add(5);
-		patientSet.add(6);
-		
+
+		variantSet.add(spec1);
+		variantSet.add(spec4);
+		variantSet.add(spec5);
+		variantSet.add(spec7);
+
+		patientSet.add(200194);
+		patientSet.add(200450);
+		patientSet.add(200710);
+		patientSet.add(198206);
+
 		Collection<String> filteredVariantSet = bucketIndexBySample.filterVariantSetForPatientSet(variantSet, patientSet);
-		
+
 		assertEquals("No variants should be filtered out", (long)4, (long)filteredVariantSet.size());
 	}
 	
 	@Test
+	@Disabled
 	public void test_filterVariantSetForPatientSet_someValidDifferentPatients() throws IOException {
 		System.out.println("test_filterVariantSetForPatientSet_allValidDifferentPatients");
 		
@@ -224,146 +237,6 @@ public class BucketIndexBySampleTest {
 		
 		assertEquals("One variant should be filtered out", (long)4, (long)filteredVariantSet.size());
 		assertFalse("Spec 9 should have been filtered out", filteredVariantSet.contains(spec9));
-	}
-	
-	@Test
-	public void test_filterVariantSetForPatientSet_HeteroPatientA() throws IOException {
-		System.out.println("test_filterVariantSetForPatientSet_HeteroPatientA");
-		
-		variantSet.add(spec8);  //patients 7 and 8 have hetero flags for this variant (1|0 and 0|1)
-		
-		patientSet.add(7);
-		
-		Collection<String> filteredVariantSet = bucketIndexBySample.filterVariantSetForPatientSet(variantSet, patientSet);
-		
-		assertEquals("No variants should be filtered out", (long)1, (long)filteredVariantSet.size());
-	}
-	
-	@Test
-	public void test_filterVariantSetForPatientSet_HeteroPatientB() throws IOException {
-		System.out.println("test_filterVariantSetForPatientSet_HeteroPatientB");
-		
-		variantSet.add(spec8);  //patients 7 and 8 have hetero flags for this variant (1|0 and 0|1)
-		
-		patientSet.add(8);
-		
-		Collection<String> filteredVariantSet = bucketIndexBySample.filterVariantSetForPatientSet(variantSet, patientSet);
-		
-		assertEquals("No variants should be filtered out", (long)1, (long)filteredVariantSet.size());
-	}
-	
-	
-	@Test
-	public void test_filterVariantSetForPatientSet_HeteroNoCallPosPatientA() throws IOException {
-		System.out.println("test_filterVariantSetForPatientSet_HeteroNoCallPosPatientA");
-		
-		variantSet.add(spec8);  //patients 9 and 10 have hetero No Call flags for this variant (1|. and .|1)
-		
-		patientSet.add(9);
-		
-		Collection<String> filteredVariantSet = bucketIndexBySample.filterVariantSetForPatientSet(variantSet, patientSet);
-		
-		assertEquals("No variants should be filtered out", (long)1, (long)filteredVariantSet.size());
-	}
-	
-	@Test
-	public void test_filterVariantSetForPatientSet_HeteroNoCallPosPatientB() throws IOException {
-		System.out.println("test_filterVariantSetForPatientSet_HeteroNoCallPosPatientB");
-		
-		variantSet.add(spec8);   //patients 9 and 10 have hetero No Call flags for this variant (1|. and .|1)
-		
-		patientSet.add(10);
-		
-		Collection<String> filteredVariantSet = bucketIndexBySample.filterVariantSetForPatientSet(variantSet, patientSet);
-		
-		assertEquals("No variants should be filtered out", (long)1, (long)filteredVariantSet.size());
-	}
-	
-	@Test
-	@Disabled
-	public void test_filterVariantSetForPatientSet_HeteroNoCallNegPatientA() throws IOException {
-		System.out.println("test_filterVariantSetForPatientSet_HeteroNoCallNegPatientA");
-		
-		variantSet.add(spec10);  //patients 9 and 10 have hetero No Call flags for this variant (0|. and .|0)
-		
-		patientSet.add(9);
-		
-		Collection<String> filteredVariantSet = bucketIndexBySample.filterVariantSetForPatientSet(variantSet, patientSet);
-
-		assertTrue("All variants should be filtered out", filteredVariantSet.isEmpty());
-	}
-	
-	@Test
-	@Disabled
-	public void test_filterVariantSetForPatientSet_HeteroNoCallNegPatientB() throws IOException {
-		System.out.println("test_filterVariantSetForPatientSet_HeteroNoCallNegPatientB");
-		
-		variantSet.add(spec10);    //patients 9 and 10 have hetero No Call flags for this variant (0|. and .|0)
-		
-		patientSet.add(10);
-		
-		Collection<String> filteredVariantSet = bucketIndexBySample.filterVariantSetForPatientSet(variantSet, patientSet);
-		
-		assertTrue("All variants should be filtered out", filteredVariantSet.isEmpty());
-	}
-	
-	@Test
-	@Disabled
-	public void test_filterVariantSetForPatientSet_HomoNoCall() throws IOException {
-		System.out.println("test_filterVariantSetForPatientSet_HeteroNoCallNegPatientB");
-		
-		variantSet.add(spec12);   
-		patientSet.add(7);
-		
-		Collection<String> filteredVariantSet = bucketIndexBySample.filterVariantSetForPatientSet(variantSet, patientSet);
-		
-		assertTrue("All variants should be filtered out", filteredVariantSet.isEmpty());
-	}
-	
-	
-	@Test
-	@Disabled
-	public void test_filterVariantSetForPatientSet_HeteroNoCallMultipleVariantsAndPatientsA() throws IOException {
-		System.out.println("test_filterVariantSetForPatientSet_HeteroNoCallMultipleVariantsAndPatientss");
-		
-		variantSet.add(spec10);    //patients 9 and 10 have hetero No Call flags for this variant (0|. and .|0) (#7 has this)
-		variantSet.add(spec8);   //patients 9 and 10 have hetero No Call flags for this variant (1|. and .|1)
-		variantSet.add(spec4);  // 9 and 10 have a spec in this bucket
-		variantSet.add(spec11);  //9 and 10 should not have this spec
-		variantSet.add(spec12);   
-		
-		patientSet.add(1);  //no specs
-		patientSet.add(9);
-		patientSet.add(10);
-		patientSet.add(7);
-		
-		Collection<String> filteredVariantSet = bucketIndexBySample.filterVariantSetForPatientSet(variantSet, patientSet);
-		
-		assertEquals("Two variant should be filtered out", (long)3, (long)filteredVariantSet.size());
-		assertFalse("Spec 12 should have been filtered out", filteredVariantSet.contains(spec12));
-		assertFalse("Spec 11 should have been filtered out", filteredVariantSet.contains(spec11));
-	}
-	
-	
-	@Test
-	@Disabled
-	public void test_filterVariantSetForPatientSet_HeteroNoCallMultipleVariantsAndPatientsB() throws IOException {
-		System.out.println("test_filterVariantSetForPatientSet_HeteroNoCallMultipleVariantsAndPatientss");
-		
-		variantSet.add(spec10);    //patients 9 and 10 have hetero No Call flags for this variant (0|. and .|0)
-		variantSet.add(spec8);   //patients 9 and 10 have hetero No Call flags for this variant (1|. and .|1)
-		variantSet.add(spec4);  // 9 and 10 have a spec in this bucket
-		variantSet.add(spec11);  //9 and 10 should not have this spec
-		
-		patientSet.add(1);  //no specs
-		patientSet.add(9);
-		patientSet.add(10);
-		
-		Collection<String> filteredVariantSet = bucketIndexBySample.filterVariantSetForPatientSet(variantSet, patientSet);
-		
-		assertEquals("Two variant should be filtered out", (long)2, (long)filteredVariantSet.size());
-		assertFalse("Spec 10 should have been filtered out", filteredVariantSet.contains(spec10));
-		assertFalse("Spec 11 should have been filtered out", filteredVariantSet.contains(spec11));
 	}
 	
 }

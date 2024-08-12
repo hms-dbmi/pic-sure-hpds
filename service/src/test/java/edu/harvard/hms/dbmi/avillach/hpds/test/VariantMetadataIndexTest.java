@@ -3,6 +3,7 @@ package edu.harvard.hms.dbmi.avillach.hpds.test;
 import java.io.*;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.zip.GZIPInputStream;
 
@@ -49,38 +50,38 @@ public class VariantMetadataIndexTest {
 	@Test
 	public void findByMultipleVariantSpec_invalidSpec() {
 		List<String> variants = List.of("chr21,5032061,A,G,NOTAGENE,missense_variant");
-		Map<String,String[]> expectedResult = Map.of();
-		Map<String, String[]>[] data = new Map[] {vmi.findByMultipleVariantSpec(variants)};
+		Map<String,Set<String>> expectedResult = Map.of();
+		Map<String, Set<String>> data = vmi.findByMultipleVariantSpec(variants);
 
-		assertEquals("Wrong number of records in response.", 1, data[0].size());
-		assertEquals("The expected values were not found.", new String[]{}, data[0].get("chr21,5032061,A,G,NOTAGENE,missense_variant"));
+		assertEquals("Wrong number of records in response.", 1, data.size());
+		assertEquals("The expected values were not found.", Set.of(), data.get("chr21,5032061,A,G,NOTAGENE,missense_variant"));
 	}
 	@Test
 	public void findByMultipleVariantSpec_validSpec() {
 		List<String> variants = List.of("chr21,5032061,A,G,LOC102723996,missense_variant");
-		Map<String,String[]> expectedResult = Map.of(
+		Map<String,Set<String>> expectedResult = Map.of(
 				"chr21,5032061,A,G,LOC102723996,missense_variant"
-				, new String[]{"Gene_with_variant=LOC102723996;Variant_severity=MODERATE;Variant_consequence_calculated=missense_variant;Variant_class=SNV;Variant_frequency_in_gnomAD=0.0001346;Variant_frequency_as_text=Rare"});
-		Map<String, String[]>[] data = new Map[] {vmi.findByMultipleVariantSpec(variants)};
+				, Set.of("Gene_with_variant=LOC102723996;Variant_severity=MODERATE;Variant_consequence_calculated=missense_variant;Variant_class=SNV;Variant_frequency_in_gnomAD=0.0001346;Variant_frequency_as_text=Rare"));
+		Map<String, Set<String>> data = vmi.findByMultipleVariantSpec(variants);
 
-		assertEquals("Wrong number of records in response.", data[0].size(), 1);
+		assertEquals("Wrong number of records in response.", data.size(), 1);
 		variants.stream().forEach(variant->{
-			assertEquals("The expected values were not found.", expectedResult.get(variant), data[0].get(variant));
+			assertEquals("The expected values were not found.", expectedResult.get(variant), data.get(variant));
 		});
 	}
 	@Test
 	public void findByMultipleVariantSpec_validSpecs() {
 		List<String> variants = List.of("chr21,5032061,A,G,LOC102723996,missense_variant", "chr21,5033914,A,G,LOC102723996,missense_variant");
-		Map<String,String[]> expectedResult = Map.of(
+		Map<String, Set<String>> expectedResult = Map.of(
 				"chr21,5032061,A,G,LOC102723996,missense_variant"
-				, new String[]{"Gene_with_variant=LOC102723996;Variant_severity=MODERATE;Variant_consequence_calculated=missense_variant;Variant_class=SNV;Variant_frequency_in_gnomAD=0.0001346;Variant_frequency_as_text=Rare"}
+				, Set.of("Gene_with_variant=LOC102723996;Variant_severity=MODERATE;Variant_consequence_calculated=missense_variant;Variant_class=SNV;Variant_frequency_in_gnomAD=0.0001346;Variant_frequency_as_text=Rare")
 				,"chr21,5033914,A,G,LOC102723996,missense_variant"
-				,new String[]{"Gene_with_variant=LOC102723996;Variant_severity=MODERATE;Variant_consequence_calculated=missense_variant;Variant_class=SNV;Variant_frequency_in_gnomAD=0.0009728;Variant_frequency_as_text=Rare"});
-		Map<String, String[]>[] data = new Map[] {vmi.findByMultipleVariantSpec(variants)};
+				, Set.of("Gene_with_variant=LOC102723996;Variant_severity=MODERATE;Variant_consequence_calculated=missense_variant;Variant_class=SNV;Variant_frequency_in_gnomAD=0.0009728;Variant_frequency_as_text=Rare"));
+		Map<String, Set<String>> data = vmi.findByMultipleVariantSpec(variants);
 
-		assertEquals("Wrong number of records in response.", data[0].size(), 2);
+		assertEquals("Wrong number of records in response.", data.size(), 2);
 		variants.stream().forEach(variant->{
-			assertEquals("The expected values were not found.", expectedResult.get(variant), data[0].get(variant));
+			assertEquals("The expected values were not found.", expectedResult.get(variant), data.get(variant));
 		});
 	}
 	
@@ -88,42 +89,42 @@ public class VariantMetadataIndexTest {
 	public void testMultipleVariantSpecSamePOS() {
 		
 		List<String> variants = List.of(spec1, spec4);
-		Map<String,String[]> expectedResult = Map.of(
-				spec1, new String[]{spec1Info},
-				spec4, new String[]{spec4Info});
-		Map<String, String[]>[] data = new Map[] {vmi.findByMultipleVariantSpec(variants)}; 
+		Map<String,Set<String>> expectedResult = Map.of(
+				spec1, Set.of(spec1Info),
+				spec4, Set.of(spec4Info));
+		Map<String, Set<String>> data = vmi.findByMultipleVariantSpec(variants);
 		
-		assertEquals("Wrong number of records in response.", data[0].size(), 2);
+		assertEquals("Wrong number of records in response.", data.size(), 2);
 		variants.stream().forEach(variant->{
-			assertEquals("The expected values were not found.", expectedResult.get(variant), data[0].get(variant));
+			assertEquals("The expected values were not found.", expectedResult.get(variant), data.get(variant));
 		});
 	}
 	
 	@Test
 	public void testMultipleVariantSpecSamePOSAndREF() {
 		List<String> variants = List.of(spec1, spec5);
-		Map<String,String[]> expectedResult = Map.of(
-				spec1, new String[]{spec1Info},
-				spec5, new String[]{spec5Info});
-		Map<String, String[]>[] data = new Map[] {vmi.findByMultipleVariantSpec(variants)}; 
+		Map<String,Set<String>> expectedResult = Map.of(
+				spec1, Set.of(spec1Info),
+				spec5, Set.of(spec5Info));
+		Map<String, Set<String>> data = vmi.findByMultipleVariantSpec(variants);
 		
-		assertEquals("Wrong number of records in response.", data[0].size(), 2);
+		assertEquals("Wrong number of records in response.", data.size(), 2);
 		variants.stream().forEach(variant->{
-			assertEquals("The expected values were not found.", expectedResult.get(variant), data[0].get(variant));
+			assertEquals("The expected values were not found.", expectedResult.get(variant), data.get(variant));
 		});
 	}
 	
 	@Test
 	public void testMultipleVariantSpecSamePOSAndALT() {
 		List<String> variants = List.of(spec1, spec2);
-		Map<String,String[]> expectedResult = Map.of(
-				spec1, new String[]{spec1Info},
-				spec2, new String[]{spec2Info});
-		Map<String, String[]>[] data = new Map[] {vmi.findByMultipleVariantSpec(variants)}; 
+		Map<String,Set<String>> expectedResult = Map.of(
+				spec1, Set.of(spec1Info),
+				spec2, Set.of(spec2Info));
+		Map<String, Set<String>> data = vmi.findByMultipleVariantSpec(variants);
 		
-		assertEquals("Wrong number of records in response.", data[0].size(), 2);
+		assertEquals("Wrong number of records in response.", data.size(), 2);
 		variants.stream().forEach(variant->{
-			assertEquals("The expected values were not found.", expectedResult.get(variant), data[0].get(variant));
+			assertEquals("The expected values were not found.", expectedResult.get(variant), data.get(variant));
 		});
 	}
 	
@@ -134,13 +135,13 @@ public class VariantMetadataIndexTest {
 	public void testMultipleVariantSpecSameSpec() {
 		assertThrows(IllegalStateException.class, () -> {
 			List<String> variants = List.of(spec1, spec1);
-			Map<String,String[]> expectedResult = Map.of(
-					spec1, new String[]{spec1Info});
-			Map<String, String[]>[] data = new Map[] {vmi.findByMultipleVariantSpec(variants)};
+			Map<String, Set<String>> expectedResult = Map.of(
+					spec1, Set.of(spec1Info));
+			Map<String, Set<String>> data = vmi.findByMultipleVariantSpec(variants);
 
-			assertEquals("Wrong number of records in response.", data[0].size(), 1);
+			assertEquals("Wrong number of records in response.", data.size(), 1);
 			variants.stream().forEach(variant->{
-				assertEquals("The expected values were not found.", expectedResult.get(variant), data[0].get(variant));
+				assertEquals("The expected values were not found.", expectedResult.get(variant), data.get(variant));
 			});
 		});
 	}

@@ -19,7 +19,6 @@ public enum BuildIntegrationTestEnvironment {
     public String binFile = "target/VariantMetadata.javabin";
 
     BuildIntegrationTestEnvironment() {
-        System.out.println("HELLO WORLD");
         try {
             NewVCFLoader.main(new String[] {VCF_INDEX_FILE, STORAGE_DIR, MERGED_DIR});
             CSVLoader.main(new String[] {PHENOTYPIC_DATA_DIRECTORY});

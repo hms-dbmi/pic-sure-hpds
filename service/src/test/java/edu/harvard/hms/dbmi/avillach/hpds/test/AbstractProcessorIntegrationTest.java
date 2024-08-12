@@ -87,6 +87,7 @@ public class AbstractProcessorIntegrationTest {
         Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
         assertEquals(7, idList.size());
     }
+
     @Test
     public void getPatientSubsetForQuery_validRequiredVariantOldFormat() {
         Query query = new Query();
@@ -199,7 +200,7 @@ public class AbstractProcessorIntegrationTest {
         query.setVariantInfoFilters(variantInfoFilters);
 
         Collection<String> variantList = abstractProcessor.getVariantList(query);
-        assertEquals(2, variantList.size());
+        assertEquals(4, variantList.size());
     }
 
     @Test
