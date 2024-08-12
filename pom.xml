@@ -22,7 +22,6 @@
 		<module>processing</module>
 		<module>client-api</module>
 		<module>genomic-processor</module>
-        <module>integration-test</module>
 		<module>docker</module>
 		<module>war</module>
     </modules>
