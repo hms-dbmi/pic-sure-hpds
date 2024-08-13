@@ -20,7 +20,7 @@ public class PfbWriterTest {
         pfbWriter.writeMultiValueEntity(List.of(
                 List.of(List.of("123"), List.of("80"), List.of("Y")),
                 List.of(List.of("456"), List.of("70"),List.of("N", "Y")),
-                List.of(List.of("789"), List.of("75"), List.of())
+                List.of(List.of(), List.of("75"), List.of())
         ));
         pfbWriter.close();
         // todo: validate this programatically

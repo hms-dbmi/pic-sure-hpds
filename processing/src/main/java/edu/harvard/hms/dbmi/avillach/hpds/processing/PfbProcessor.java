@@ -73,7 +73,6 @@ public class PfbProcessor implements HpdsProcessor {
         int columnCount = paths.size() + 1;
 
         ArrayList<Integer> columnIndex = abstractProcessor.useResidentCubesFirst(paths, columnCount);
-        ResultStore results = new ResultStore(result.getId(), columns, ids);
 
         // todo: investigate if the parallel stream will thrash the cache if the number of executors is > number of resident cubes
         columnIndex.parallelStream().forEach((columnId)->{
