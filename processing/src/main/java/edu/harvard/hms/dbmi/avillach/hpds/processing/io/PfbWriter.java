@@ -94,6 +94,10 @@ public class PfbWriter implements ResultWriter {
         return SINGULAR_FIELDS.contains(field);
     }
 
+    /**
+     * Transforms our variable names to once that are valid avro fields. We replace invalid characters with underscores
+     * and add a leading underscore if the variable starts with a number
+     */
     protected String formatFieldName(String s) {
         String formattedFieldName = s.replaceAll("\\W", "_");
         if (Character.isDigit(formattedFieldName.charAt(0))) {
@@ -141,7 +145,11 @@ public class PfbWriter implements ResultWriter {
                 throw new IllegalArgumentException("Entity length much match the number of fields in this document");
             }
             GenericRecord patientData = new GenericData.Record(patientDataSchema);
+            String patientId = "";
             for(int i = 0; i < fields.size(); i++) {
+                if ("patient_id".equals(fields.get(i))) {
+                    patientId = (entity.get(i) != null && !entity.get(i).isEmpty()) ? entity.get(i).get(0) : "";
+                }
                 if (isSingularField(fields.get(i))) {
                     String entityValue = (entity.get(i) != null && !entity.get(i).isEmpty()) ? entity.get(i).get(0) : "";
                     patientData.put(fields.get(i), entityValue);
@@ -155,7 +163,7 @@ public class PfbWriter implements ResultWriter {
             GenericRecord entityRecord = new GenericData.Record(entitySchema);
             entityRecord.put("object", patientData);
             entityRecord.put("name", "patientData");
-            entityRecord.put("id", "192035");
+            entityRecord.put("id", patientId);
 
             try {
                 dataFileWriter.append(entityRecord);

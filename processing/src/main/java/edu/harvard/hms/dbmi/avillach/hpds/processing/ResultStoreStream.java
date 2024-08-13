@@ -45,8 +45,7 @@ public class ResultStoreStream extends InputStream {
 		writer.writeEntity(entries);
 	}
 	/**
-	 * A more compact method to append data to the temp file without making assumptions about the composition.
-	 * @param entries
+	 * Appending data to the writer that supports multiple values per patient/variable combination
 	 */
 	public void appendMultiValueResults(List<List<List<String>>> entries) {
 		writer.writeMultiValueEntity(entries);
