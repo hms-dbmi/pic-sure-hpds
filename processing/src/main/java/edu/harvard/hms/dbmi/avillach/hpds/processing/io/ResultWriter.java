@@ -1,5 +1,7 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing.io;
 
+import org.springframework.http.MediaType;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
@@ -12,6 +14,8 @@ public interface ResultWriter {
     void writeMultiValueEntity(Collection<List<List<String>>> data);
 
     File getFile();
+
+    MediaType getResponseType();
 
     void close();
 }

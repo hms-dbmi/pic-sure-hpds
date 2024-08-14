@@ -13,6 +13,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.service.util.Paginator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -229,8 +230,8 @@ public class PicSureService {
 		if (result.getStatus() == AsyncResult.Status.SUCCESS) {
 			result.open();
 			return ResponseEntity.ok()
-					.contentType(MediaType.TEXT_PLAIN)
-					.body(result.readAllBytes());
+					.contentType(result.getResponseType())
+					.body(new InputStreamResource(result.getStream()));
 		} else {
 			return ResponseEntity.status(400).body("Status : " + result.getStatus().name());
 		}

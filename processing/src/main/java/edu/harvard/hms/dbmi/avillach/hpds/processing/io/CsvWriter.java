@@ -1,5 +1,7 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing.io;
 
+import org.springframework.http.MediaType;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -53,6 +55,11 @@ public class CsvWriter implements ResultWriter {
     @Override
     public File getFile() {
         return file;
+    }
+
+    @Override
+    public MediaType getResponseType() {
+        return MediaType.TEXT_PLAIN;
     }
 
     @Override

@@ -11,6 +11,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
 
 import java.io.File;
 import java.io.IOException;
@@ -185,5 +186,10 @@ public class PfbWriter implements ResultWriter {
     @Override
     public File getFile() {
         return file;
+    }
+
+    @Override
+    public MediaType getResponseType() {
+        return MediaType.APPLICATION_OCTET_STREAM;
     }
 }

@@ -19,6 +19,7 @@ import edu.harvard.dbmi.avillach.util.PicSureStatus;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.ResultType;
 import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
+import org.springframework.http.MediaType;
 
 public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 	
@@ -34,6 +35,12 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 
 	public void closeWriter() {
 		stream.closeWriter();
+	}
+
+	private MediaType responseType;
+
+	public MediaType getResponseType() {
+		return responseType;
 	}
 
 	public static enum Status{
@@ -179,6 +186,7 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
 		this.query = query;
 		this.processor = processor;
 		this.headerRow = processor.getHeaderRow(query);
+		this.responseType = writer.getResponseType();
 		try {
 			stream = new ResultStoreStream(headerRow, writer);
 		} catch (IOException e) {

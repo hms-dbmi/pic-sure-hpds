@@ -24,7 +24,7 @@ public class PfbWriterTest {
         nullableList.add(List.of("Y"));
         pfbWriter.writeMultiValueEntity(List.of(
                 nullableList,
-                List.of(List.of("456"), null ,List.of("N", "Y")),
+                List.of(List.of("456"), List.of("80") ,List.of("N", "Y")),
                 List.of(List.of(), List.of("75"), List.of())
         ));
         pfbWriter.writeMultiValueEntity(List.of(
