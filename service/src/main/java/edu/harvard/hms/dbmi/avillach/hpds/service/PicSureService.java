@@ -230,7 +230,7 @@ public class PicSureService {
 			result.open();
 			return ResponseEntity.ok()
 					.contentType(MediaType.TEXT_PLAIN)
-					.body(new String(result.readAllBytes(), StandardCharsets.UTF_8));
+					.body(result.readAllBytes());
 		} else {
 			return ResponseEntity.status(400).body("Status : " + result.getStatus().name());
 		}
