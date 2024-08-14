@@ -209,7 +209,7 @@ public class PicSureService {
 		return status;
 	}
 
-	@PostMapping(value = "/query/{resourceQueryId}/result", produces = MediaType.TEXT_PLAIN_VALUE)
+	@PostMapping(value = "/query/{resourceQueryId}/result")
 	public ResponseEntity queryResult(@PathVariable("resourceQueryId") UUID queryId, @RequestBody QueryRequest resultRequest) throws IOException {
 		AsyncResult result = queryService.getResultFor(queryId.toString());
 		if (result == null) {
