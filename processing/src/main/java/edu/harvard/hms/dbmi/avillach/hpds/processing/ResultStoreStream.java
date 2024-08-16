@@ -84,7 +84,7 @@ public class ResultStoreStream extends InputStream {
 
 	public void open() {
 		try {
-			in = new FileInputStream(writer.getFile().getAbsolutePath());
+			in = new BufferedInputStream(new FileInputStream(writer.getFile().getAbsolutePath()), 1024 * 1024 * 8);
 			streamIsClosed = false;
 		} catch (FileNotFoundException e) {
 			throw new RuntimeException("temp file for result not found : " + writer.getFile().getAbsolutePath());
