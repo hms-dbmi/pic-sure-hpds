@@ -91,7 +91,7 @@ public class ObservationDistanceProcessor implements HpdsProcessor {
                     .sorted((a, b) -> -Long.compare(b.distance(), a.distance()))
                     .peek(j -> recordedJourneys.add(j.patient))
                     .limit(100)
-                    .forEach(journey -> write(tmpPath, journey));
+                    .forEach(journey -> write(Path.of(tmpPath), journey));
                 LOG.info("Done creating user journeys for concept {} to {}", concept, tmpPath);
             }
         } catch (IOException e) {
