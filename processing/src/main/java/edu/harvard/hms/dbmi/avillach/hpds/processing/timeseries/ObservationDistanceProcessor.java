@@ -7,11 +7,13 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.AbstractProcessor;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.AsyncResult;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.HpdsProcessor;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.Files;
@@ -69,22 +71,32 @@ public class ObservationDistanceProcessor implements HpdsProcessor {
 
     @Override
     public void runQuery(Query query, AsyncResult asyncResult) {
-        Set<Integer> recordedJourneys = new HashSet<>();
-        for (String concept : query.getAnyRecordOf()) {
-            LOG.info("Creating user journeys for concept {}", concept);
-            Optional<PhenoCube<?>> maybeCube = abstractProcessor.nullableGetCube(concept);
-            if (maybeCube.isEmpty()) {
-                continue;
+
+    }
+
+    public void writeJourney(Query query) {
+        try {
+            String tmpPath = File.createTempFile(System.nanoTime() + "journey", ".tsv").getAbsolutePath();
+            Set<Integer> recordedJourneys = new HashSet<>();
+            for (String concept : query.getAnyRecordOf()) {
+                LOG.info("Creating user journeys for concept {}", concept);
+                Optional<PhenoCube<?>> maybeCube = abstractProcessor.nullableGetCube(concept);
+                if (maybeCube.isEmpty()) {
+                    continue;
+                }
+                maybeCube.get().keyBasedIndex().stream()
+                    .filter(Predicate.not(recordedJourneys::contains))
+                    .map(id -> new PatientJourney(concept, id))
+                    .map(this::updateJourney)
+                    .sorted((a, b) -> -Long.compare(b.distance(), a.distance()))
+                    .peek(j -> recordedJourneys.add(j.patient))
+                    .limit(100)
+                    .forEach(journey -> write(tmpPath, journey));
+                LOG.info("Done creating user journeys for concept {} to {}", concept, tmpPath);
             }
-            maybeCube.get().keyBasedIndex().stream()
-                .filter(Predicate.not(recordedJourneys::contains))
-                .map(id -> new PatientJourney(concept, id))
-                .map(this::updateJourney)
-                .sorted((a, b) -> -Long.compare(b.distance(), a.distance()))
-                .peek(j -> recordedJourneys.add(j.patient))
-                .limit(100)
-                .forEach(journey -> write(asyncResult.getTempFilePath(), journey));
-            LOG.info("Done creating user journeys for concept {} to {}", concept, asyncResult.getTempFilePath());
+        } catch (IOException e) {
+            LOG.error("Can't create temp file", e);
+            return;
         }
     }
 

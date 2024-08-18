@@ -12,6 +12,7 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.ResultType;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.timeseries.ObservationDistanceProcessor;
 import edu.harvard.hms.dbmi.avillach.hpds.service.filesharing.FileSharingService;
 import edu.harvard.hms.dbmi.avillach.hpds.service.util.Paginator;
 import edu.harvard.hms.dbmi.avillach.hpds.service.util.QueryDecorator;
@@ -46,7 +47,8 @@ public class PicSureService implements IResourceRS {
 	@Autowired
 	public PicSureService(QueryService queryService, TimelineProcessor timelineProcessor, CountProcessor countProcessor,
 						  VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor,
-						  Paginator paginator, FileSharingService fileSystemService, QueryDecorator queryDecorator
+						  Paginator paginator, FileSharingService fileSystemService, QueryDecorator queryDecorator,
+						  ObservationDistanceProcessor observationDistanceProcessor
 	) {
 		this.queryService = queryService;
 		this.timelineProcessor = timelineProcessor;
@@ -56,6 +58,7 @@ public class PicSureService implements IResourceRS {
 		this.paginator = paginator;
 		this.fileSystemService = fileSystemService;
 		this.queryDecorator = queryDecorator;
+		this.observationDistanceProcessor = observationDistanceProcessor;
 		Crypto.loadDefaultKey();
 	}
 
@@ -78,6 +81,7 @@ public class PicSureService implements IResourceRS {
 	private final FileSharingService fileSystemService;
 
 	private final QueryDecorator queryDecorator;
+	private final ObservationDistanceProcessor observationDistanceProcessor;
 
 	private static final String QUERY_METADATA_FIELD = "queryMetadata";
 	private static final int RESPONSE_CACHE_SIZE = 50;
@@ -275,6 +279,11 @@ public class PicSureService implements IResourceRS {
 	public Response writeQueryResult(
 		@RequestBody() Query query, @PathParam("dataType") String datatype
 	) {
+		log.info("Writing {}", datatype);
+		if ("journey".equals(datatype)) {
+			observationDistanceProcessor.writeJourney(query);
+			return Response.status(400, "good luck!").build();
+		}
 		if (roundTripUUID(query.getPicSureId()).map(id -> !id.equalsIgnoreCase(query.getPicSureId())).orElse(false)) {
 			return Response
 				.status(400, "The query pic-sure ID is not a UUID")
