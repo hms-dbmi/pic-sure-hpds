@@ -1,6 +1,7 @@
 package edu.harvard.hms.dbmi.avillach.hpds.service;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -9,6 +10,7 @@ import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.InfoColumnMeta;
+import edu.harvard.hms.dbmi.avillach.hpds.data.upload.SignUrlService;
 import edu.harvard.hms.dbmi.avillach.hpds.service.util.Paginator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,13 +43,15 @@ public class PicSureService {
 
 	@Autowired
 	public PicSureService(QueryService queryService, TimelineProcessor timelineProcessor, CountProcessor countProcessor,
-						  VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor, Paginator paginator) {
+						  VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor, Paginator paginator,
+						  SignUrlService signUrlService) {
 		this.queryService = queryService;
 		this.timelineProcessor = timelineProcessor;
 		this.countProcessor = countProcessor;
 		this.variantListProcessor = variantListProcessor;
 		this.abstractProcessor = abstractProcessor;
 		this.paginator = paginator;
+		this.signUrlService = signUrlService;
 		Crypto.loadDefaultKey();
 	}
 
@@ -66,6 +70,8 @@ public class PicSureService {
 	private final AbstractProcessor abstractProcessor;
 
 	private final Paginator paginator;
+
+	private final SignUrlService signUrlService;
 
 	private static final String QUERY_METADATA_FIELD = "queryMetadata";
 	private static final int RESPONSE_CACHE_SIZE = 50;
@@ -232,6 +238,36 @@ public class PicSureService {
 			return ResponseEntity.ok()
 					.contentType(result.getResponseType())
 					.body(new InputStreamResource(result.getStream()));
+		} else {
+			return ResponseEntity.status(400).body("Status : " + result.getStatus().name());
+		}
+	}
+
+	@PostMapping(value = "/query/{resourceQueryId}/signed-url")
+	public ResponseEntity querySignedURL(@PathVariable("resourceQueryId") UUID queryId, @RequestBody QueryRequest resultRequest) throws IOException {
+		AsyncResult result = queryService.getResultFor(queryId.toString());
+		if (result == null) {
+			// This happens sometimes when users immediately request the status for a query
+			// before it can be initialized. We wait a bit and try again before throwing an
+			// error.
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				return ResponseEntity.status(500).build();
+			}
+
+			result = queryService.getResultFor(queryId.toString());
+			if (result == null) {
+				return ResponseEntity.status(404).build();
+			}
+		}
+		if (result.getStatus() == AsyncResult.Status.SUCCESS) {
+			File file = result.getFile();
+			signUrlService.uploadFile(file, "ramari-testing", file.getName());
+			String presignedGetUrl = signUrlService.createPresignedGetUrl("ramari-testing", file.getName());
+			return ResponseEntity.ok()
+					.contentType(result.getResponseType())
+					.body(presignedGetUrl);
 		} else {
 			return ResponseEntity.status(400).body("Status : " + result.getStatus().name());
 		}

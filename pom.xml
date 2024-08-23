@@ -28,6 +28,7 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<dockerfile-maven-version>1.4.10</dockerfile-maven-version>
+		<aws.version>2.20.153</aws.version>
 	</properties>
 	<repositories>
 		<repository>
@@ -320,7 +321,18 @@
 				<artifactId>snappy-java</artifactId>
 				<version>1.1.10.5</version>
 			</dependency>
-
+			<dependency>
+				<groupId>software.amazon.awssdk</groupId>
+				<artifactId>s3</artifactId>
+				<version>${aws.version}</version>
+				<exclusions>
+					<!--Spring boot will complain about this dep on startup. It's not needed (we use SLF4J + Logback)-->
+					<exclusion>
+						<groupId>commons-logging</groupId>
+						<artifactId>commons-logging</artifactId>
+					</exclusion>
+				</exclusions>
+			</dependency>
 
 		</dependencies>
 	</dependencyManagement>
