@@ -265,8 +265,9 @@ public class PicSureService {
 			File file = result.getFile();
 			signUrlService.uploadFile(file, "ramari-testing", file.getName());
 			String presignedGetUrl = signUrlService.createPresignedGetUrl("ramari-testing", file.getName());
+			log.info("Presigned url: " + presignedGetUrl);
 			return ResponseEntity.ok()
-					.contentType(result.getResponseType())
+					.contentType(MediaType.TEXT_PLAIN)
 					.body(presignedGetUrl);
 		} else {
 			return ResponseEntity.status(400).body("Status : " + result.getStatus().name());
