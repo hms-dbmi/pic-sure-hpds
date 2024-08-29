@@ -263,8 +263,8 @@ public class PicSureService {
 		}
 		if (result.getStatus() == AsyncResult.Status.SUCCESS) {
 			File file = result.getFile();
-			signUrlService.uploadFile(file, "ramari-testing", file.getName());
-			String presignedGetUrl = signUrlService.createPresignedGetUrl("ramari-testing", file.getName());
+			signUrlService.uploadFile(file, file.getName());
+			String presignedGetUrl = signUrlService.createPresignedGetUrl(file.getName());
 			log.info("Presigned url: " + presignedGetUrl);
 			return ResponseEntity.ok()
 					.contentType(MediaType.TEXT_PLAIN)

@@ -2,6 +2,8 @@ package edu.harvard.hms.dbmi.avillach.hpds.data.upload;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
@@ -20,18 +22,24 @@ import java.util.Map;
 @Component
 public class SignUrlService {
 
+    private final String bucketName;
+    private final int signedUrlExpiryMinutes;
+    private final Region region;
+
     private static Logger log = LoggerFactory.getLogger(SignUrlService.class);
 
-    public static void main(String[] args) {
-        SignUrlService signUrlService = new SignUrlService();
-
-        signUrlService.uploadFile(new File("/Users/ryan/Downloads/test.txt"), "ramari-testing", "test2.txt");
-        String presignedGetUrl = signUrlService.createPresignedGetUrl("ramari-testing", "test2.txt");
-        log.info(presignedGetUrl);
+    @Autowired
+    public SignUrlService(
+            @Value("${data-export.s3.bucket-name}") String bucketName,
+            @Value("${data-export.s3.region}") String region,
+            @Value("${data-export.s3.signedUrl-expiry-minutes:60}") int signedUrlExpiryMinutes
+    ) {
+        this.bucketName = bucketName;
+        this.signedUrlExpiryMinutes = signedUrlExpiryMinutes;
+        this.region = Region.of(region);
     }
 
-    public void uploadFile(File file, String bucketName, String objectKey) {
-        Region region = Region.US_EAST_1;
+    public void uploadFile(File file, String objectKey) {
         S3Client s3 = S3Client.builder()
                 .region(region)
                 .build();
@@ -54,19 +62,21 @@ public class SignUrlService {
         log.info("Successfully placed " + objectKey + " into bucket " + bucketName);
     }
 
-    public String createPresignedGetUrl(String bucketName, String keyName) {
-        S3Presigner presigner = S3Presigner.builder().region(Region.US_EAST_1).build();
-        GetObjectRequest objectRequest = GetObjectRequest.builder()
-                .bucket(bucketName)
-                .key(keyName)
-                .build();
+    public String createPresignedGetUrl(String keyName) {
+        PresignedGetObjectRequest presignedRequest;
+        try (S3Presigner presigner = S3Presigner.builder().region(region).build()) {
+            GetObjectRequest objectRequest = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(keyName)
+                    .build();
 
-        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofMinutes(10))  // The URL will expire in 10 minutes.
-                .getObjectRequest(objectRequest)
-                .build();
+            GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                    .signatureDuration(Duration.ofMinutes(signedUrlExpiryMinutes))  // The URL will expire in 10 minutes.
+                    .getObjectRequest(objectRequest)
+                    .build();
 
-        PresignedGetObjectRequest presignedRequest = presigner.presignGetObject(presignRequest);
+            presignedRequest = presigner.presignGetObject(presignRequest);
+        }
         log.info("Presigned URL: [{}]", presignedRequest.url().toString());
 
         return presignedRequest.url().toExternalForm();
