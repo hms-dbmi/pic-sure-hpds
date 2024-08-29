@@ -1,16 +1,14 @@
 package edu.harvard.hms.dbmi.avillach.hpds.service;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.InfoColumnMeta;
-import edu.harvard.hms.dbmi.avillach.hpds.data.upload.SignUrlService;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.upload.SignUrlService;
 import edu.harvard.hms.dbmi.avillach.hpds.service.util.Paginator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +28,6 @@ import com.google.common.collect.ImmutableMap;
 import edu.harvard.dbmi.avillach.domain.*;
 import edu.harvard.dbmi.avillach.util.UUIDv5;
 import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.FileBackedByteIndexedInfoStore;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.*;
@@ -267,8 +264,8 @@ public class PicSureService {
 			String presignedGetUrl = signUrlService.createPresignedGetUrl(file.getName());
 			log.info("Presigned url: " + presignedGetUrl);
 			return ResponseEntity.ok()
-					.contentType(MediaType.TEXT_PLAIN)
-					.body(presignedGetUrl);
+					.contentType(MediaType.APPLICATION_JSON)
+					.body(new SignedUrlResponse(presignedGetUrl));
 		} else {
 			return ResponseEntity.status(400).body("Status : " + result.getStatus().name());
 		}
