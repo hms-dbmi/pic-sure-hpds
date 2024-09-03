@@ -30,8 +30,8 @@ public class SignUrlService {
 
     @Autowired
     public SignUrlService(
-            @Value("${data-export.s3.bucket-name}") String bucketName,
-            @Value("${data-export.s3.region}") String region,
+            @Value("${data-export.s3.bucket-name:}") String bucketName,
+            @Value("${data-export.s3.region:us-east-1}") String region,
             @Value("${data-export.s3.signedUrl-expiry-minutes:60}") int signedUrlExpiryMinutes
     ) {
         this.bucketName = bucketName;
