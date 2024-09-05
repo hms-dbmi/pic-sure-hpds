@@ -36,6 +36,7 @@ public class PfbWriter implements ResultWriter {
     private File file;
     private Schema entitySchema;
     private Schema patientDataSchema;
+    private Schema relationSchema;
 
     private static final Set<String> SINGULAR_FIELDS = Set.of("patient_id");
 
@@ -59,6 +60,13 @@ public class PfbWriter implements ResultWriter {
         metadataRecord.requiredString("misc");
         metadataRecord = metadataRecord.name("nodes").type(SchemaBuilder.array().items(nodeSchema)).noDefault();
         metadataSchema = metadataRecord.endRecord();
+
+
+        SchemaBuilder.FieldAssembler<Schema> relationRecord = SchemaBuilder.record("Relation")
+                .fields()
+                .requiredString("dst_name")
+                .requiredString("dst_id");
+        relationSchema = relationRecord.endRecord();
     }
 
     @Override
@@ -82,6 +90,7 @@ public class PfbWriter implements ResultWriter {
         entityFieldAssembler = entityFieldAssembler.name("object").type(objectSchema).noDefault();
         entityFieldAssembler.nullableString("id", "null");
         entityFieldAssembler.requiredString("name");
+        entityFieldAssembler = entityFieldAssembler.name("relations").type(SchemaBuilder.array().items(relationSchema)).noDefault();
         entitySchema = entityFieldAssembler.endRecord();
 
         DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(entitySchema);
@@ -132,6 +141,7 @@ public class PfbWriter implements ResultWriter {
         entityRecord.put("object", metadata);
         entityRecord.put("name", "metadata");
         entityRecord.put("id", "null");
+        entityRecord.put("relations", List.of());
 
         try {
             dataFileWriter.append(entityRecord);
@@ -171,6 +181,7 @@ public class PfbWriter implements ResultWriter {
             entityRecord.put("object", patientData);
             entityRecord.put("name", patientTableName);
             entityRecord.put("id", patientId);
+            entityRecord.put("relations", List.of());
 
             try {
                 dataFileWriter.append(entityRecord);
