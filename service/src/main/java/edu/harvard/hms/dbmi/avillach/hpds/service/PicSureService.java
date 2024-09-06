@@ -216,19 +216,7 @@ public class PicSureService {
 	public ResponseEntity queryResult(@PathVariable("resourceQueryId") UUID queryId, @RequestBody QueryRequest resultRequest) throws IOException {
 		AsyncResult result = queryService.getResultFor(queryId.toString());
 		if (result == null) {
-			// This happens sometimes when users immediately request the status for a query
-			// before it can be initialized. We wait a bit and try again before throwing an
-			// error.
-			try {
-				Thread.sleep(100);
-			} catch (InterruptedException e) {
-				return ResponseEntity.status(500).build();
-			}
-
-			result = queryService.getResultFor(queryId.toString());
-			if (result == null) {
-				return ResponseEntity.status(404).build();
-			}
+			return ResponseEntity.status(404).build();
 		}
 		if (result.getStatus() == AsyncResult.Status.SUCCESS) {
 			result.open();
@@ -244,19 +232,7 @@ public class PicSureService {
 	public ResponseEntity querySignedURL(@PathVariable("resourceQueryId") UUID queryId, @RequestBody QueryRequest resultRequest) throws IOException {
 		AsyncResult result = queryService.getResultFor(queryId.toString());
 		if (result == null) {
-			// This happens sometimes when users immediately request the status for a query
-			// before it can be initialized. We wait a bit and try again before throwing an
-			// error.
-			try {
-				Thread.sleep(100);
-			} catch (InterruptedException e) {
-				return ResponseEntity.status(500).build();
-			}
-
-			result = queryService.getResultFor(queryId.toString());
-			if (result == null) {
-				return ResponseEntity.status(404).build();
-			}
+			return ResponseEntity.status(404).build();
 		}
 		if (result.getStatus() == AsyncResult.Status.SUCCESS) {
 			File file = result.getFile();
