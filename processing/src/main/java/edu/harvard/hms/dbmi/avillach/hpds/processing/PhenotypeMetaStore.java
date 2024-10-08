@@ -45,12 +45,14 @@ public class PhenotypeMetaStore {
         columnMetaFile = hpdsDataDirectory + "columnMeta.javabin";
         try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream(columnMetaFile)));){
             TreeMap<String, ColumnMeta> _metastore = (TreeMap<String, ColumnMeta>) objectInputStream.readObject();
+            log.info("_metastore.size() = " + _metastore.size());
             TreeMap<String, ColumnMeta> metastoreScrubbed = new TreeMap<String, ColumnMeta>();
             for(Map.Entry<String,ColumnMeta> entry : _metastore.entrySet()) {
                 metastoreScrubbed.put(entry.getKey().replaceAll("\\ufffd",""), entry.getValue());
             }
             metaStore = metastoreScrubbed;
             patientIds = (TreeSet<Integer>) objectInputStream.readObject();
+            log.info("patientIds.size() = " + patientIds.size());
             objectInputStream.close();
         } catch (IOException | ClassNotFoundException e) {
             log.warn("************************************************");
