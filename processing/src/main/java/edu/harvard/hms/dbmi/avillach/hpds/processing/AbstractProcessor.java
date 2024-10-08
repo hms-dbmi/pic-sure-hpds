@@ -7,6 +7,7 @@ import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.google.common.base.Joiner;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -341,6 +342,8 @@ public class AbstractProcessor {
 										return ret;
 									}else {
 										log.warn("ColumnMeta not found for : [{}]", key);
+										log.info("phenotypeMetaStore.getColumnNames(): ");
+										log.info(Joiner.on(",").join(phenotypeMetaStore.getColumnNames()));
 										return null;
 									}
 								}
