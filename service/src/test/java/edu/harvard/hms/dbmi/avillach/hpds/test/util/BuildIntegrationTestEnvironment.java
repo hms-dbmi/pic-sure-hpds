@@ -11,7 +11,7 @@ import java.io.IOException;
 public enum BuildIntegrationTestEnvironment {
     INSTANCE;
 
-    private static final String PHENOTYPIC_DATA_DIRECTORY = "./target/test-classes/phenotypic/";
+    private static final String PHENOTYPIC_DATA_DIRECTORY = "target/test-classes/phenotypic/";
     private final String VCF_INDEX_FILE = "./src/test/resources/test_vcfIndex.tsv";
     private final String STORAGE_DIR = "./target/";
     private final String MERGED_DIR = "./target/merged/";
