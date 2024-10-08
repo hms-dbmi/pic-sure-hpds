@@ -7,7 +7,6 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.query.Filter;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
