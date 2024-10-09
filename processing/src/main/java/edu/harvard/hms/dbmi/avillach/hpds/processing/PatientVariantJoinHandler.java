@@ -85,13 +85,11 @@ public class PatientVariantJoinHandler {
                             VariantMask homozygousMask = masks.homozygousMask;
                             if (heterozygousMask != null) {
                                 synchronized(matchingPatients) {
-                                    log.debug("Patients with variant " + variantSpec + ": " + (heterozygousMask.bitCount()));
                                     matchingPatients[0] = matchingPatients[0].union(heterozygousMask);
                                 }
                             }
                             if (homozygousMask != null) {
                                 synchronized(matchingPatients) {
-                                    log.debug("Patients with variant " + variantSpec + ": " + (homozygousMask.bitCount()));
                                     matchingPatients[0] = matchingPatients[0].union(homozygousMask);
                                 }
                             }

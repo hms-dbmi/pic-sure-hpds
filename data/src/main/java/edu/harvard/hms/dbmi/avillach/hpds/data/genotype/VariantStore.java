@@ -27,7 +27,7 @@ public class VariantStore implements Serializable {
 	private String[] patientIds;
 
 	private transient String[] variantSpecIndex;
-	
+
 	private Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>>> variantMaskStorage = new TreeMap<>();
 
 	public Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>>> getVariantMaskStorage() {
