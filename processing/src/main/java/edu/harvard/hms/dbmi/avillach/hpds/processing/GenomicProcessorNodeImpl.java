@@ -389,13 +389,13 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
     @Override
     public List<InfoColumnMeta> getInfoColumnMeta() {
         return getInfoStoreColumns().stream().map(infoStores::get)
-                .map(fileBackedByteIndexedInfoStore -> InfoColumnMeta.builder()
-                        .key(fileBackedByteIndexedInfoStore.column_key)
-                        .description(fileBackedByteIndexedInfoStore.description)
-                        .continuous(fileBackedByteIndexedInfoStore.isContinuous)
-                        .min(fileBackedByteIndexedInfoStore.min)
-                        .max(fileBackedByteIndexedInfoStore.max)
-                        .build()
+                .map(fileBackedByteIndexedInfoStore -> new InfoColumnMeta(
+                        fileBackedByteIndexedInfoStore.column_key,
+                        fileBackedByteIndexedInfoStore.description,
+                        fileBackedByteIndexedInfoStore.isContinuous,
+                        fileBackedByteIndexedInfoStore.min,
+                        fileBackedByteIndexedInfoStore.max
+                    )
                 )
                 .collect(Collectors.toList());
     }
