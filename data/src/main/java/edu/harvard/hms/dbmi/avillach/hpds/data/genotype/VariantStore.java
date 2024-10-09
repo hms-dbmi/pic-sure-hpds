@@ -153,11 +153,6 @@ public class VariantStore implements Serializable {
 		int chrOffset = Integer.parseInt(segments[1]) / BUCKET_SIZE;
 		String contig = segments[0];
 
-//		if (Level.DEBUG.equals(log.getEffectiveLevel())) {
-//			log.debug("Getting masks for variant " + variant + "  Same bucket test: " + (bucketCache.lastValue != null
-//					&& contig.contentEquals(bucketCache.lastContig) && chrOffset == bucketCache.lastChunkOffset));
-//		}
-
 		// todo: don't bother doing a lookup if this node does not have the chromosome specified
 		FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>> indexedStorage = variantMaskStorage.get(contig);
 		if (indexedStorage == null) {
