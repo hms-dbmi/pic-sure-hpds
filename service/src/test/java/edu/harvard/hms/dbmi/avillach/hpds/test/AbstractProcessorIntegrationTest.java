@@ -215,6 +215,4 @@ public class AbstractProcessorIntegrationTest {
         Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
         assertEquals(8, idList.size());
     }
-
-    // todo: test variant filters that use the phenotipic query, and edge cases
 }

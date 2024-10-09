@@ -24,7 +24,7 @@ import static org.springframework.test.util.AssertionErrors.*;
  * 
  * the BucketIndexBySample.filterVariantSetForPatientSet method removes variants base on the patent BUCKET MASK;  just because a patient
  * does not have a particular variant doesn't mean it will be filtered out e.g., when a patient has a different variant in the same bucket.
- * 
+ *
  * Filtering the specific variants is typically done by the calling function after filtering out the unneeded buckets.
  * 
  * @author nchu
@@ -32,29 +32,23 @@ import static org.springframework.test.util.AssertionErrors.*;
  */
 public class BucketIndexBySampleTest {
 
-	private static final String VCF_INDEX_FILE = "./src/test/resources/bucketIndexBySampleTest_vcfIndex.tsv";
 	private static final String STORAGE_DIR = "./target/";
-	private static final String MERGED_DIR = "./target/merged/";
-	
-	private static VariantStore variantStore;
+
 	private static BucketIndexBySample bucketIndexBySample;
 	
 	//Some known variant specs from the input file. 
 	//Some known variant specs from the input file.  These have been designed for testing partially overlapping specs
-	private static final String spec1 = "chr4,9856624,CAAAAA,C,TVP23A,splice_acceptor_variant";  	private static final String spec1Info = "Gene_with_variant=TVP23A;Variant_consequence_calculated=splice_acceptor_variant;AC=401;AF=8.00719e-02;NS=2504;AN=5008;EAS_AF=3.37000e-02;EUR_AF=4.97000e-02;AFR_AF=1.64100e-01;AMR_AF=3.75000e-02;SAS_AF=7.57000e-02;DP=18352;AA=G|||;VT=SNP";
-	private static final String spec2 = "chr4,9856624,CAAA,C,TVP23A,splice_acceptor_variant";		private static final String spec2Info = "Gene_with_variant=TVP23A;Variant_consequence_calculated=splice_acceptor_variant;AC=62;AF=1.23802e-02;NS=2504;AN=5008;EAS_AF=0.00000e+00;EUR_AF=1.00000e-03;AFR_AF=4.54000e-02;AMR_AF=1.40000e-03;SAS_AF=0.00000e+00;DP=18328;AA=T|||;VT=SNP";
-	private static final String spec3 = "chr4,9856624,CA,C,TVP23A,splice_acceptor_variant";		private static final String spec3Info = "Gene_with_variant=TVP23A;Variant_consequence_calculated=splice_acceptor_variant;AC=8;AF=1.59744e-03;NS=2504;AN=5008;EAS_AF=0.00000e+00;EUR_AF=0.00000e+00;AFR_AF=6.10000e-03;AMR_AF=0.00000e+00;SAS_AF=0.00000e+00;DP=18519;AA=T|||;VT=SNP";
-	private static final String spec4 = "chr4,9856624,C,CA,TVP23A,splice_acceptor_variant";		private static final String spec4Info = "Gene_with_variant=TVP23A;Variant_consequence_calculated=splice_acceptor_variant;AC=75;AF=1.49760e-02;NS=2504;AN=5008;EAS_AF=3.27000e-02;EUR_AF=2.49000e-02;AFR_AF=6.80000e-03;AMR_AF=4.30000e-03;SAS_AF=5.10000e-03;DP=18008;AA=A|||;VT=SNP";
-	private static final String spec5 = "chr4,9856624,CAAAAA,CA,TVP23A,splice_acceptor_variant";	private static final String spec5Info = "Gene_with_variant=TVP23A;Variant_consequence_calculated=splice_acceptor_variant;AC=3033;AF=6.05631e-01;NS=2504;AN=5008;EAS_AF=5.23800e-01;EUR_AF=7.54500e-01;AFR_AF=4.28900e-01;AMR_AF=7.82400e-01;SAS_AF=6.50300e-01;DP=20851;VT=INDEL";
+	private static final String spec1 = "chr4,9856624,CAAAAA,C,TVP23A,splice_acceptor_variant";
+	private static final String spec2 = "chr4,9856624,CAAA,C,TVP23A,splice_acceptor_variant";
+	private static final String spec3 = "chr4,9856624,CA,C,TVP23A,splice_acceptor_variant";
+	private static final String spec4 = "chr4,9856624,C,CA,TVP23A,splice_acceptor_variant";
+	private static final String spec5 = "chr4,9856624,CAAAAA,CA,TVP23A,splice_acceptor_variant";
 	
 	private static final String spec6 = "chr21,5032061,A,G,LOC102723996,missense_variant";
 	private static final String spec6b = "chr21,5032061,A,G,ABCDEF123456,synonymous_variant";
 	private static final String spec7 = "chr21,5033914,A,G,LOC102723996,missense_variant";
 	private static final String spec8 = "chr21,5033988,C,G,LOC102723996,synonymous_variant";
 	private static final String spec9 = "chr21,5034028,C,T,LOC102723996,missense_variant";
-	private static final String spec10 = "chr21,5102095,C,T,LOC101928576,splice_region_variant";
-	private static final String spec11 = "chr21,5121768,A,G,LOC102724023,missense_variant";
-	private static final String spec12 = "chr21,5121787,C,T,LOC102724023,missense_variant";
 
 	
 	//these parameters to the BucketIndexBySample methods are configured by each test
@@ -68,14 +62,13 @@ public class BucketIndexBySampleTest {
 		
 		//now use that object to initialize the BucketIndexBySample object
 		bucketIndexBySample = new BucketIndexBySample(variantStore, STORAGE_DIR);
-//		bucketIndexBySample.printPatientMasks();
 	}
 	
 	@BeforeEach
 	public void setUpTest() {
 		//start with fresh, empty collections
-		variantSet = new HashSet<String>();
-		patientSet = new ArrayList<Integer>();
+		variantSet = new HashSet<>();
+		patientSet = new ArrayList<>();
 	}
 	
 	@Test

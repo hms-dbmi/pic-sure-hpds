@@ -5,7 +5,6 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.VariantListProcessor;
 import edu.harvard.hms.dbmi.avillach.hpds.test.util.BuildIntegrationTestEnvironment;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
@@ -28,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @ActiveProfiles("integration-test")
 public class VariantListProcessorIntegrationTest {
 
-    private static Logger log = LoggerFactory.getLogger(VariantListProcessorIntegrationTest.class);
+    private static final Logger log = LoggerFactory.getLogger(VariantListProcessorIntegrationTest.class);
 
     @Autowired
     private VariantListProcessor variantListProcessor;
@@ -189,10 +188,6 @@ public class VariantListProcessorIntegrationTest {
 
         String vcfExerpt = variantListProcessor.runVcfExcerptQuery(query, true);
         assertEquals("No Variants Found\n", vcfExerpt);
-
-    }
-
-    public void test() {
 
     }
 
