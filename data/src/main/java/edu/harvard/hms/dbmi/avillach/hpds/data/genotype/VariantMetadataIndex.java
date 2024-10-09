@@ -220,24 +220,25 @@ public class VariantMetadataIndex implements Serializable {
 			String filePath = outputDirectory + VARIANT_METADATA_STORAGE_FILE_PREFIX + "_" + contig + ".bin";
 			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> mergedFbbis = new FileBackedJavaIndexedStorage(Integer.class, ConcurrentHashMap.class, new File(filePath));
 
-			Map<Integer, ConcurrentHashMap<String, String[]>> mergedMockFbbis = new HashMap<>();
+			// Store the merged result here because FileBackedByteIndexedStorage must be written all at once
+			Map<Integer, ConcurrentHashMap<String, String[]>> mergedStagedFbbis = new HashMap<>();
 
 			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> fbbis1 = variantMetadataIndex1.indexMap.get(contig);
 			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> fbbis2 = variantMetadataIndex2.indexMap.get(contig);
 
 			fbbis1.keys().forEach(key -> {
-				mergedMockFbbis.put(key, fbbis1.get(key));
+				mergedStagedFbbis.put(key, fbbis1.get(key));
 			});
 			fbbis2.keys().forEach(key -> {
-				ConcurrentHashMap<String, String[]> metadataMap = mergedMockFbbis.get(key);
+				ConcurrentHashMap<String, String[]> metadataMap = mergedStagedFbbis.get(key);
 				if (metadataMap == null) {
-					mergedMockFbbis.put(key, fbbis2.get(key));
+					mergedStagedFbbis.put(key, fbbis2.get(key));
 				} else {
 					metadataMap.putAll(fbbis2.get(key));
 				}
 			});
 
-			mergedMockFbbis.forEach(mergedFbbis::put);
+			mergedStagedFbbis.forEach(mergedFbbis::put);
 			mergedFbbis.complete();
 			merged.indexMap.put(contig, mergedFbbis);
 		}
