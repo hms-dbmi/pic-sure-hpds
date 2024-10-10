@@ -50,7 +50,6 @@ class GenomicProcessorParentImplTest {
     public void patientIdInit_patientsDiffer_exception() {
         when(mockProcessor1.getPatientIds()).thenReturn(List.of("1", "42", "99"));
         when(mockProcessor2.getPatientIds()).thenReturn(List.of("1", "43", "99"));
-        when(mockProcessor3.getPatientIds()).thenReturn(List.of("1", "42", "99"));
 
         assertThrows(IllegalStateException.class, () -> {
             parentProcessor = new GenomicProcessorParentImpl(List.of(
