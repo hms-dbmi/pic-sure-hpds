@@ -21,8 +21,6 @@ public class VariantStore implements Serializable {
 	private static Logger log = LoggerFactory.getLogger(VariantStore.class);
 	public static final int BUCKET_SIZE = 1000;
 
-	public static final String VARIANT_SPEC_INDEX_FILE = VARIANT_SPEC_INDEX_JAVABIN_FILENAME;
-
 	private BigInteger emptyBitmask;
 	private String[] patientIds;
 
@@ -157,7 +155,7 @@ public class VariantStore implements Serializable {
 
 	@SuppressWarnings("unchecked")
 	public static String[] loadVariantIndexFromFile(String genomicDataDirectory) {
-		try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream(genomicDataDirectory + "/" + VARIANT_SPEC_INDEX_FILE)));){
+		try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream(genomicDataDirectory + "/" + VARIANT_SPEC_INDEX_JAVABIN_FILENAME)));){
 
 			List<String> variants = (List<String>) objectInputStream.readObject();
 			return variants.toArray(new String[0]);

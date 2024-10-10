@@ -342,7 +342,6 @@ public class AbstractProcessor {
 										return ret;
 									}else {
 										log.warn("ColumnMeta not found for : [{}]", key);
-										log.info(Joiner.on(",").join(phenotypeMetaStore.getColumnNames()));
 										return null;
 									}
 								}
