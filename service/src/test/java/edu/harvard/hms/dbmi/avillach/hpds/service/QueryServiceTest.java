@@ -45,7 +45,7 @@ class QueryServiceTest {
         variantInfoFilters.add(variantInfoFilter);
         query.setVariantInfoFilters(variantInfoFilters);
         query.setFields(List.of("\\open_access-1000Genomes\\data\\SYNTHETIC_AGE\\"));
-        query.setExpectedResultType(ResultType.DATAFRAME_MULTI);
+        query.setExpectedResultType(ResultType.DATAFRAME);
 
         AsyncResult asyncResult = queryService.runQuery(query);
 

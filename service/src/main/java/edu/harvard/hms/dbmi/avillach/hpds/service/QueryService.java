@@ -116,7 +116,6 @@ public class QueryService {
 		
 		HpdsProcessor p;
 		switch(query.getExpectedResultType()) {
-			case DATAFRAME :
 			case SECRET_ADMIN_DATAFRAME:
 				p = queryProcessor;
 				break;
@@ -129,7 +128,7 @@ public class QueryService {
 				p = countProcessor;
 				break;
 			case DATAFRAME_PFB:
-			case DATAFRAME_MULTI:
+			case DATAFRAME:
 				p = pfbProcessor;
 				break;
 			default :
