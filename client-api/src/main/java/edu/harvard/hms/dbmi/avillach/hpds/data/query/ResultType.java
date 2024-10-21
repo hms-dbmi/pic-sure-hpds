@@ -94,5 +94,6 @@ public enum ResultType {
      * Exports data as PFB, using avro
      * <a href="https://uc-cdis.github.io/pypfb/">https://uc-cdis.github.io/pypfb/</a>
      */
-	DATAFRAME_PFB
+	DATAFRAME_PFB,
+	DATAFRAME_MULTI
 }

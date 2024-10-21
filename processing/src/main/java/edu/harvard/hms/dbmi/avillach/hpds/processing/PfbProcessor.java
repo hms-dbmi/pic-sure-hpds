@@ -28,7 +28,7 @@ public class PfbProcessor implements HpdsProcessor {
     @Autowired
     public PfbProcessor(AbstractProcessor abstractProcessor) {
         this.abstractProcessor = abstractProcessor;
-        ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
+        ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "1000"));
     }
 
     @Override

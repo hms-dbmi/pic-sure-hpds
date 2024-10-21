@@ -83,7 +83,7 @@ public class QueryService {
 		smallTaskExecutor = createExecutor(smallTaskExecutionQueue, SMALL_TASK_THREADS);
 	}
 
-	public AsyncResult runQuery(Query query) throws ClassNotFoundException, IOException {
+	public AsyncResult runQuery(Query query) throws IOException {
 		// Merging fields from filters into selected fields for user validation of results
 		mergeFilterFieldsIntoSelectedFields(query);
 
@@ -112,7 +112,7 @@ public class QueryService {
 		return countProcessor.runCounts(query);
 	}
 
-	private AsyncResult initializeResult(Query query) throws ClassNotFoundException, FileNotFoundException, IOException {
+	private AsyncResult initializeResult(Query query) throws IOException {
 		
 		HpdsProcessor p;
 		switch(query.getExpectedResultType()) {
@@ -129,6 +129,7 @@ public class QueryService {
 				p = countProcessor;
 				break;
 			case DATAFRAME_PFB:
+			case DATAFRAME_MULTI:
 				p = pfbProcessor;
 				break;
 			default :
