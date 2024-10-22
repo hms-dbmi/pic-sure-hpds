@@ -13,20 +13,19 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Component
-public class PfbProcessor implements HpdsProcessor {
+public class MultiValueQueryProcessor implements HpdsProcessor {
 
     public static final String PATIENT_ID_FIELD_NAME = "patient_id";
     private final int ID_BATCH_SIZE;
     private final AbstractProcessor abstractProcessor;
 
-    private Logger log = LoggerFactory.getLogger(PfbProcessor.class);
+    private Logger log = LoggerFactory.getLogger(MultiValueQueryProcessor.class);
 
 
     @Autowired
-    public PfbProcessor(AbstractProcessor abstractProcessor) {
+    public MultiValueQueryProcessor(AbstractProcessor abstractProcessor) {
         this.abstractProcessor = abstractProcessor;
         ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "1000"));
     }

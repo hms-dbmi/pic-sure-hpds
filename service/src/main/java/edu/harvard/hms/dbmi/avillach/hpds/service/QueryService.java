@@ -15,8 +15,6 @@ import edu.harvard.hms.dbmi.avillach.hpds.processing.io.ResultWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableMap;
-
 import edu.harvard.dbmi.avillach.util.UUIDv5;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.*;
@@ -48,7 +46,7 @@ public class QueryService {
 	private final QueryProcessor queryProcessor;
 	private final TimeseriesProcessor timeseriesProcessor;
 	private final CountProcessor countProcessor;
-	private final PfbProcessor pfbProcessor;
+	private final MultiValueQueryProcessor multiValueQueryProcessor;
 
 	HashMap<String, AsyncResult> results = new HashMap<>();
 
@@ -58,7 +56,7 @@ public class QueryService {
 						 QueryProcessor queryProcessor,
 						 TimeseriesProcessor timeseriesProcessor,
 						 CountProcessor countProcessor,
-						 PfbProcessor pfbProcessor,
+						 MultiValueQueryProcessor multiValueQueryProcessor,
 						 @Value("${SMALL_JOB_LIMIT}") Integer smallJobLimit,
 						 @Value("${SMALL_TASK_THREADS}") Integer smallTaskThreads,
 						 @Value("${LARGE_TASK_THREADS}") Integer largeTaskThreads) {
@@ -66,7 +64,7 @@ public class QueryService {
 		this.queryProcessor = queryProcessor;
 		this.timeseriesProcessor = timeseriesProcessor;
 		this.countProcessor = countProcessor;
-		this.pfbProcessor = pfbProcessor;
+		this.multiValueQueryProcessor = multiValueQueryProcessor;
 
 		SMALL_JOB_LIMIT = smallJobLimit;
 		SMALL_TASK_THREADS = smallTaskThreads;
@@ -129,7 +127,7 @@ public class QueryService {
 				break;
 			case DATAFRAME_PFB:
 			case DATAFRAME:
-				p = pfbProcessor;
+				p = multiValueQueryProcessor;
 				break;
 			default :
 				throw new RuntimeException("UNSUPPORTED RESULT TYPE");
