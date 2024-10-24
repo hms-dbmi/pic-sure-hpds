@@ -1,5 +1,7 @@
 package edu.harvard.hms.dbmi.avillach.hpds.service;
 
+import de.siegmar.fastcsv.reader.CsvContainer;
+import de.siegmar.fastcsv.reader.CsvReader;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.ResultType;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.AsyncResult;
@@ -49,11 +51,17 @@ class QueryServiceTest {
 
         AsyncResult asyncResult = queryService.runQuery(query);
 
-        Thread.sleep(1000);
+        int retries = 0;
+        while ((AsyncResult.Status.RUNNING.equals(asyncResult.getStatus()) || AsyncResult.Status.PENDING.equals(asyncResult.getStatus())) && retries < 10) {
+            retries++;
+            Thread.sleep(200);
+        }
 
-        System.out.println(asyncResult.getStatus());
-        System.out.println(IOUtils.toString(new FileInputStream(asyncResult.getFile()), StandardCharsets.UTF_8));
-        ;
+        assertEquals(AsyncResult.Status.SUCCESS, asyncResult.getStatus());
+        CsvReader csvReader = new CsvReader();
+        CsvContainer csvContainer = csvReader.read(asyncResult.getFile(), StandardCharsets.UTF_8);
+        // 22 plus header
+        assertEquals(23, csvContainer.getRows().size());
     }
 
 }
