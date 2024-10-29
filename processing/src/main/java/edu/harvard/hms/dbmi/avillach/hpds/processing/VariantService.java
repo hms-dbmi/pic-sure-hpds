@@ -1,9 +1,6 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing;
 
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.BucketIndexBySample;
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariableVariantMasks;
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMasks;
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantStore;
+import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.*;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHolder;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
 import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedJavaIndexedStorage;
@@ -38,6 +35,8 @@ public class VariantService {
     private String[] variantIndex = null;
     private BucketIndexBySample bucketIndex;
 
+    private final VariantMetadataIndex variantMetadataIndex;
+
     public String[] getVariantIndex() {
         return variantIndex;
     }
@@ -60,6 +59,8 @@ public class VariantService {
         BUCKET_INDEX_BY_SAMPLE_FILE = genomicDataDirectory + "BucketIndexBySample.javabin";
 
         variantStore = loadVariantStore();
+
+        this.variantMetadataIndex = VariantMetadataIndex.createInstance(genomicDataDirectory);
         try {
             loadGenomicCacheFiles();
         } catch (Exception e) {
@@ -162,9 +163,11 @@ public class VariantService {
                     log.info("Found " + variantIndex.length + " total variants.");
                 }
             }
-            if(variantStore.getPatientIds().length > 0 && !new File(BUCKET_INDEX_BY_SAMPLE_FILE).exists()) {
-                // TODO: remove this! for testing only
-                /*log.info("creating new " + BUCKET_INDEX_BY_SAMPLE_FILE);
+            // todo: not loading bucket index when there is no variant metadata index is a temporary fix for non-variant explorer environments
+            // once we start building the bucket index as part of the ETL, we can remove this check and leverage the bucket index
+            // for all genomic queries
+            if(variantStore.getPatientIds().length > 0 && variantMetadataIndex != null && !new File(BUCKET_INDEX_BY_SAMPLE_FILE).exists()) {
+                log.info("creating new " + BUCKET_INDEX_BY_SAMPLE_FILE);
                 bucketIndex = new BucketIndexBySample(variantStore, genomicDataDirectory);
                 try (
                         FileOutputStream fos = new FileOutputStream(BUCKET_INDEX_BY_SAMPLE_FILE);
@@ -172,13 +175,12 @@ public class VariantService {
                         ObjectOutputStream oos = new ObjectOutputStream(gzos);
                 ){
                     oos.writeObject(bucketIndex);
-                    oos.flush();oos.close();
-                }*/
-            }else {
+                    oos.flush();
+                }
+            }else if (new File(BUCKET_INDEX_BY_SAMPLE_FILE).exists()) {
                 try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream(BUCKET_INDEX_BY_SAMPLE_FILE)));){
                     log.info("loading " + BUCKET_INDEX_BY_SAMPLE_FILE);
                     bucketIndex = (BucketIndexBySample) objectInputStream.readObject();
-                    objectInputStream.close();
                 } catch (IOException | ClassNotFoundException e) {
                     log.error("an error occurred", e);
                 }
@@ -197,8 +199,15 @@ public class VariantService {
             throw new UncheckedIOException(e);
         }
     }
+    public List<VariableVariantMasks> getMasksForDbSnpSpec(String variantName) {
+        return variantStore.getMasksForDbSnpSpec(variantName);
+    }
 
     public BigInteger emptyBitmask() {
         return variantStore.emptyBitmask();
+    }
+
+    public Map<String, Set<String>> findByMultipleVariantSpec(Collection<String> variantList) {
+        return variantMetadataIndex.findByMultipleVariantSpec(variantList);
     }
 }
