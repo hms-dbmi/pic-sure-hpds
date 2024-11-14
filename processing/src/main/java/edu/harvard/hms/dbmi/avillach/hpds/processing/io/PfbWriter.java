@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 public class PfbWriter implements ResultWriter {
 
     public static final String PATIENT_TABLE_PREFIX = "pic-sure-";
+    public static final String DRS_URL_TABLE_PREFIX = "drs-url-";
     private Logger log = LoggerFactory.getLogger(PfbWriter.class);
 
     private final Schema metadataSchema;
@@ -29,6 +30,7 @@ public class PfbWriter implements ResultWriter {
     private final String queryId;
 
     private final String patientTableName;
+    private final String drsUrlTableName;
     private SchemaBuilder.FieldAssembler<Schema> entityFieldAssembler;
 
     private List<String> fields;
@@ -36,6 +38,7 @@ public class PfbWriter implements ResultWriter {
     private File file;
     private Schema entitySchema;
     private Schema patientDataSchema;
+    private Schema drsUriSchema;
     private Schema relationSchema;
 
     private static final Set<String> SINGULAR_FIELDS = Set.of("patient_id");
@@ -44,6 +47,7 @@ public class PfbWriter implements ResultWriter {
         this.file = tempFile;
         this.queryId = queryId;
         this.patientTableName = formatFieldName(PATIENT_TABLE_PREFIX + queryId);
+        this.drsUrlTableName = formatFieldName(DRS_URL_TABLE_PREFIX + queryId);
         entityFieldAssembler = SchemaBuilder.record("entity")
                 .namespace("edu.harvard.dbmi")
                 .fields();
@@ -72,9 +76,15 @@ public class PfbWriter implements ResultWriter {
     @Override
     public void writeHeader(String[] data) {
         fields = Arrays.stream(data.clone()).map(this::formatFieldName).collect(Collectors.toList());
+
+        drsUriSchema = SchemaBuilder.record(drsUrlTableName)
+                .fields()
+                .requiredString("concept_path")
+                .name("drs_uri").type(SchemaBuilder.array().items(SchemaBuilder.nullable().stringType())).noDefault()
+                .endRecord();
+
         SchemaBuilder.FieldAssembler<Schema> patientRecords = SchemaBuilder.record(patientTableName)
                 .fields();
-
         fields.forEach(field -> {
             if (isSingularField(field)) {
                 patientRecords.nullableString(field, "null");
@@ -85,7 +95,7 @@ public class PfbWriter implements ResultWriter {
         });
         patientDataSchema = patientRecords.endRecord();
 
-        Schema objectSchema = Schema.createUnion(metadataSchema, patientDataSchema);
+        Schema objectSchema = Schema.createUnion(metadataSchema, patientDataSchema, drsUriSchema);
 
         entityFieldAssembler = entityFieldAssembler.name("object").type(objectSchema).noDefault();
         entityFieldAssembler.nullableString("id", "null");
@@ -104,6 +114,30 @@ public class PfbWriter implements ResultWriter {
         }
 
         writeMetadata();
+        writeDrsUris();
+    }
+
+    private void writeDrsUris() {
+        GenericRecord entityRecord = new GenericData.Record(entitySchema);
+
+        for (String field : fields) {
+            GenericRecord drsUriData = new GenericData.Record(drsUriSchema);
+            drsUriData.put("concept_path", field);
+            // todo: lookup DRS URIs
+            drsUriData.put("drs_uri", List.of("https://a-drs-uri.com/"));
+
+            entityRecord.put("object", drsUriData);
+            entityRecord.put("name", drsUrlTableName);
+            entityRecord.put("relations", List.of());
+
+            try {
+                dataFileWriter.append(entityRecord);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+
     }
 
     private boolean isSingularField(String field) {
