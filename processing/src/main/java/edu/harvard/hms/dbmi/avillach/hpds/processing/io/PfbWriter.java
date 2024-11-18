@@ -1,5 +1,7 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing.io;
 
+import edu.harvard.hms.dbmi.avillach.hpds.processing.dictionary.Concept;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.dictionary.DictionaryService;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.file.CodecFactory;
@@ -16,6 +18,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class PfbWriter implements ResultWriter {
@@ -23,6 +26,8 @@ public class PfbWriter implements ResultWriter {
     public static final String PATIENT_TABLE_PREFIX = "pic-sure-";
     public static final String DRS_URL_TABLE_PREFIX = "drs-url-";
     private Logger log = LoggerFactory.getLogger(PfbWriter.class);
+
+    private final DictionaryService dictionaryService;
 
     private final Schema metadataSchema;
     private final Schema nodeSchema;
@@ -43,9 +48,10 @@ public class PfbWriter implements ResultWriter {
 
     private static final Set<String> SINGULAR_FIELDS = Set.of("patient_id");
 
-    public PfbWriter(File tempFile, String queryId) {
+    public PfbWriter(File tempFile, String queryId, DictionaryService dictionaryService) {
         this.file = tempFile;
         this.queryId = queryId;
+        this.dictionaryService = dictionaryService;
         this.patientTableName = formatFieldName(PATIENT_TABLE_PREFIX + queryId);
         this.drsUrlTableName = formatFieldName(DRS_URL_TABLE_PREFIX + queryId);
         entityFieldAssembler = SchemaBuilder.record("entity")
@@ -118,13 +124,23 @@ public class PfbWriter implements ResultWriter {
     }
 
     private void writeDrsUris() {
+        Map<String, Concept> conceptMap = dictionaryService.getConcepts(fields).stream()
+                .collect(Collectors.toMap(Concept::conceptPath, Function.identity()));
         GenericRecord entityRecord = new GenericData.Record(entitySchema);
 
         for (String field : fields) {
             GenericRecord drsUriData = new GenericData.Record(drsUriSchema);
             drsUriData.put("concept_path", field);
-            // todo: lookup DRS URIs
-            drsUriData.put("drs_uri", List.of("https://a-drs-uri.com/"));
+
+            Concept concept = conceptMap.get(field);
+            List<String> drsUris = List.of();
+            if (concept != null) {
+                Map<String, String> meta = concept.meta();
+                if (meta != null) {
+                    drsUris = meta.values().stream().toList();
+                }
+            }
+            drsUriData.put("drs_uri", drsUris);
 
             entityRecord.put("object", drsUriData);
             entityRecord.put("name", drsUrlTableName);
