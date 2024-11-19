@@ -32,6 +32,6 @@ public class DictionaryService {
     }
 
     public List<Concept> getConcepts(List<String> conceptPaths) {
-        return restTemplate.exchange(dictionaryHost + "/picsure/proxy/dictionary-api/concepts/detail/", HttpMethod.POST, new HttpEntity<>(conceptPaths), CONCEPT_LIST_TYPE_REFERENCE).getBody();
+        return restTemplate.exchange(dictionaryHost + "/pic-sure-api-2/PICSURE/proxy/dictionary-api/concepts/detail", HttpMethod.POST, new HttpEntity<>(conceptPaths), CONCEPT_LIST_TYPE_REFERENCE).getBody();
     }
 }

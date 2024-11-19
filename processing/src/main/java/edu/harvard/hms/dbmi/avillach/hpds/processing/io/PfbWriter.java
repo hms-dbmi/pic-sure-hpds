@@ -132,7 +132,7 @@ public class PfbWriter implements ResultWriter {
             conceptMap = dictionaryService.getConcepts(originalFields).stream()
                     .collect(Collectors.toMap(Concept::conceptPath, Function.identity()));
         } catch (RuntimeException e) {
-            log.error("Error fetching DRS URIs from dictionary service");
+            log.error("Error fetching DRS URIs from dictionary service", e);
         }
 
         for (int i = 0; i < formattedFields.size(); i++) {
@@ -144,7 +144,8 @@ public class PfbWriter implements ResultWriter {
             if (concept != null) {
                 Map<String, String> meta = concept.meta();
                 if (meta != null) {
-                    drsUris = meta.values().stream().toList();
+                    drsUris = new ArrayList<>(meta.keySet().stream().toList());
+                    drsUris.addAll(meta.values().stream().toList());
                 }
             }
             drsUriData.put("drs_uri", drsUris);
