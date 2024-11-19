@@ -1,16 +1,18 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing.dictionary;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 
-@Component
+@Service
 @ConditionalOnProperty("dictionary.host")
 public class DictionaryService {
 
@@ -19,8 +21,13 @@ public class DictionaryService {
     private final String dictionaryHost;
     private final RestTemplate restTemplate;
 
-    public DictionaryService(@Value("${dictionary.host}") String dictionaryHostTemplate, @Value("${TARGET_STACK}") String targetStack) {
-        this.dictionaryHost = dictionaryHostTemplate.replace("___TARGET_STACK___", targetStack);
+    @Autowired
+    public DictionaryService(@Value("${dictionary.host}") String dictionaryHostTemplate, @Value("${TARGET_STACK:}") String targetStack) {
+        if (targetStack != null && !targetStack.isEmpty()) {
+            this.dictionaryHost = dictionaryHostTemplate.replace("___TARGET_STACK___", targetStack);
+        } else {
+            this.dictionaryHost = dictionaryHostTemplate;
+        }
         this.restTemplate = new RestTemplate();
     }
 
