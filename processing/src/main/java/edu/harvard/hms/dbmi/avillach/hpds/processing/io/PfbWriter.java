@@ -124,9 +124,14 @@ public class PfbWriter implements ResultWriter {
     }
 
     private void writeDrsUris() {
-        Map<String, Concept> conceptMap = dictionaryService.getConcepts(fields).stream()
-                .collect(Collectors.toMap(Concept::conceptPath, Function.identity()));
-        GenericRecord entityRecord = new GenericData.Record(entitySchema);
+        GenericRecord entityRecord = new GenericData.Record(entitySchema);;
+        Map<String, Concept> conceptMap = Map.of();
+        try {
+            conceptMap = dictionaryService.getConcepts(fields).stream()
+                    .collect(Collectors.toMap(Concept::conceptPath, Function.identity()));
+        } catch (RuntimeException e) {
+            log.error("Error fetching DRS URIs from dictionary service");
+        }
 
         for (String field : fields) {
             GenericRecord drsUriData = new GenericData.Record(drsUriSchema);
