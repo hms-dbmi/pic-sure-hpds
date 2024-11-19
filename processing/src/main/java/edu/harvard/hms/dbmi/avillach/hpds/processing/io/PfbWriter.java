@@ -38,7 +38,8 @@ public class PfbWriter implements ResultWriter {
     private final String drsUrlTableName;
     private SchemaBuilder.FieldAssembler<Schema> entityFieldAssembler;
 
-    private List<String> fields;
+    private List<String> originalFields;
+    private List<String> formattedFields;
     private DataFileWriter<GenericRecord> dataFileWriter;
     private File file;
     private Schema entitySchema;
@@ -81,7 +82,8 @@ public class PfbWriter implements ResultWriter {
 
     @Override
     public void writeHeader(String[] data) {
-        fields = Arrays.stream(data.clone()).map(this::formatFieldName).collect(Collectors.toList());
+        originalFields = List.of(data);
+        formattedFields = originalFields.stream().map(this::formatFieldName).collect(Collectors.toList());
 
         drsUriSchema = SchemaBuilder.record(drsUrlTableName)
                 .fields()
@@ -91,7 +93,7 @@ public class PfbWriter implements ResultWriter {
 
         SchemaBuilder.FieldAssembler<Schema> patientRecords = SchemaBuilder.record(patientTableName)
                 .fields();
-        fields.forEach(field -> {
+        formattedFields.forEach(field -> {
             if (isSingularField(field)) {
                 patientRecords.nullableString(field, "null");
             } else {
@@ -127,17 +129,17 @@ public class PfbWriter implements ResultWriter {
         GenericRecord entityRecord = new GenericData.Record(entitySchema);;
         Map<String, Concept> conceptMap = Map.of();
         try {
-            conceptMap = dictionaryService.getConcepts(fields).stream()
+            conceptMap = dictionaryService.getConcepts(originalFields).stream()
                     .collect(Collectors.toMap(Concept::conceptPath, Function.identity()));
         } catch (RuntimeException e) {
             log.error("Error fetching DRS URIs from dictionary service");
         }
 
-        for (String field : fields) {
+        for (int i = 0; i < formattedFields.size(); i++) {
             GenericRecord drsUriData = new GenericData.Record(drsUriSchema);
-            drsUriData.put("concept_path", field);
+            drsUriData.put("concept_path", formattedFields.get(i));
 
-            Concept concept = conceptMap.get(field);
+            Concept concept = conceptMap.get(originalFields.get(i));
             List<String> drsUris = List.of();
             if (concept != null) {
                 Map<String, String> meta = concept.meta();
@@ -149,6 +151,7 @@ public class PfbWriter implements ResultWriter {
 
             entityRecord.put("object", drsUriData);
             entityRecord.put("name", drsUrlTableName);
+            entityRecord.put("id", "null");
             entityRecord.put("relations", List.of());
 
             try {
@@ -157,8 +160,6 @@ public class PfbWriter implements ResultWriter {
                 throw new UncheckedIOException(e);
             }
         }
-
-
     }
 
     private boolean isSingularField(String field) {
@@ -181,7 +182,7 @@ public class PfbWriter implements ResultWriter {
         GenericRecord entityRecord = new GenericData.Record(entitySchema);
 
         List<GenericRecord> nodeList = new ArrayList<>();
-        for (String field : fields) {
+        for (String field : formattedFields) {
             GenericRecord nodeData = new GenericData.Record(nodeSchema);
             nodeData.put("name", field);
             nodeData.put("ontology_reference", "");
@@ -213,21 +214,21 @@ public class PfbWriter implements ResultWriter {
     @Override
     public void writeMultiValueEntity(Collection<List<List<String>>> entities) {
         entities.forEach(entity -> {
-            if (entity.size() != fields.size()) {
+            if (entity.size() != formattedFields.size()) {
                 throw new IllegalArgumentException("Entity length much match the number of fields in this document");
             }
             GenericRecord patientData = new GenericData.Record(patientDataSchema);
             String patientId = "";
-            for(int i = 0; i < fields.size(); i++) {
-                if ("patient_id".equals(fields.get(i))) {
+            for(int i = 0; i < formattedFields.size(); i++) {
+                if ("patient_id".equals(formattedFields.get(i))) {
                     patientId = (entity.get(i) != null && !entity.get(i).isEmpty()) ? entity.get(i).get(0) : "";
                 }
-                if (isSingularField(fields.get(i))) {
+                if (isSingularField(formattedFields.get(i))) {
                     String entityValue = (entity.get(i) != null && !entity.get(i).isEmpty()) ? entity.get(i).get(0) : "";
-                    patientData.put(fields.get(i), entityValue);
+                    patientData.put(formattedFields.get(i), entityValue);
                 } else {
                     List<String> fieldValue = entity.get(i) != null ? entity.get(i) : List.of();
-                    patientData.put(fields.get(i), fieldValue);
+                    patientData.put(formattedFields.get(i), fieldValue);
                 }
             }
 

@@ -1,14 +1,17 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing.io;
 
+import edu.harvard.hms.dbmi.avillach.hpds.processing.dictionary.Concept;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.dictionary.DictionaryService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -23,6 +26,9 @@ public class PfbWriterTest {
     @Test
     public void writeValidPFB() {
         PfbWriter pfbWriter = new PfbWriter(new File("target/test-result.avro"), UUID.randomUUID().toString(), dictionaryService);
+
+        Mockito.when(dictionaryService.getConcepts(List.of("patient_id", "\\demographics\\age\\", "\\phs123\\stroke\\")))
+                .thenReturn(List.of(new Concept("\\demographics\\age\\", "age", Map.of("drs_uri", "a-drs.uri"))));
 
         pfbWriter.writeHeader(new String[] {"patient_id", "\\demographics\\age\\", "\\phs123\\stroke\\"});
         List<List<String>> nullableList = new ArrayList<>();
@@ -40,7 +46,6 @@ public class PfbWriterTest {
                 List.of(List.of(), List.of("75"), List.of())
         ));
         pfbWriter.close();
-        // todo: validate this programatically
     }
 
     @Test
