@@ -25,8 +25,8 @@ import java.util.stream.Collectors;
 
 public class PfbWriter implements ResultWriter {
 
-    public static final String PATIENT_TABLE_PREFIX = "pic-sure-";
-    public static final String DATA_DICTIONARY_TABLE_PREFIX = "data-dictionary-";
+    public static final String PATIENT_TABLE_PREFIX = "pic-sure-patients-";
+    public static final String DATA_DICTIONARY_TABLE_PREFIX = "pic-sure-data-dictionary-";
     private Logger log = LoggerFactory.getLogger(PfbWriter.class);
 
     private final DictionaryService dictionaryService;
