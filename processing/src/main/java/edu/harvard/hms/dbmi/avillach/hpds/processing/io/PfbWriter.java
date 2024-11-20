@@ -172,9 +172,10 @@ public class PfbWriter implements ResultWriter {
             }
             dataDictionaryData.put("drs_uri", drsUris);
 
+            log.info("Writing " + formattedField + " to data dictonary table with drs_uris: " + drsUris);
             entityRecord.put("object", dataDictionaryData);
             entityRecord.put("name", dataDictionaryTableName);
-            entityRecord.put("id", "null");
+            entityRecord.put("id", formattedField);
             entityRecord.put("relations", List.of());
 
             try {
