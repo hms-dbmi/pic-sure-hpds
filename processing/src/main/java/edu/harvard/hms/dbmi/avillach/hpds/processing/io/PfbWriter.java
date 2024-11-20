@@ -1,5 +1,7 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing.io;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.dictionary.Concept;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.dictionary.DictionaryService;
 import org.apache.avro.Schema;
@@ -24,7 +26,7 @@ import java.util.stream.Collectors;
 public class PfbWriter implements ResultWriter {
 
     public static final String PATIENT_TABLE_PREFIX = "pic-sure-";
-    public static final String DRS_URL_TABLE_PREFIX = "drs-url-";
+    public static final String DATA_DICTIONARY_TABLE_PREFIX = "data-dictionary-";
     private Logger log = LoggerFactory.getLogger(PfbWriter.class);
 
     private final DictionaryService dictionaryService;
@@ -35,7 +37,7 @@ public class PfbWriter implements ResultWriter {
     private final String queryId;
 
     private final String patientTableName;
-    private final String drsUrlTableName;
+    private final String dataDictionaryTableName;
     private SchemaBuilder.FieldAssembler<Schema> entityFieldAssembler;
 
     private List<String> originalFields;
@@ -44,7 +46,7 @@ public class PfbWriter implements ResultWriter {
     private File file;
     private Schema entitySchema;
     private Schema patientDataSchema;
-    private Schema drsUriSchema;
+    private Schema dataDictionarySchema;
     private Schema relationSchema;
 
     private static final Set<String> SINGULAR_FIELDS = Set.of("patient_id");
@@ -54,7 +56,7 @@ public class PfbWriter implements ResultWriter {
         this.queryId = queryId;
         this.dictionaryService = dictionaryService;
         this.patientTableName = formatFieldName(PATIENT_TABLE_PREFIX + queryId);
-        this.drsUrlTableName = formatFieldName(DRS_URL_TABLE_PREFIX + queryId);
+        this.dataDictionaryTableName = formatFieldName(DATA_DICTIONARY_TABLE_PREFIX + queryId);
         entityFieldAssembler = SchemaBuilder.record("entity")
                 .namespace("edu.harvard.dbmi")
                 .fields();
@@ -85,10 +87,14 @@ public class PfbWriter implements ResultWriter {
         originalFields = List.of(data);
         formattedFields = originalFields.stream().map(this::formatFieldName).collect(Collectors.toList());
 
-        drsUriSchema = SchemaBuilder.record(drsUrlTableName)
+        dataDictionarySchema = SchemaBuilder.record(dataDictionaryTableName)
                 .fields()
                 .requiredString("concept_path")
                 .name("drs_uri").type(SchemaBuilder.array().items(SchemaBuilder.nullable().stringType())).noDefault()
+                .nullableString("type", "null")
+                .nullableString("display", "null")
+                .nullableString("dataset", "null")
+                .nullableString("description", "null")
                 .endRecord();
 
         SchemaBuilder.FieldAssembler<Schema> patientRecords = SchemaBuilder.record(patientTableName)
@@ -103,7 +109,7 @@ public class PfbWriter implements ResultWriter {
         });
         patientDataSchema = patientRecords.endRecord();
 
-        Schema objectSchema = Schema.createUnion(metadataSchema, patientDataSchema, drsUriSchema);
+        Schema objectSchema = Schema.createUnion(metadataSchema, patientDataSchema, dataDictionarySchema);
 
         entityFieldAssembler = entityFieldAssembler.name("object").type(objectSchema).noDefault();
         entityFieldAssembler.nullableString("id", "null");
@@ -122,36 +128,52 @@ public class PfbWriter implements ResultWriter {
         }
 
         writeMetadata();
-        writeDrsUris();
+        writeDataDictionary();
     }
 
-    private void writeDrsUris() {
+    private void writeDataDictionary() {
         GenericRecord entityRecord = new GenericData.Record(entitySchema);;
         Map<String, Concept> conceptMap = Map.of();
         try {
             conceptMap = dictionaryService.getConcepts(originalFields).stream()
                     .collect(Collectors.toMap(Concept::conceptPath, Function.identity()));
         } catch (RuntimeException e) {
-            log.error("Error fetching DRS URIs from dictionary service", e);
+            log.error("Error fetching concepts from dictionary service", e);
+            return;
         }
 
         for (int i = 0; i < formattedFields.size(); i++) {
-            GenericRecord drsUriData = new GenericData.Record(drsUriSchema);
-            drsUriData.put("concept_path", formattedFields.get(i));
+            String formattedField = formattedFields.get(i);
+            if ("patient_id".equals(formattedField)) {
+                continue;
+            }
+            GenericRecord dataDictionaryData = new GenericData.Record(dataDictionarySchema);
+            dataDictionaryData.put("concept_path", formattedField);
 
             Concept concept = conceptMap.get(originalFields.get(i));
             List<String> drsUris = List.of();
             if (concept != null) {
                 Map<String, String> meta = concept.meta();
                 if (meta != null) {
-                    drsUris = new ArrayList<>(meta.keySet().stream().toList());
-                    drsUris.addAll(meta.values().stream().toList());
+                    String drsUriJson = meta.get("drs_uri");
+                    if (drsUriJson != null) {
+                        try {
+                            String[] drsUriArray = new ObjectMapper().readValue(drsUriJson, String[].class);
+                            drsUris = List.of(drsUriArray);
+                        } catch (JsonProcessingException e) {
+                            log.error("Error parsing drs_uri as json: " + drsUriJson);
+                        }
+                    }
                 }
+                dataDictionaryData.put("type", concept.type());
+                dataDictionaryData.put("display", concept.display());
+                dataDictionaryData.put("dataset", concept.dataset());
+                dataDictionaryData.put("description", concept.description());
             }
-            drsUriData.put("drs_uri", drsUris);
+            dataDictionaryData.put("drs_uri", drsUris);
 
-            entityRecord.put("object", drsUriData);
-            entityRecord.put("name", drsUrlTableName);
+            entityRecord.put("object", dataDictionaryData);
+            entityRecord.put("name", dataDictionaryTableName);
             entityRecord.put("id", "null");
             entityRecord.put("relations", List.of());
 
