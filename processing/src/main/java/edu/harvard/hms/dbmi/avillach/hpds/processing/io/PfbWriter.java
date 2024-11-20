@@ -138,7 +138,6 @@ public class PfbWriter implements ResultWriter {
                     .collect(Collectors.toMap(Concept::conceptPath, Function.identity()));
         } catch (RuntimeException e) {
             log.error("Error fetching concepts from dictionary service", e);
-            return;
         }
 
         for (int i = 0; i < formattedFields.size(); i++) {

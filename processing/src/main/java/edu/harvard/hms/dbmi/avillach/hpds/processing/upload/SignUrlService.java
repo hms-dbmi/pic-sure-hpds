@@ -26,8 +26,6 @@ public class SignUrlService {
     private final int signedUrlExpiryMinutes;
     private final Region region;
 
-    private final S3Client s3;
-
     private static Logger log = LoggerFactory.getLogger(SignUrlService.class);
 
     @Autowired
@@ -39,13 +37,12 @@ public class SignUrlService {
         this.bucketName = bucketName;
         this.signedUrlExpiryMinutes = signedUrlExpiryMinutes;
         this.region = Region.of(region);
-
-        s3 = S3Client.builder()
-                .region(this.region)
-                .build();
     }
 
     public void uploadFile(File file, String objectKey) {
+        S3Client s3 = S3Client.builder()
+                .region(this.region)
+                .build();
         putS3Object(s3, bucketName, objectKey, file);
         s3.close();
     }
