@@ -5,5 +5,5 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.Map;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record Concept(String type, String conceptPath, String name, String display, String dataset, String description, Map<String, String> meta) {
+public record Concept(String conceptPath, String name, String display, String dataset, String description, Map<String, String> meta) {
 }

@@ -91,7 +91,6 @@ public class PfbWriter implements ResultWriter {
                 .fields()
                 .requiredString("concept_path")
                 .name("drs_uri").type(SchemaBuilder.array().items(SchemaBuilder.nullable().stringType())).noDefault()
-                .nullableString("type", "null")
                 .nullableString("display", "null")
                 .nullableString("dataset", "null")
                 .nullableString("description", "null")
@@ -165,7 +164,6 @@ public class PfbWriter implements ResultWriter {
                         }
                     }
                 }
-                dataDictionaryData.put("type", concept.type());
                 dataDictionaryData.put("display", concept.display());
                 dataDictionaryData.put("dataset", concept.dataset());
                 dataDictionaryData.put("description", concept.description());
