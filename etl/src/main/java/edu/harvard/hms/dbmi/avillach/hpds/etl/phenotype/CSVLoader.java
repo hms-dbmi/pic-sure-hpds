@@ -54,59 +54,86 @@ public class CSVLoader {
 	}
 
 	private static void processRecord(final PhenoCube[] currentConcept, CSVRecord record) {
-		if(record.size()<4) {
-			log.info("Record number " + record.getRecordNumber() 
-			+ " had less records than we expected so we are skipping it.");
+		// Check if the record has fewer than the expected number of fields
+		if (record.size() < 4) {
+			log.info("Record number " + record.getRecordNumber() + " had fewer records than we expected so we are skipping it.");
 			return;
 		}
 
 		try {
+			// Retrieve and clean the concept path from the record
 			String conceptPathFromRow = record.get(CONCEPT_PATH);
 			String[] segments = conceptPathFromRow.split("\\\\");
-			for(int x = 0;x<segments.length;x++) {
-				segments[x] = segments[x].trim();
+			for (int x = 0; x < segments.length; x++) {
+				segments[x] = segments[x].trim(); // Trim each segment
 			}
-			conceptPathFromRow = String.join("\\", segments) + "\\";
-			conceptPathFromRow = conceptPathFromRow.replaceAll("\\ufffd", "");
+			conceptPathFromRow = String.join("\\", segments) + "\\"; // Reassemble the trimmed path
+			conceptPathFromRow = conceptPathFromRow.replaceAll("\\ufffd", ""); // Remove invalid characters
+
+			// Retrieve and clean the text value from the record
 			String textValueFromRow = record.get(TEXT_VALUE) == null ? null : record.get(TEXT_VALUE).trim();
-			if(textValueFromRow!=null) {
-				textValueFromRow = textValueFromRow.replaceAll("\\ufffd", "");
+			if (textValueFromRow != null) {
+				textValueFromRow = textValueFromRow.replaceAll("\\ufffd", ""); // Remove invalid characters
 			}
-			String conceptPath = conceptPathFromRow.endsWith("\\" +textValueFromRow+"\\") ? conceptPathFromRow.replaceAll("\\\\[^\\\\]*\\\\$", "\\\\") : conceptPathFromRow;
-			// This is not getDouble because we need to handle null values, not coerce them into 0s
+
+			// Adjust the concept path if it ends with the text value
+			String conceptPath = conceptPathFromRow.endsWith("\\" + textValueFromRow + "\\")
+					? conceptPathFromRow.replaceAll("\\\\[^\\\\]*\\\\$", "\\\\")
+					: conceptPathFromRow;
+
+			// Retrieve the numeric value from the record
 			String numericValue = record.get(NUMERIC_VALUE);
-			if((numericValue==null || numericValue.isEmpty()) && textValueFromRow!=null) {
+			if ((numericValue == null || numericValue.isEmpty()) && textValueFromRow != null) {
 				try {
+					// Try parsing text value as a number if numeric value is missing
 					numericValue = Double.parseDouble(textValueFromRow) + "";
-				}catch(NumberFormatException e) {
-
+				} catch (NumberFormatException e) {
+					// Ignore parsing error
 				}
 			}
+
+			// Determine if the value is alphanumeric
 			boolean isAlpha = (numericValue == null || numericValue.isEmpty());
-			if(currentConcept[0] == null || !currentConcept[0].name.equals(conceptPath)) {
-				System.out.println(conceptPath);
+
+			// Update or create the PhenoCube for the current concept path
+			if (currentConcept[0] == null || !currentConcept[0].name.equals(conceptPath)) {
+				System.out.println(conceptPath); // Print concept path for debugging
 				try {
-					currentConcept[0] = store.store.get(conceptPath);
-				} catch(InvalidCacheLoadException e) {
+					currentConcept[0] = store.store.get(conceptPath); // Try loading from cache
+				} catch (InvalidCacheLoadException e) {
+					// Create a new PhenoCube if not found in cache
 					currentConcept[0] = new PhenoCube(conceptPath, isAlpha ? String.class : Double.class);
-					store.store.put(conceptPath, currentConcept[0]);
+					store.store.put(conceptPath, currentConcept[0]); // Store the new PhenoCube in cache
 				}
 			}
-			String value = isAlpha ? record.get(TEXT_VALUE) : numericValue;
 
-			if(value != null && !value.trim().isEmpty() && ((isAlpha && currentConcept[0].vType == String.class)||(!isAlpha && currentConcept[0].vType == Double.class))) {
-				value = value.trim();
-				currentConcept[0].setColumnWidth(isAlpha ? Math.max(currentConcept[0].getColumnWidth(), value.getBytes().length) : Double.BYTES);
+			// Determine the value to be used based on whether it is alphanumeric or numeric
+			String value = isAlpha ? record.get(TEXT_VALUE) : numericValue;
+			if (value != null && !value.trim().isEmpty() &&
+				((isAlpha && currentConcept[0].vType == String.class) || (!isAlpha && currentConcept[0].vType == Double.class))) {
+				value = value.trim(); // Trim the value
+
+				// Update the column width for the PhenoCube
+				currentConcept[0].setColumnWidth(isAlpha ?
+						Math.max(currentConcept[0].getColumnWidth(), value.getBytes().length) :
+						Double.BYTES);
+
+				// Retrieve and parse patient ID from the record
 				int patientId = Integer.parseInt(record.get(PATIENT_NUM));
+
 				Date date = null;
-				if(record.size()>4 && record.get(DATETIME) != null && ! record.get(DATETIME).isEmpty()) {
+				// Check and parse the datetime field if present
+				if (record.size() > 4 && record.get(DATETIME) != null && !record.get(DATETIME).isEmpty()) {
 					date = new Date(Long.parseLong(record.get(DATETIME)));
 				}
+
+				// Add the value to the PhenoCube
 				currentConcept[0].add(patientId, isAlpha ? value : Double.parseDouble(value), date);
+
+				// Maintain a set of all patient IDs
 				store.allIds.add(patientId);
 			}
 		} catch (ExecutionException e) {
-			// todo: do we really want to ignore this?
 			log.error("Error processing record", e);
 		}
 	}
