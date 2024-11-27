@@ -13,6 +13,7 @@ import javax.ws.rs.core.Response.Status;
 
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.ResultType;
 import edu.harvard.hms.dbmi.avillach.hpds.service.filesharing.FileSharingService;
+import edu.harvard.hms.dbmi.avillach.hpds.service.filesharing.TestDataService;
 import edu.harvard.hms.dbmi.avillach.hpds.service.util.Paginator;
 import edu.harvard.hms.dbmi.avillach.hpds.service.util.QueryDecorator;
 import org.apache.http.entity.ContentType;
@@ -45,9 +46,9 @@ public class PicSureService implements IResourceRS {
 
 	@Autowired
 	public PicSureService(QueryService queryService, TimelineProcessor timelineProcessor, CountProcessor countProcessor,
-						  VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor,
-						  Paginator paginator, FileSharingService fileSystemService, QueryDecorator queryDecorator
-	) {
+                          VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor,
+                          Paginator paginator, FileSharingService fileSystemService, QueryDecorator queryDecorator, TestDataService testDataService
+    ) {
 		this.queryService = queryService;
 		this.timelineProcessor = timelineProcessor;
 		this.countProcessor = countProcessor;
@@ -56,7 +57,8 @@ public class PicSureService implements IResourceRS {
 		this.paginator = paginator;
 		this.fileSystemService = fileSystemService;
 		this.queryDecorator = queryDecorator;
-		Crypto.loadDefaultKey();
+        this.testDataService = testDataService;
+        Crypto.loadDefaultKey();
 	}
 
 	private final QueryService queryService;
@@ -78,6 +80,8 @@ public class PicSureService implements IResourceRS {
 	private final FileSharingService fileSystemService;
 
 	private final QueryDecorator queryDecorator;
+
+	private final TestDataService testDataService;
 
 	private static final String QUERY_METADATA_FIELD = "queryMetadata";
 	private static final int RESPONSE_CACHE_SIZE = 50;
@@ -275,6 +279,10 @@ public class PicSureService implements IResourceRS {
 	public Response writeQueryResult(
 		@RequestBody() Query query, @PathParam("dataType") String datatype
 	) {
+		if ("test_upload".equals(datatype)) {
+			 return testDataService.uploadTestFile(query.getPicSureId()) ?
+				 Response.ok().build() : Response.status(500).build();
+		}
 		if (roundTripUUID(query.getPicSureId()).map(id -> !id.equalsIgnoreCase(query.getPicSureId())).orElse(false)) {
 			return Response
 				.status(400, "The query pic-sure ID is not a UUID")
