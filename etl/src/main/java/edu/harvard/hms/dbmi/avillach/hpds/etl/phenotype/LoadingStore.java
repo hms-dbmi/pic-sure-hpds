@@ -161,7 +161,7 @@ public class LoadingStore {
 	 */
 	public void dumpStatsAndColumnMeta(String hpdsDirectory) {
 		try (ObjectInputStream objectInputStream =
-					 new ObjectInputStream(new GZIPInputStream(new FileInputStream(hpdsDirectory + "columnMeta.javabin")));){
+					 new ObjectInputStream(new GZIPInputStream(new FileInputStream(hpdsDirectory + "columnMeta.javabin")))){
 			TreeMap<String, ColumnMeta> metastore = (TreeMap<String, ColumnMeta>) objectInputStream.readObject();
 			try(BufferedWriter writer = Files.newBufferedWriter(Paths.get(hpdsDirectory + "columnMeta.csv"), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
 				CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT);
