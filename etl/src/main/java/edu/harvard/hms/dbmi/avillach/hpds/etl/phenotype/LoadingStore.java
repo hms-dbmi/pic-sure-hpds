@@ -124,6 +124,7 @@ public class LoadingStore {
 		metaOut.close();
 		System.out.println("Closing Store");
 		allObservationsStore.close();
+		dumpStatsAndColumnMeta(hpdsDirectory);
 	}
 
 	public void dumpStats() {

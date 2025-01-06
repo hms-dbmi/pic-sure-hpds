@@ -41,7 +41,6 @@ public class CSVLoaderNewSearch {
         store.allObservationsStore = new RandomAccessFile(HPDS_DIRECTORY + "allObservationsStore.javabin", "rw");
         initialLoad();
         store.saveStore(HPDS_DIRECTORY);
-        store.dumpStatsAndColumnMeta(HPDS_DIRECTORY);
     }
 
     private static void initialLoad() throws IOException {
