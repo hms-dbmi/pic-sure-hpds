@@ -1,4 +1,4 @@
-FROM hms-dbmi/pic-sure-api:LATEST AS dependencies
+FROM hms-dbmi/pic-sure-api:release_083e420 AS dependencies
 
 FROM maven:3.9.4-amazoncorretto-21 AS build
 WORKDIR /app
