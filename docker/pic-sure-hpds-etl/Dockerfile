@@ -1,21 +1,35 @@
+# Stage 1: Build the application using Maven
+FROM maven:3.9.4-amazoncorretto-21 AS build
+WORKDIR /app
+
+# Copy the entire project into the container
+COPY . .
+
+# Build the project and skip tests
+RUN mvn clean install -DskipTests
+
+# Stage 2: Create the runtime image
 FROM eclipse-temurin:21-alpine
 
-RUN apk add --no-cache --purge -uU bash &&     rm -rf /var/cache/apk/* /tmp/*
+# Install necessary packages
+RUN apk add --no-cache --purge -uU bash curl wget unzip gnupg openssl && \
+    rm -rf /var/cache/apk/* /tmp/*
 
-RUN apk add --no-cache --purge -uU curl wget unzip gnupg openssl
+# Copy only the specified JAR files and the script from the build stage
+WORKDIR /app
+COPY --from=build /app/target/SQLLoader-jar-with-dependencies.jar .
+COPY --from=build /app/target/CSVLoader-jar-with-dependencies.jar .
+COPY --from=build /app/target/CSVLoaderNewSearch-jar-with-dependencies.jar .
+COPY --from=build /app/target/CSVDumper-jar-with-dependencies.jar .
+COPY --from=build /app/target/VCFLocalLoader-jar-with-dependencies.jar .
+COPY --from=build /app/target/VariantMetadataLoader-jar-with-dependencies.jar .
+COPY --from=build /app/target/UnifiedVCFLocalLoader-jar-with-dependencies.jar .
+COPY --from=build /app/target/MultialleleCounter-jar-with-dependencies.jar .
+COPY --from=build /app/target/RekeyDataset-jar-with-dependencies.jar .
+COPY --from=build /app/target/RemoveConceptFromMetadata-jar-with-dependencies.jar .
+COPY --from=build /app/target/HideAnnotationCategoryValue-jar-with-dependencies.jar .
+COPY --from=build /app/target/SequentialLoader-jar-with-dependencies.jar .
+COPY create_key.sh .
 
-ADD create_key.sh .
-ADD SQLLoader-jar-with-dependencies.jar .
-ADD CSVLoader-jar-with-dependencies.jar .
-ADD CSVLoaderNewSearch-jar-with-dependencies.jar .
-ADD CSVDumper-jar-with-dependencies.jar .
-ADD VCFLocalLoader-jar-with-dependencies.jar .
-ADD VariantMetadataLoader-jar-with-dependencies.jar .
-ADD UnifiedVCFLocalLoader-jar-with-dependencies.jar .
-ADD MultialleleCounter-jar-with-dependencies.jar .
-ADD RekeyDataset-jar-with-dependencies.jar .
-ADD RemoveConceptFromMetadata-jar-with-dependencies.jar .
-ADD HideAnnotationCategoryValue-jar-with-dependencies.jar .
-ADD SequentialLoader-jar-with-dependencies.jar .
-
-ENTRYPOINT java $JAVA_OPTS -Xmx${HEAPSIZE:-2048}m -jar ${LOADER_NAME:-CSVLoader}-jar-with-dependencies.jar
+# Define entry point
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -Xmx${HEAPSIZE:-2048}m -jar ${LOADER_NAME:-CSVLoader}-jar-with-dependencies.jar"]
