@@ -3,7 +3,7 @@ FROM maven:3.9.4-amazoncorretto-21 AS build
 WORKDIR /app
 
 # Copy the entire project into the container
-COPY ../../ .
+COPY . .
 
 # Build the project and skip tests
 RUN mvn clean install -DskipTests
