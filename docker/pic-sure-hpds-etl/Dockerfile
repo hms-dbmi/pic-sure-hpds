@@ -1,9 +1,13 @@
-# Stage 1: Build the application using Maven
+# Stage 1: Pull the dependencies from the existing image
+FROM hms-dbmi/pic-sure-api AS dependencies
+
+# Stage 2: Build the new project
 FROM maven:3.9.4-amazoncorretto-21 AS build
 WORKDIR /app
 
-# Copy the entire project into the container
+# Copy source code and Maven settings
 COPY . .
+COPY --from=dependencies /root/.m2 /root/.m2
 
 # Build the project and skip tests
 RUN mvn clean install -DskipTests
