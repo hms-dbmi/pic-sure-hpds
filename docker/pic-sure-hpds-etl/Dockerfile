@@ -1,5 +1,5 @@
 # Stage 1: Pull the dependencies from the existing image
-FROM hms-dbmi/pic-sure-api AS dependencies
+FROM hms-dbmi/pic-sure-api:LATEST AS dependencies
 
 # Stage 2: Build the new project
 FROM maven:3.9.4-amazoncorretto-21 AS build
