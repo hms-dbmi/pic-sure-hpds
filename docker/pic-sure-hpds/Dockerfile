@@ -1,5 +1,7 @@
 FROM maven:3.9.4-amazoncorretto-21 AS build
 
+RUN yum update -y && yum install -y git && yum clean all
+
 WORKDIR /app
 
 COPY .m2 /root/.m2
