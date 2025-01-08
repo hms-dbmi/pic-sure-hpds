@@ -1,10 +1,10 @@
-FROM hms-dbmi/pic-sure-api:release_083e420 AS dependencies
-
 FROM maven:3.9.4-amazoncorretto-21 AS build
+
 WORKDIR /app
 
+COPY /root/.m2 /root/.m2
+
 COPY . .
-COPY --from=dependencies /root/.m2 /root/.m2
 
 RUN mvn clean install -DskipTests
 
