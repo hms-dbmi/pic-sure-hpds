@@ -28,6 +28,6 @@ COPY --from=build /app/target/RekeyDataset-jar-with-dependencies.jar .
 COPY --from=build /app/target/RemoveConceptFromMetadata-jar-with-dependencies.jar .
 COPY --from=build /app/target/HideAnnotationCategoryValue-jar-with-dependencies.jar .
 COPY --from=build /app/target/SequentialLoader-jar-with-dependencies.jar .
-COPY --from=build /app/pic-sure-hpds-etl/create_key.sh .
+COPY --from=build /app/docker/pic-sure-hpds-etl/create_key.sh .
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -Xmx${HEAPSIZE:-2048}m -jar ${LOADER_NAME:-CSVLoader}-jar-with-dependencies.jar"]
