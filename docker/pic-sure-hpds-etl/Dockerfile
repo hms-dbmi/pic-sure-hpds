@@ -1,7 +1,7 @@
 FROM maven:3.9.4-amazoncorretto-21 AS build
 WORKDIR /app
 
-COPY /root/.m2 /root/.m2
+COPY .m2 /root/.m2
 
 COPY . .
 
