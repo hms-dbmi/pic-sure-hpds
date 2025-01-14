@@ -23,6 +23,18 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * Writes HPDS data in PFB format. PFB is an Avro schema specifically created for biomedical data.
+ * See <a href="https://uc-cdis.github.io/pypfb/">https://uc-cdis.github.io/pypfb/</a> for more details.
+ *
+ * Our PFB format has 4 entities currently:
+ * <ul>
+ *     <li>pic-sure-patients: Contains patient data, with one row per patient</li>
+ *     <li>pic-sure-data-dictionary: Contains variable metadata with one row per variable exported</li>
+ *     <li>metadata: Contains ontological metadata about variables. Currently empty</li>
+ *     <li>relations: Contains relational data about entities. Currently empty</li>
+ * </ul>
+ */
 public class PfbWriter implements ResultWriter {
 
     public static final String PATIENT_TABLE_PREFIX = "pic-sure-patients-";
@@ -34,26 +46,49 @@ public class PfbWriter implements ResultWriter {
     private final Schema metadataSchema;
     private final Schema nodeSchema;
 
-    private final String queryId;
-
     private final String patientTableName;
     private final String dataDictionaryTableName;
     private SchemaBuilder.FieldAssembler<Schema> entityFieldAssembler;
 
+    /**
+     * The original (before formatting for avro) concept path values
+     */
     private List<String> originalFields;
+    /**
+     * The avro formatted concept path values. Avro only allows alphanumeric values and underscores as field names
+     */
     private List<String> formattedFields;
     private DataFileWriter<GenericRecord> dataFileWriter;
+    /**
+     * Location of the file being written to
+     */
     private File file;
+    /**
+     * The entity schema is a union of our custom entities, plus the PFB defined relation and metadata entities
+     */
     private Schema entitySchema;
+    /**
+     * Schema containing one row per patient and one column per concept path exported
+     */
     private Schema patientDataSchema;
+    /**
+     * Data dictionary schema containing one row per concept path exported and various metadata columns
+     */
     private Schema dataDictionarySchema;
+    /**
+     * Relational data about entities. Currently empty
+     */
     private Schema relationSchema;
 
+    /**
+     * A hardcoded set of fields that should be a single value instead of an array.
+     *
+     * todo: introduce an attribute on concept paths specifying if they can contain multiple values
+     */
     private static final Set<String> SINGULAR_FIELDS = Set.of("patient_id");
 
     public PfbWriter(File tempFile, String queryId, DictionaryService dictionaryService) {
         this.file = tempFile;
-        this.queryId = queryId;
         this.dictionaryService = dictionaryService;
         this.patientTableName = formatFieldName(PATIENT_TABLE_PREFIX + queryId);
         this.dataDictionaryTableName = formatFieldName(DATA_DICTIONARY_TABLE_PREFIX + queryId);
