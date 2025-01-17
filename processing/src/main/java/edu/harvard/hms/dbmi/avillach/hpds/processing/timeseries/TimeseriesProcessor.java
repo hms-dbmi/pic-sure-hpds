@@ -120,6 +120,10 @@ public class TimeseriesProcessor implements HpdsProcessor {
 			log.debug("Exporting " + conceptPath);
 			List<?> valuesForKeys = cube.getValuesForKeys(idList);
 			for (Object kvObj : valuesForKeys) {
+				Optional<String> maybeTimestamp = conversionService.toISOString(((KeyAndValue)kvObj).getTimestamp());
+				if (maybeTimestamp.isEmpty()) {
+					continue;
+				}
 				if (cube.isStringType()) {
 					KeyAndValue<String> keyAndValue = (KeyAndValue) kvObj;
 					// "PATIENT_NUM","CONCEPT_PATH","NVAL_NUM","TVAL_CHAR","TIMESTAMP"
@@ -128,7 +132,7 @@ public class TimeseriesProcessor implements HpdsProcessor {
 						conceptPath,
 						"",
 						keyAndValue.getValue(),
-						conversionService.toISOString(keyAndValue.getTimestamp())
+						maybeTimestamp.get()
 					};
 					dataEntries.add(entryData);
 				} else { // numeric
@@ -139,7 +143,7 @@ public class TimeseriesProcessor implements HpdsProcessor {
 						conceptPath,
 						keyAndValue.getValue().toString(),
 						"",
-						conversionService.toISOString(keyAndValue.getTimestamp())
+						maybeTimestamp.get()
 					};
 					dataEntries.add(entryData);
 				}
