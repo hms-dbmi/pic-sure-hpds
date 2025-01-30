@@ -120,7 +120,7 @@ public class PfbWriter implements ResultWriter {
         dataFileWriter = new DataFileWriter<GenericRecord>(datumWriter);
         try {
             log.info("Creating temp avro file at " + file.getAbsoluteFile());
-            dataFileWriter.setCodec(CodecFactory.deflateCodec(CodecFactory.DEFAULT_DEFLATE_LEVEL));
+            dataFileWriter.setCodec(CodecFactory.nullCodec());
             dataFileWriter.create(entitySchema, file);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
