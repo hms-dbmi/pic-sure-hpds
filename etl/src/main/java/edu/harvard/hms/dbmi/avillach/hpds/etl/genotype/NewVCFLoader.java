@@ -46,6 +46,8 @@ public class NewVCFLoader {
 			storageDir = new File(args[1]);
 			mergedDirStr = args[2];
 		} else {
+			logger.info(args.length + " arguments provided");
+			logger.info("Using default values");
 			indexFile = new File("/opt/local/hpds/vcfIndex.tsv");
 			storageDir = new File(storageDirStr);
 		}
