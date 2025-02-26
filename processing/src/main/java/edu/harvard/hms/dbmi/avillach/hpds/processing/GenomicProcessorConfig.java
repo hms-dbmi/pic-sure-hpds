@@ -34,11 +34,19 @@ public class GenomicProcessorConfig {
     @Bean(name = "localDistributedGenomicProcessor")
     @ConditionalOnProperty(prefix = "hpds.genomicProcessor", name = "impl", havingValue = "localDistributed")
     public GenomicProcessor localDistributedGenomicProcessor() {
-        List<GenomicProcessor> genomicProcessors = Flux.range(1, 22)
-                .flatMap(i -> Mono.fromCallable(() -> (GenomicProcessor) new GenomicProcessorNodeImpl(hpdsGenomicDataDirectory + "/" + i + "/")).subscribeOn(Schedulers.boundedElastic()))
+        // assumed for now that all first level directories contain a genomic dataset for a group of studies
+        File[] directories = new File(hpdsGenomicDataDirectory).listFiles(File::isDirectory);
+        if (directories.length > 50) {
+            throw new IllegalArgumentException("Number of chromosome partitions exceeds maximum of 50 (" + directories.length + ")");
+        }
+
+        List<GenomicProcessor> genomicProcessors = Flux.fromArray(directories)
+                .flatMap(i -> Mono.fromCallable(() -> {
+                    return (GenomicProcessor) new GenomicProcessorNodeImpl(i.getAbsolutePath() + "/");
+                }).subscribeOn(Schedulers.boundedElastic()))
                 .collectList()
                 .block();
-        genomicProcessors.add(new GenomicProcessorNodeImpl(hpdsGenomicDataDirectory + "/X/"));
+        //genomicProcessors.add(new GenomicProcessorNodeImpl(hpdsGenomicDataDirectory + "/X/"));
         return new GenomicProcessorParentImpl(genomicProcessors);
     }
 
