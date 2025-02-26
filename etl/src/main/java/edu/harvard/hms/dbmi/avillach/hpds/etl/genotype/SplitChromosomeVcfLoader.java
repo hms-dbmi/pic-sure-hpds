@@ -115,7 +115,7 @@ public class SplitChromosomeVcfLoader extends NewVCFLoader {
         zygosityMaskStrings = new HashMap<String/* variantSpec */, char[][]/* string bitmasks */>();
 
         List<Integer> positionsProcessedInChunk = new ArrayList<>();
-        while (walkers.stream().anyMatch(walker -> {
+        while (walkers.parallelStream().anyMatch(walker -> {
             return walker.hasNext;
         })) {
             Collections.sort(walkers);
@@ -159,7 +159,7 @@ public class SplitChromosomeVcfLoader extends NewVCFLoader {
                 }
             });
             zygosityMaskStrings.put(currentSpecNotation, maskStringsForVariantSpec[0]);
-            walkers = walkers.stream().filter((walker) -> {
+            walkers = walkers.parallelStream().filter((walker) -> {
                 return walker.hasNext;
             }).collect(Collectors.toList());
         }

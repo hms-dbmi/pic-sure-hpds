@@ -3,6 +3,7 @@ package edu.harvard.hms.dbmi.avillach.hpds.test.util;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.BucketIndexBySample;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantStore;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.NewVCFLoader;
+import edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.SplitChromosomeVariantMetadataLoader;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.SplitChromosomeVcfLoader;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.VariantMetadataLoader;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.CSVLoader;
@@ -25,7 +26,7 @@ public enum BuildIntegrationTestEnvironment {
         try {
             SplitChromosomeVcfLoader.main(new String[] {VCF_INDEX_FILE, STORAGE_DIR, MERGED_DIR});
             CSVLoader.main(new String[] {PHENOTYPIC_DATA_DIRECTORY});
-            VariantMetadataLoader.main(new String[] {"./src/test/resources/test_vcfIndex.tsv", binFile, "target/VariantMetadataStorage.bin"});
+            SplitChromosomeVariantMetadataLoader.main(new String[] {"./src/test/resources/test_vcfIndex.tsv", STORAGE_DIR});
             List.of("chr4", "chr20", "chr21").forEach(dir -> {
                 VariantStore variantStore = null;
                 try {
