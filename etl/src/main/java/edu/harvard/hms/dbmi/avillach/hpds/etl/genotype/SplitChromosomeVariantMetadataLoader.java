@@ -73,7 +73,7 @@ public class SplitChromosomeVariantMetadataLoader {
 			});
 		}
 
-		vcfIndexFiles.parallelStream().forEach(SplitChromosomeVariantMetadataLoader::createVariantMetadataIndexForContig);
+		vcfIndexFiles.stream().forEach(SplitChromosomeVariantMetadataLoader::createVariantMetadataIndexForContig);
 
 
 	}
@@ -87,6 +87,7 @@ public class SplitChromosomeVariantMetadataLoader {
 				metadataIndex.put(vcfInput.currentVariantSpec, vcfInput.currentMetaData);
 				vcfInput.nextVariant();
 			}
+			metadataIndex.put(vcfInput.currentVariantSpec, vcfInput.currentMetaData);
 
 			metadataIndex.complete();
 
