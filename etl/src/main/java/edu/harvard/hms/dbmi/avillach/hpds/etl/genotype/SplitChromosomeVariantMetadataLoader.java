@@ -37,7 +37,7 @@ public class SplitChromosomeVariantMetadataLoader {
 	//fields to allow tests to override default file location
 	private static String hpdsDataPath = null;
 	
-	private static final int 
+	private static final int
 	ANNOTATED_FLAG_COLUMN = 2,
 	GZIP_FLAG_COLUMN=3,
 	FILE_COLUMN = 0;	
