@@ -92,13 +92,11 @@ public class SplitChromosomeVcfLoader extends NewVCFLoader {
             new File(mergedDirStr).mkdirs();
             variantIndexBuilder = new VariantIndexBuilder();
             variantMaskStorage = new TreeMap<>();
-            walkers = new ArrayList<>();
-            walkers.add(walker);
-            loadSingleContig();
+            loadSingleContig(walker);
         }
     }
 
-    private void loadSingleContig() throws IOException {
+    private void loadSingleContig(VCFWalker walker) throws IOException {
         VariantStore store = new VariantStore();
         store.setPatientIds(allPatientIds.stream().map((id) -> {
             return id.toString();
@@ -115,26 +113,23 @@ public class SplitChromosomeVcfLoader extends NewVCFLoader {
         zygosityMaskStrings = new HashMap<String/* variantSpec */, char[][]/* string bitmasks */>();
 
         List<Integer> positionsProcessedInChunk = new ArrayList<>();
-        while (walkers.parallelStream().anyMatch(walker -> {
-            return walker.hasNext;
-        })) {
-            Collections.sort(walkers);
-            VCFWalker lowestWalker = walkers.get(0);
-            String currentSpecNotation = lowestWalker.currentSpecNotation();
-            currentContig[0] = lowestWalker.currentContig;
-            currentPosition[0] = lowestWalker.currentPosition;
-            currentRef[0] = lowestWalker.currentRef;
-            currentAlt[0] = lowestWalker.currentAlt;
-            currentChunk = lowestWalker.currentPosition / CHUNK_SIZE;
+        
+        while (walker.hasNext) {
+            String currentSpecNotation = walker.currentSpecNotation();
+            currentContig[0] = walker.currentContig;
+            currentPosition[0] = walker.currentPosition;
+            currentRef[0] = walker.currentRef;
+            currentAlt[0] = walker.currentAlt;
+            currentChunk = walker.currentPosition / CHUNK_SIZE;
             positionsProcessedInChunk.add(currentPosition[0]);
 
             if (lastContigProcessed == null) {
-                lastContigProcessed = lowestWalker.currentContig;
+                lastContigProcessed = walker.currentContig;
             }
 
             flipChunk(lastContigProcessed, lastChunkProcessed, currentChunk, currentContig[0], false,
-                    lowestWalker.currentLine);
-            lastContigProcessed = lowestWalker.currentContig;
+                    walker.currentLine);
+            lastContigProcessed = walker.currentContig;
             lastChunkProcessed = currentChunk;
 
             char[][][] maskStringsForVariantSpec = { zygosityMaskStrings.get(currentSpecNotation) };
@@ -147,21 +142,18 @@ public class SplitChromosomeVcfLoader extends NewVCFLoader {
                     }
                 }
             }
-            walkers.stream().filter((walker) -> {
-                return walker.currentPosition == currentPosition[0] && walker.currentAlt == currentAlt[0]
-                        && walker.currentRef == currentRef[0] && walker.currentContig.contentEquals(currentContig[0]);
-            }).forEach((walker) -> {
+
+            while (walker.currentPosition == currentPosition[0] && walker.currentAlt == currentAlt[0]
+                    && Objects.equals(walker.currentRef, currentRef[0]) && walker.currentContig.contentEquals(currentContig[0]) && walker.hasNext) {
                 walker.updateRecords(maskStringsForVariantSpec[0], infoStoreMap);
                 try {
                     walker.nextLine();
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
-            });
+            }
+
             zygosityMaskStrings.put(currentSpecNotation, maskStringsForVariantSpec[0]);
-            walkers = walkers.parallelStream().filter((walker) -> {
-                return walker.hasNext;
-            }).collect(Collectors.toList());
         }
 
         flipChunk(lastContigProcessed, lastChunkProcessed, currentChunk, currentContig[0], true, null);
