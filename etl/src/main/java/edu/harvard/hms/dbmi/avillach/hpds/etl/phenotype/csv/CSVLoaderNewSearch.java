@@ -66,7 +66,7 @@ class CSVLoaderService {
 
     private void initialLoad(boolean doRollup) throws IOException {
         Crypto.loadDefaultKey();
-        Reader in = new FileReader(hpdsDirectory + "FHS_allConcepts.csv");
+        Reader in = new FileReader(hpdsDirectory + "allConcepts.csv");
         Iterable<CSVRecord> records = CSVFormat.DEFAULT.withSkipHeaderRecord().withFirstRecordAsHeader().parse(new BufferedReader(in, 1024 * 1024));
 
         final PhenoCube[] currentConcept = new PhenoCube[1];
