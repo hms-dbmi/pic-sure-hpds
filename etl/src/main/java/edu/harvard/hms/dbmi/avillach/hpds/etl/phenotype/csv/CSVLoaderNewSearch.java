@@ -48,7 +48,7 @@ class CSVLoaderService {
     private static final Logger log = LoggerFactory.getLogger(CSVLoaderService.class);
     private final LoadingStore store = new LoadingStore();
 
-    private String hpdsDirectory = "./"; // Default directory, can be overridden via application.properties
+    private String hpdsDirectory = "/opt/local/hpds/"; // Default directory, can be overridden via application.properties
 
     public void setHpdsDirectory(String hpdsDirectory) {
         this.hpdsDirectory = hpdsDirectory;
