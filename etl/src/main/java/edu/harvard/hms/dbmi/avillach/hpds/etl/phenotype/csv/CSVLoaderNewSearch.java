@@ -7,10 +7,10 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.CommandLineRunner;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
@@ -33,55 +33,55 @@ public class CSVLoaderNewSearch {
     }
 
     @Bean
-    CommandLineRunner runCSVLoader(CSVLoaderService csvLoaderService) {
-        return args -> {
-            boolean doRollup = args.length > 0 && args[0].equalsIgnoreCase("NO_ROLLUP");
-            csvLoaderService.runEtlProcess(doRollup);
-        };
+    ApplicationRunner runCSVLoader(CSVLoaderService csvLoaderService) {
+        return args -> csvLoaderService.runEtlProcess();
     }
 }
 
 @Service
-@ConfigurationProperties(prefix = "etl")
 class CSVLoaderService {
 
     private static final Logger log = LoggerFactory.getLogger(CSVLoaderService.class);
     private final LoadingStore store = new LoadingStore();
 
-    private String hpdsDirectory = "/opt/local/hpds/"; // Default directory, can be overridden via application.properties
+    @Value("${etl.hpds.directory:/opt/local/hpds/}")
+    private String hpdsDirectory;
 
-    public void setHpdsDirectory(String hpdsDirectory) {
-        this.hpdsDirectory = hpdsDirectory;
-    }
+    @Value("${etl.rollup.enabled:true}")
+    private boolean rollupEnabled;
 
-    public void runEtlProcess(boolean doRollup) throws IOException {
-        log.info("Starting ETL process... Rollup Enabled: {}", !doRollup);
+    public void runEtlProcess() throws IOException {
+        log.info("Starting ETL process... Rollup Enabled: {}", rollupEnabled);
 
         store.allObservationsStore = new RandomAccessFile(hpdsDirectory + "allObservationsStore.javabin", "rw");
-        initialLoad(doRollup);
+        initialLoad();
         store.saveStore(hpdsDirectory);
 
         log.info("ETL process completed.");
     }
 
-    private void initialLoad(boolean doRollup) throws IOException {
+    private void initialLoad() throws IOException {
         Crypto.loadDefaultKey();
         Reader in = new FileReader(hpdsDirectory + "allConcepts.csv");
-        Iterable<CSVRecord> records = CSVFormat.DEFAULT.withSkipHeaderRecord().withFirstRecordAsHeader().parse(new BufferedReader(in, 1024 * 1024));
+        Iterable<CSVRecord> records = CSVFormat.DEFAULT
+                .withFirstRecordAsHeader()
+                .withSkipHeaderRecord(true)
+                .parse(new BufferedReader(in, 256 * 1024));
 
         final PhenoCube[] currentConcept = new PhenoCube[1];
         for (CSVRecord record : records) {
-            processRecord(currentConcept, record, doRollup);
+            processRecord(currentConcept, record);
         }
+
     }
 
-    private void processRecord(final PhenoCube[] currentConcept, CSVRecord record, boolean doRollup) {
+    private void processRecord(final PhenoCube[] currentConcept, CSVRecord record) {
         if (record.size() < 4) {
             log.warn("Skipping record #{} due to missing fields.", record.getRecordNumber());
             return;
         }
 
-        String conceptPath = CSVParserUtil.parseConceptPath(record, doRollup);
+        String conceptPath = CSVParserUtil.parseConceptPath(record, rollupEnabled);
         String numericValue = record.get(CSVParserUtil.NUMERIC_VALUE);
         boolean isAlpha = (numericValue == null || numericValue.isEmpty());
         String value = isAlpha ? record.get(CSVParserUtil.TEXT_VALUE) : numericValue;
@@ -105,6 +105,10 @@ class CSVLoaderService {
         if (currentConcept == null || !currentConcept.name.equals(conceptPath)) {
             currentConcept = store.store.getIfPresent(conceptPath);
             if (currentConcept == null) {
+                log.info("Writing - " + conceptPath);
+                // safe to invalidate and write store?
+                store.store.invalidateAll(); // force onremoval to free up cache per concept
+                store.store.cleanUp();
                 currentConcept = new PhenoCube(conceptPath, isAlpha ? String.class : Double.class);
                 store.store.put(conceptPath, currentConcept);
             }

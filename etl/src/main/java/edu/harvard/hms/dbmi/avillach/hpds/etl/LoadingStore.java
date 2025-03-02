@@ -29,14 +29,14 @@ public class LoadingStore {
 	TreeMap<String, ColumnMeta> metadataMap = new TreeMap<>();
 	
 	private static Logger log = LoggerFactory.getLogger(LoadingStore.class);
-	
+
 	public LoadingCache<String, PhenoCube> store = CacheBuilder.newBuilder()
-			.maximumSize(16)
+			.maximumSize(2048)
 			.removalListener(new RemovalListener<String, PhenoCube>() {
 
 				@Override
 				public void onRemoval(RemovalNotification<String, PhenoCube> arg0) {
-					log.info("removing " + arg0.getKey());
+					//log.debug("Cache removal and writing to disk: " + arg0.getKey());
 					if(arg0.getValue().getLoadingMap()!=null) {
 						complete(arg0.getValue());
 					}
@@ -205,6 +205,7 @@ public class LoadingStore {
 		} catch (IOException | ClassNotFoundException e) {
 			throw new RuntimeException("Could not load metastore", e);
 		}
+		dumpStats();
 	}
 
 }
