@@ -5,6 +5,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantStore;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.NewVCFLoader;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.VariantMetadataLoader;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.csv.CSVLoader;
+import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.csv.CSVLoaderNewSearch;
 
 import java.io.IOException;
 
@@ -21,7 +22,7 @@ public enum BuildIntegrationTestEnvironment {
     BuildIntegrationTestEnvironment() {
         try {
             NewVCFLoader.main(new String[] {VCF_INDEX_FILE, STORAGE_DIR, MERGED_DIR});
-            CSVLoader.main(new String[] {PHENOTYPIC_DATA_DIRECTORY});
+            CSVLoaderNewSearch.main(new String[] {PHENOTYPIC_DATA_DIRECTORY}); // this is not the current CSVLoader for current version of the application
             VariantMetadataLoader.main(new String[] {"./src/test/resources/test_vcfIndex.tsv", binFile, "target/VariantMetadataStorage.bin"});
             VariantStore variantStore = VariantStore.readInstance(STORAGE_DIR);
             BucketIndexBySample bucketIndexBySample = new BucketIndexBySample(variantStore, STORAGE_DIR);

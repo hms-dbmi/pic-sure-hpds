@@ -37,8 +37,8 @@ public class AbstractProcessor {
 	private final int ID_BATCH_SIZE;
 	private final int CACHE_SIZE;
 
-	private final String hpdsDataDirectory;
-
+	@Value("${HPDS_DATA_DIRECTORY:/opt/local/hpds/}")
+	private String hpdsDataDirectory;
 
 	@Value("${HPDS_GENOMIC_DATA_DIRECTORY:/opt/local/hpds/all/}")
 	private String hpdsGenomicDataDirectory;
@@ -53,10 +53,9 @@ public class AbstractProcessor {
 	@Autowired
 	public AbstractProcessor(
 			PhenotypeMetaStore phenotypeMetaStore,
-			GenomicProcessor genomicProcessor, @Value("${HPDS_DATA_DIRECTORY:/opt/local/hpds/}") String hpdsDataDirectory
+			GenomicProcessor genomicProcessor
 	) throws ClassNotFoundException, IOException, InterruptedException {
 
-		this.hpdsDataDirectory = hpdsDataDirectory;
 		this.phenotypeMetaStore = phenotypeMetaStore;
 		this.genomicProcessor = genomicProcessor;
 
@@ -66,27 +65,23 @@ public class AbstractProcessor {
 
 		store = initializeCache();
 
-		if(Crypto.hasKey(Crypto.DEFAULT_KEY_NAME)) {
-			List<String> cubes = new ArrayList<String>(phenotypeMetaStore.getColumnNames());
-			int conceptsToCache = Math.min(cubes.size(), CACHE_SIZE);
-			for(int x = 0;x<conceptsToCache;x++){
-				try {
-					if(phenotypeMetaStore.getColumnMeta(cubes.get(x)).getObservationCount() == 0){
-						log.info("Rejecting : " + cubes.get(x) + " because it has no entries.");
-					}else {
-						store.get(cubes.get(x));
-						log.debug("loaded: " + cubes.get(x));
-						// +1 offset when logging to print _after_ each 10%
-						if((x + 1) % (conceptsToCache * .1)== 0) {
-							log.info("cached: " + (x + 1) + " out of " + conceptsToCache);
-						}
+		List<String> cubes = new ArrayList<String>(phenotypeMetaStore.getColumnNames());
+		int conceptsToCache = Math.min(cubes.size(), CACHE_SIZE);
+		for(int x = 0;x<conceptsToCache;x++){
+			try {
+				if(phenotypeMetaStore.getColumnMeta(cubes.get(x)).getObservationCount() == 0){
+					log.info("Rejecting : " + cubes.get(x) + " because it has no entries.");
+				}else {
+					store.get(cubes.get(x));
+					log.debug("loaded: " + cubes.get(x));
+					// +1 offset when logging to print _after_ each 10%
+					if((x + 1) % (conceptsToCache * .1)== 0) {
+						log.info("cached: " + (x + 1) + " out of " + conceptsToCache);
 					}
-				} catch (ExecutionException e) {
-					log.error("an error occurred", e);
 				}
-
+			} catch (ExecutionException e) {
+				log.error("an error occurred", e);
 			}
-
 		}
 	}
 

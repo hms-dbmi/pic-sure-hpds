@@ -190,18 +190,12 @@ public class PicSureService {
 
 	@PostMapping("/query")
 	public ResponseEntity<QueryStatus> query(@RequestBody QueryRequest queryJson) {
-		if (Crypto.hasKey(Crypto.DEFAULT_KEY_NAME)) {
-			try {
-				Query query = convertIncomingQuery(queryJson);
-				return ResponseEntity.ok(convertToQueryStatus(queryService.runQuery(query)));
-			} catch (IOException e) {
-				log.error("IOException caught in query processing:", e);
-				return ResponseEntity.status(500).build();
-			}
-		} else {
-			QueryStatus status = new QueryStatus();
-			status.setResourceStatus("Resource is locked.");
-			return ResponseEntity.ok(status);
+		try {
+			Query query = convertIncomingQuery(queryJson);
+			return ResponseEntity.ok(convertToQueryStatus(queryService.runQuery(query)));
+		} catch (IOException e) {
+			log.error("IOException caught in query processing:", e);
+			return ResponseEntity.status(500).build();
 		}
 	}
 
@@ -349,15 +343,11 @@ public class PicSureService {
 
 	@PostMapping(value = "/query/sync", produces = MediaType.TEXT_PLAIN_VALUE)
 	public ResponseEntity querySync(@RequestBody QueryRequest resultRequest) {
-		if (Crypto.hasKey(Crypto.DEFAULT_KEY_NAME)) {
-			try {
-				return _querySync(resultRequest);
-			} catch (IOException e) {
-				log.error("IOException  caught: ", e);
-				return ResponseEntity.status(500).build();
-			}
-		} else {
-			return ResponseEntity.status(403).body("Resource is locked");
+		try {
+			return _querySync(resultRequest);
+		} catch (IOException e) {
+			log.error("IOException  caught: ", e);
+			return ResponseEntity.status(500).build();
 		}
 	}
 
