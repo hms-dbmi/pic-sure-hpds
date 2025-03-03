@@ -205,7 +205,6 @@ public class LoadingStore {
 		} catch (IOException | ClassNotFoundException e) {
 			throw new RuntimeException("Could not load metastore", e);
 		}
-		dumpStats();
 	}
 
 }
