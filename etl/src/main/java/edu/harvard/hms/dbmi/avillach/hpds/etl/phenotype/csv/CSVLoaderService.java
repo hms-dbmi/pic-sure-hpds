@@ -1,6 +1,5 @@
 package edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.csv;
 
-
 import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.LoadingStore;
@@ -32,7 +31,7 @@ public class CSVLoaderService {
         store.allObservationsStore = new RandomAccessFile(hpdsDirectory + "allObservationsStore.javabin", "rw");
         initialLoad();
         store.saveStore(hpdsDirectory);
-
+        store.dumpStats(hpdsDirectory);
         log.info("ETL process completed.");
     }
 
@@ -42,7 +41,7 @@ public class CSVLoaderService {
         Iterable<CSVRecord> records = CSVFormat.DEFAULT
                 .withFirstRecordAsHeader()
                 .withSkipHeaderRecord(true)
-                .parse(new BufferedReader(in, 256 * 1024));
+                .parse(new BufferedReader(in, 1024 * 1024));
 
         final PhenoCube[] currentConcept = new PhenoCube[1];
         for (CSVRecord record : records) {
@@ -81,8 +80,7 @@ public class CSVLoaderService {
         if (currentConcept == null || !currentConcept.name.equals(conceptPath)) {
             currentConcept = store.store.getIfPresent(conceptPath);
             if (currentConcept == null) {
-                log.info("Writing - " + conceptPath);
-                // safe to invalidate and write store?
+                // Invalidating
                 store.store.invalidateAll(); // force onremoval to free up cache per concept
                 store.store.cleanUp();
                 currentConcept = new PhenoCube(conceptPath, isAlpha ? String.class : Double.class);
