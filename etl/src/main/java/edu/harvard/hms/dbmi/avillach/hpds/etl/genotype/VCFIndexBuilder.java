@@ -99,22 +99,23 @@ public class VCFIndexBuilder {
                     writeVcfIndex(vcfGroup, groupToVcfMapping.get(vcfGroup));
                 });
         System.out.println(groupToVcfMapping.size());
-
-
     }
 
     private void writeVcfIndex(String vcfGroup, List<String> vcfFiles) {
         try {
             FileWriter fileWriter = new FileWriter(vcfIndexOutputDirectory.getAbsolutePath() + "/" + vcfGroup + "-vcfIndex.tsv");
             fileWriter.write("\"vcf_path\"\t\"chromosome\"\t\"isAnnotated\"\t\"isGzipped\"\t\"sample_ids\"\t\"patient_ids\"\t\"sample_relationship\"\t\"related_sample_ids\"\n");
-            String vcfFile = vcfFiles.get(0);
-            Set<String> validPatientUUIDs = fileToPatientListMap.get(vcfFile)
-                    .stream()
-                    .filter(patientUUIDToPatientIdMapping::containsKey)
-                    .collect(Collectors.toSet());
-            List<String> patentIds = validPatientUUIDs.stream().map(patientUUIDToPatientIdMapping::get).filter(Objects::nonNull).toList();
-            fileWriter.write("\"" + VCF_INDEX_DIRECTORY + "/" + vcfFile + "\"\t\"" + extractChromosome(vcfFile) + "\"\t\"1\"\t\"1\"\t");
-            fileWriter.write("\"" + COMMA_JOINER.join(validPatientUUIDs) + "\"\t\"" + COMMA_JOINER.join(patentIds) + "\"");
+
+            for (String vcfFile : vcfFiles) {
+                Set<String> validPatientUUIDs = fileToPatientListMap.get(vcfFile)
+                        .stream()
+                        .filter(patientUUIDToPatientIdMapping::containsKey)
+                        .collect(Collectors.toSet());
+                List<String> patentIds = validPatientUUIDs.stream().map(patientUUIDToPatientIdMapping::get).filter(Objects::nonNull).toList();
+                fileWriter.write("\"" + VCF_INDEX_DIRECTORY + "/" + vcfFile + "\"\t\"" + extractChromosome(vcfFile) + "\"\t\"1\"\t\"1\"\t");
+                fileWriter.write("\"" + COMMA_JOINER.join(validPatientUUIDs) + "\"\t\"" + COMMA_JOINER.join(patentIds) + "\"\n");
+            }
+
             fileWriter.flush();
             fileWriter.close();
         } catch (IOException e) {

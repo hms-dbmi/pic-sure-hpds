@@ -47,7 +47,7 @@ public class SplitChromosomeVcfLoader extends NewVCFLoader {
         } else {
             logger.info(args.length + " arguments provided");
             logger.info("Using default values");
-            vcfLoader = new NewVCFLoader();
+            vcfLoader = new SplitChromosomeVcfLoader();
         }
         vcfLoader.loadAndMerge();
 
