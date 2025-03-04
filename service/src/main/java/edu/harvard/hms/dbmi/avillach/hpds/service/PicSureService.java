@@ -264,7 +264,7 @@ public class PicSureService {
                     .status(400)
 					.body("The query pic-sure ID is not a UUID");
         }
-        if (query.getExpectedResultType() != ResultType.DATAFRAME_TIMESERIES) {
+        if (!List.of(ResultType.DATAFRAME_TIMESERIES, ResultType.PATIENTS).contains(query.getExpectedResultType())) {
             return ResponseEntity
                     .status(400)
 					.body("The write endpoint only writes time series dataframes. Fix result type.");
