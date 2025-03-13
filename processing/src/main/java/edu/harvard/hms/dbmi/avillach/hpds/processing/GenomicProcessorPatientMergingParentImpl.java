@@ -136,7 +136,7 @@ public class GenomicProcessorPatientMergingParentImpl implements GenomicProcesso
         VariableVariantMasks aggregatedMasks = null;
         int size = 0;
         for (GenomicProcessor node : nodes) {
-            VariableVariantMasks masks = node.getMasks(path, variantMasksVariantBucketHolder).orElseGet(VariableVariantMasks::new);
+            VariableVariantMasks masks = node.getMasks(path, new VariantBucketHolder<>()).orElseGet(VariableVariantMasks::new);
             int nodeSize = node.getPatientIds().size();
             if (aggregatedMasks == null) {
                 aggregatedMasks = masks;
