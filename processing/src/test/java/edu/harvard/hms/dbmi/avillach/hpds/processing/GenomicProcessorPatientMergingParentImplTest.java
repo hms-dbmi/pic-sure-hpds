@@ -290,5 +290,8 @@ public class GenomicProcessorPatientMergingParentImplTest {
 
         VariantMask expectedPatientMask = new VariantMaskBitmaskImpl(new BigInteger("11000100011000011011", 2));
         assertEquals(expectedPatientMask, masks.get().homozygousMask);
+        assertNull(masks.get().heterozygousMask);
+        assertNull(masks.get().heterozygousNoCallMask);
+        assertNull(masks.get().homozygousNoCallMask);
     }
 }
