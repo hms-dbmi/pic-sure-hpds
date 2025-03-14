@@ -6,7 +6,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.NewVCFLoader;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.SplitChromosomeVariantMetadataLoader;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.SplitChromosomeVcfLoader;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.VariantMetadataLoader;
-import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.CSVLoader;
+import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.csv.CSVLoader;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
