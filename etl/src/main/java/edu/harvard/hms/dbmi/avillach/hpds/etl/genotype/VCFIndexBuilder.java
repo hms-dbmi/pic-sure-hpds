@@ -86,7 +86,6 @@ public class VCFIndexBuilder {
         Map<String, List<String>> groupToVcfMapping = new HashMap<>();
 
         for (String fileName : fileToPatientListMap.keySet()) {
-            String chromosome = extractChromosome(fileName);
             String baseFile = fileName.substring(0, fileName.indexOf(".chr"));
             List<String> vcfFiles = groupToVcfMapping.getOrDefault(baseFile, new ArrayList<>());
             vcfFiles.add(fileName);
@@ -98,7 +97,6 @@ public class VCFIndexBuilder {
                 .forEach(vcfGroup -> {
                     writeVcfIndex(vcfGroup, groupToVcfMapping.get(vcfGroup));
                 });
-        System.out.println(groupToVcfMapping.size());
     }
 
     private void writeVcfIndex(String vcfGroup, List<String> vcfFiles) {

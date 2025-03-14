@@ -143,7 +143,7 @@ public class SplitChromosomeVcfLoader extends NewVCFLoader {
                 }
             }
 
-            while (walker.currentPosition == currentPosition[0] && walker.currentAlt == currentAlt[0]
+            while (walker.currentPosition == currentPosition[0] && Objects.equals(walker.currentAlt, currentAlt[0])
                     && Objects.equals(walker.currentRef, currentRef[0]) && walker.currentContig.contentEquals(currentContig[0]) && walker.hasNext) {
                 walker.updateRecords(maskStringsForVariantSpec[0], infoStoreMap);
                 try {
