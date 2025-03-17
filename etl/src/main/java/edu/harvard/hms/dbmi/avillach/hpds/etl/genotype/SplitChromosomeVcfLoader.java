@@ -109,6 +109,7 @@ public class SplitChromosomeVcfLoader extends NewVCFLoader {
         int[] currentPosition = { -1 };
         String[] currentRef = new String[1];
         String[] currentAlt = new String[1];
+        String[] currentVariantSpec = new String[1];
 
         zygosityMaskStrings = new HashMap<String/* variantSpec */, char[][]/* string bitmasks */>();
 
@@ -120,6 +121,7 @@ public class SplitChromosomeVcfLoader extends NewVCFLoader {
             currentPosition[0] = walker.currentPosition;
             currentRef[0] = walker.currentRef;
             currentAlt[0] = walker.currentAlt;
+            currentVariantSpec[0] = walker.currentSpecNotation();
             currentChunk = walker.currentPosition / CHUNK_SIZE;
             positionsProcessedInChunk.add(currentPosition[0]);
 
@@ -143,8 +145,7 @@ public class SplitChromosomeVcfLoader extends NewVCFLoader {
                 }
             }
 
-            while (walker.currentPosition == currentPosition[0] && Objects.equals(walker.currentAlt, currentAlt[0])
-                    && Objects.equals(walker.currentRef, currentRef[0]) && walker.currentContig.contentEquals(currentContig[0]) && walker.hasNext) {
+            while (Objects.equals(walker.currentSpecNotation(), currentVariantSpec[0]) && walker.hasNext) {
                 walker.updateRecords(maskStringsForVariantSpec[0], infoStoreMap);
                 try {
                     walker.nextLine();
