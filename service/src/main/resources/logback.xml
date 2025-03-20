@@ -1,14 +1,14 @@
 <configuration>
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} : %msg%n</pattern>
+            <pattern>${log.pattern:-%d{yyyy-MM-dd'T'HH:mm:ss.SSS'Z', UTC} %-5level --- [hpds] [%thread] %logger{36} : %msg%n}</pattern>
         </encoder>
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.FileAppender">
         <file>/var/log/hpds.log</file>
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} : %msg%n</pattern>
+            <pattern>${log.pattern:-%d{yyyy-MM-dd'T'HH:mm:ss.SSS'Z', UTC} %-5level --- [hpds] [%thread] %logger{36} : %msg%n}</pattern>
         </encoder>
     </appender>
 
