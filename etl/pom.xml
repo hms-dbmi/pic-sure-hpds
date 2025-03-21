@@ -6,13 +6,27 @@
 	<parent>
 		<artifactId>pic-sure-hpds</artifactId>
 		<groupId>edu.harvard.hms.dbmi.avillach.hpds</groupId>
-		<version>1.0-SNAPSHOT</version>
+		<version>3.0.0-SNAPSHOT</version>
 	</parent>
 
 	<artifactId>etl</artifactId>
 
 	<name>etl</name>
 	<dependencies>
+		<dependency>
+    			<groupId>org.apache.commons</groupId>
+   	 		<artifactId>commons-compress</artifactId>
+    			<version>1.21</version>
+		</dependency>
+		<dependency>
+    			<groupId>org.apache.httpcomponents</groupId>
+    			<artifactId>httpclient</artifactId>
+    			<version>4.5.13</version>
+		</dependency>
+		<dependency>
+    			<groupId>com.fasterxml.jackson.core</groupId>
+    			<artifactId>jackson-databind</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>edu.harvard.hms.dbmi.avillach.hpds</groupId>
 			<artifactId>data</artifactId>
@@ -31,7 +45,7 @@
 		</dependency>
 		<dependency>
 			<groupId>com.oracle.database.jdbc</groupId>
-			<artifactId>ojdbc6</artifactId>
+			<artifactId>ojdbc10</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.postgresql</groupId>
@@ -97,6 +111,26 @@
 						</goals>
 					</execution>
 					<execution>
+						<id>buildSplitChromosomeVcfLoader</id>
+						<configuration>
+							<archive>
+								<manifest>
+									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.SplitChromosomeVcfLoader</mainClass>
+								</manifest>
+							</archive>
+							<outputDirectory>${project.basedir}/../docker/pic-sure-hpds-etl</outputDirectory>
+							<descriptorRefs>
+								<descriptorRef>jar-with-dependencies</descriptorRef>
+							</descriptorRefs>
+							<classifier>SplitChromosomeVcfLoader</classifier>
+							<finalName>SplitChromosomeVcfLoader</finalName>
+						</configuration>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+					<execution>
 						<id>buildPerPatientUnifiedVCFLocalLoader</id>
 						<configuration>
 							<archive>
@@ -117,11 +151,31 @@
 						</goals>
 					</execution>
 					<execution>
+						<id>buildCSVLoaderNewSearch</id>
+						<configuration>
+							<archive>
+								<manifest>
+									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.csv.CSVLoaderNewSearch</mainClass>
+								</manifest>
+							</archive>
+							<outputDirectory>${project.basedir}/../docker/pic-sure-hpds-etl</outputDirectory>
+							<descriptorRefs>
+								<descriptorRef>jar-with-dependencies</descriptorRef>
+							</descriptorRefs>
+							<classifier>CSVLoaderNewSearch</classifier>
+							<finalName>CSVLoaderNewSearch</finalName>
+						</configuration>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+					<execution>
 						<id>buildCSVLoader</id>
 						<configuration>
 							<archive>
 								<manifest>
-									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.CSVLoader</mainClass>
+									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.csv.CSVLoader</mainClass>
 								</manifest>
 							</archive>
 							<outputDirectory>${project.basedir}/../docker/pic-sure-hpds-etl</outputDirectory>
@@ -141,7 +195,7 @@
 						<configuration>
 							<archive>
 								<manifest>
-									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.SQLLoader</mainClass>
+									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.sql.SQLLoader</mainClass>
 								</manifest>
 							</archive>
 							<outputDirectory>${project.basedir}/../docker/pic-sure-hpds-etl</outputDirectory>
@@ -161,7 +215,7 @@
 						<configuration>
 							<archive>
 								<manifest>
-									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.SequentialLoader</mainClass>
+									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.sequential.SequentialLoader</mainClass>
 								</manifest>
 							</archive>
 							<outputDirectory>${project.basedir}/../docker/pic-sure-hpds-etl</outputDirectory>
@@ -170,6 +224,26 @@
 							</descriptorRefs>
 							<classifier>SequentialLoader</classifier>
 							<finalName>SequentialLoader</finalName>
+						</configuration>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>buildLiteCSVLoader</id>
+						<configuration>
+							<archive>
+								<manifest>
+									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.litecsv.LowRAMMultiCSVLoader</mainClass>
+								</manifest>
+							</archive>
+							<outputDirectory>${project.basedir}/../docker/pic-sure-hpds-etl</outputDirectory>
+							<descriptorRefs>
+								<descriptorRef>jar-with-dependencies</descriptorRef>
+							</descriptorRefs>
+							<classifier>LowRAMMultiCSVLoader</classifier>
+							<finalName>LowRAMMultiCSVLoader</finalName>
 						</configuration>
 						<phase>package</phase>
 						<goals>
@@ -221,7 +295,7 @@
 						<configuration>
 							<archive>
 								<manifest>
-									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.VariantMetadataLoader</mainClass>
+									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.SplitChromosomeVariantMetadataLoader</mainClass>
 								</manifest>
 							</archive>
 							<outputDirectory>${project.basedir}/../docker/pic-sure-hpds-etl</outputDirectory>
@@ -295,7 +369,47 @@
 						<goals>
 							<goal>single</goal>
 						</goals>
-					</execution>					
+					</execution>
+					<execution>
+						<id>GenomicDatasetMergerRunner</id>
+						<configuration>
+							<archive>
+								<manifest>
+									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.GenomicDatasetMergerRunner</mainClass>
+								</manifest>
+							</archive>
+							<outputDirectory>${project.basedir}/../docker/pic-sure-hpds-etl</outputDirectory>
+							<descriptorRefs>
+								<descriptorRef>jar-with-dependencies</descriptorRef>
+							</descriptorRefs>
+							<classifier>GenomicDatasetMergerRunner</classifier>
+							<finalName>GenomicDatasetMergerRunner</finalName>
+						</configuration>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>GenomicDatasetFinalizer</id>
+						<configuration>
+							<archive>
+								<manifest>
+									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.GenomicDatasetFinalizer</mainClass>
+								</manifest>
+							</archive>
+							<outputDirectory>${project.basedir}/../docker/pic-sure-hpds-etl</outputDirectory>
+							<descriptorRefs>
+								<descriptorRef>jar-with-dependencies</descriptorRef>
+							</descriptorRefs>
+							<classifier>GenomicDatasetFinalizer</classifier>
+							<finalName>GenomicDatasetFinalizer</finalName>
+						</configuration>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
 				</executions>
 			</plugin>
 		</plugins>

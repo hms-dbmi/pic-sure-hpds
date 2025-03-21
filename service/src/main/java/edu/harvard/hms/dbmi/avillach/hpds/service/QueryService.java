@@ -1,62 +1,90 @@
 package edu.harvard.hms.dbmi.avillach.hpds.service;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
-import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.PriorityBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import edu.harvard.hms.dbmi.avillach.hpds.processing.patient.PatientProcessor;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.timeseries.TimeseriesProcessor;
+import edu.harvard.hms.dbmi.avillach.hpds.data.query.ResultType;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.dictionary.DictionaryService;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.io.CsvWriter;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.io.PfbWriter;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.io.ResultWriter;
+import edu.harvard.hms.dbmi.avillach.hpds.service.util.QueryDecorator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableMap;
-
 import edu.harvard.dbmi.avillach.util.UUIDv5;
-import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.*;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.AsyncResult.Status;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
+@Service
 public class QueryService {
+
+	private static final int RESULTS_CACHE_SIZE = 50;
 
 	private final int SMALL_JOB_LIMIT;
 	private final int LARGE_TASK_THREADS;
 	private final int SMALL_TASK_THREADS;
 
-	Logger log = LoggerFactory.getLogger(this.getClass());
+	private final Logger log = LoggerFactory.getLogger(this.getClass());
 	
-	private BlockingQueue<Runnable> largeTaskExecutionQueue;
+	private final BlockingQueue<Runnable> largeTaskExecutionQueue;
 
-	ExecutorService largeTaskExecutor;
+	private final ExecutorService largeTaskExecutor;
 
-	private BlockingQueue<Runnable> smallTaskExecutionQueue;
+	private final BlockingQueue<Runnable> smallTaskExecutionQueue;
 
-	ExecutorService smallTaskExecutor;
+	private final ExecutorService smallTaskExecutor;
+
+	private final AbstractProcessor abstractProcessor;
+	private final QueryProcessor queryProcessor;
+	private final TimeseriesProcessor timeseriesProcessor;
+	private final CountProcessor countProcessor;
+	private final MultiValueQueryProcessor multiValueQueryProcessor;
+	private final PatientProcessor patientProcessor;
+
+	private final DictionaryService dictionaryService;
+	private final QueryDecorator queryDecorator;
 
 	HashMap<String, AsyncResult> results = new HashMap<>();
 
-	public QueryService () throws ClassNotFoundException, FileNotFoundException, IOException{
-		SMALL_JOB_LIMIT = getIntProp("SMALL_JOB_LIMIT");
-		SMALL_TASK_THREADS = getIntProp("SMALL_TASK_THREADS");
-		LARGE_TASK_THREADS = getIntProp("LARGE_TASK_THREADS");
+
+	@Autowired
+	public QueryService (AbstractProcessor abstractProcessor,
+                         QueryProcessor queryProcessor,
+                         TimeseriesProcessor timeseriesProcessor,
+                         CountProcessor countProcessor,
+                         MultiValueQueryProcessor multiValueQueryProcessor,
+                         @Autowired(required = false) DictionaryService dictionaryService,
+                         QueryDecorator queryDecorator,
+                         @Value("${SMALL_JOB_LIMIT}") Integer smallJobLimit,
+                         @Value("${SMALL_TASK_THREADS}") Integer smallTaskThreads,
+                         @Value("${LARGE_TASK_THREADS}") Integer largeTaskThreads, PatientProcessor patientProcessor) {
+		this.abstractProcessor = abstractProcessor;
+		this.queryProcessor = queryProcessor;
+		this.timeseriesProcessor = timeseriesProcessor;
+        this.countProcessor = countProcessor;
+        this.multiValueQueryProcessor = multiValueQueryProcessor;
+        this.dictionaryService = dictionaryService;
+        this.queryDecorator = queryDecorator;
+
+		SMALL_JOB_LIMIT = smallJobLimit;
+		SMALL_TASK_THREADS = smallTaskThreads;
+		LARGE_TASK_THREADS = largeTaskThreads;
+        this.patientProcessor = patientProcessor;
 
 
-		/* These have to be of type Runnable(nothing more specific) in order 
+        /* These have to be of type Runnable(nothing more specific) in order
 		 * to be compatible with ThreadPoolExecutor constructor prototype 
 		 */
 		largeTaskExecutionQueue = new PriorityBlockingQueue<Runnable>(1000);
@@ -66,142 +94,117 @@ public class QueryService {
 		smallTaskExecutor = createExecutor(smallTaskExecutionQueue, SMALL_TASK_THREADS);
 	}
 
-	public AsyncResult runQuery(Query query) throws ClassNotFoundException, FileNotFoundException, IOException {
+	public AsyncResult runQuery(Query query) throws IOException {
 		// Merging fields from filters into selected fields for user validation of results
-		mergeFilterFieldsIntoSelectedFields(query);
-
-		Collections.sort(query.fields);
+		List<String> fields = query.getFields();
+		Collections.sort(fields);
+		query.setFields(fields);
 
 		AsyncResult result = initializeResult(query);
-
+		
 		// This is all the validation we do for now.
-		Map<String, List<String>> validationResults = ensureAllFieldsExist(query);
-		if(validationResults != null) {
-			result.status = Status.ERROR;
+		if(!ensureAllFieldsExist(query)) {
+			result.setStatus(Status.ERROR);
 		}else {
-			if(query.fields.size() > SMALL_JOB_LIMIT) {
-				result.jobQueue = largeTaskExecutor;
+			if(query.getFields().size() > SMALL_JOB_LIMIT) {
+				result.setJobQueue(largeTaskExecutor);
 			} else {
-				result.jobQueue = smallTaskExecutor;
+				result.setJobQueue(smallTaskExecutor);
 			}
 
 			result.enqueue();
 		}
-		return getStatusFor(result.id);
+		return getStatusFor(result.getId());
 	}
 
 	ExecutorService countExecutor = Executors.newSingleThreadExecutor();
 
 	public int runCount(Query query) throws InterruptedException, ExecutionException, ClassNotFoundException, FileNotFoundException, IOException {
-		return new CountProcessor().runCounts(query);
+		return countProcessor.runCounts(query);
 	}
 
-	private AsyncResult initializeResult(Query query) throws ClassNotFoundException, FileNotFoundException, IOException {
+	private AsyncResult initializeResult(Query query) throws IOException {
 		
-		AbstractProcessor p;
-		switch(query.expectedResultType) {
-		case DATAFRAME :
-		case DATAFRAME_MERGED :
-			p = new QueryProcessor();
-			break;
-		case DATAFRAME_TIMESERIES :
-			p = new TimeseriesProcessor();
-			break;
-		case COUNT :
-		case CATEGORICAL_CROSS_COUNT :
-		case CONTINUOUS_CROSS_COUNT :
-			p = new CountProcessor();
-			break;
-		default : 
-			throw new RuntimeException("UNSUPPORTED RESULT TYPE");
+		HpdsProcessor p;
+		switch(query.getExpectedResultType()) {
+			case PATIENTS:
+				p = patientProcessor;
+			case SECRET_ADMIN_DATAFRAME:
+				p = queryProcessor;
+				break;
+			case DATAFRAME_TIMESERIES :
+				p = timeseriesProcessor;
+				break;
+			case COUNT :
+			case CATEGORICAL_CROSS_COUNT :
+			case CONTINUOUS_CROSS_COUNT :
+				p = countProcessor;
+				break;
+			case DATAFRAME_PFB:
+			case DATAFRAME:
+				p = multiValueQueryProcessor;
+				break;
+			default :
+				throw new RuntimeException("UNSUPPORTED RESULT TYPE");
 		}
-		
-		AsyncResult result = new AsyncResult(query, p.getHeaderRow(query));
-		result.status = AsyncResult.Status.PENDING;
-		result.queuedTime = System.currentTimeMillis();
-		result.id = UUIDv5.UUIDFromString(query.toString()).toString();
-		result.processor = p;
-		query.id = result.id;
-		results.put(result.id, result);
+
+		String queryId = UUIDv5.UUIDFromString(query.toString()).toString();
+		ResultWriter writer;
+        if (ResultType.DATAFRAME_PFB.equals(query.getExpectedResultType())) {
+            writer = new PfbWriter(File.createTempFile("result-" + System.nanoTime(), ".avro"), queryId, dictionaryService);
+        } else {
+            writer = new CsvWriter(File.createTempFile("result-" + System.nanoTime(), ".sstmp"));
+        }
+
+        queryDecorator.setId(query);
+		AsyncResult result = new AsyncResult(query, p, writer)
+				.setStatus(AsyncResult.Status.PENDING)
+				.setQueuedTime(System.currentTimeMillis())
+				.setId(queryId);
+		results.put(result.getId(), result);
 		return result;
 	}
-	
-	
-	private void mergeFilterFieldsIntoSelectedFields(Query query) {
-		LinkedHashSet<String> fields = new LinkedHashSet<>();
-		if(query.fields != null)fields.addAll(query.fields);
-		if(query.categoryFilters != null) {
-			Set<String> categoryFilters = new TreeSet<String>(query.categoryFilters.keySet());
-			Set<String> toBeRemoved = new TreeSet<String>();
-			for(String categoryFilter : categoryFilters) {
-				System.out.println("In : " + categoryFilter);
-				if(AbstractProcessor.pathIsVariantSpec(categoryFilter)) {
-					toBeRemoved.add(categoryFilter);
-				}
-			}
-			categoryFilters.removeAll(toBeRemoved);
-			for(String categoryFilter : categoryFilters) {
-				System.out.println("Out : " + categoryFilter);
-			}
-			fields.addAll(categoryFilters);
-		}
-		if(query.anyRecordOf != null)fields.addAll(query.anyRecordOf);
-		if(query.requiredFields != null)fields.addAll(query.requiredFields);
-		if(query.numericFilters != null)fields.addAll(query.numericFilters.keySet());
-		query.fields = new ArrayList<String>(fields);
-	}
 
-	private Map<String, List<String>> ensureAllFieldsExist(Query query) {
+	private boolean ensureAllFieldsExist(Query query) {
 		TreeSet<String> allFields = new TreeSet<>();
-		List<String> missingFields = new ArrayList<String>();
 		List<String> badNumericFilters = new ArrayList<String>();
 		List<String> badCategoryFilters = new ArrayList<String>();
-		Set<String> dictionaryFields = AbstractProcessor.getDictionary().keySet();
+		Set<String> dictionaryFields = abstractProcessor.getDictionary().keySet();
 
-		allFields.addAll(query.fields);
+		allFields.addAll(query.getFields());
+		allFields.addAll(query.getRequiredFields());
 
-		if(query.requiredFields != null) {
-			allFields.addAll(query.requiredFields);
-		}
-		if(query.numericFilters != null) {
-			allFields.addAll(query.numericFilters.keySet());
-			for(String field : includingOnlyDictionaryFields(query.numericFilters.keySet(), dictionaryFields)) {
-				if(AbstractProcessor.getDictionary().get(field).isCategorical()) {
-					badNumericFilters.add(field);
-				}
+		allFields.addAll(query.getNumericFilters().keySet());
+		for(String field : includingOnlyDictionaryFields(query.getNumericFilters().keySet(), dictionaryFields)) {
+			if(abstractProcessor.getDictionary().get(field).isCategorical()) {
+				badNumericFilters.add(field);
 			}
 		}
 
-		if(query.categoryFilters != null) {
-			Set<String> catFieldNames = new TreeSet<String>(query.categoryFilters.keySet());
-			catFieldNames.removeIf((field)->{return AbstractProcessor.pathIsVariantSpec(field);});
-			allFields.addAll(catFieldNames);
-			for(String field : includingOnlyDictionaryFields(catFieldNames, dictionaryFields)) {
-				if( ! AbstractProcessor.getDictionary().get(field).isCategorical()) {
-					badCategoryFilters.add(field);
-				}
+		Set<String> catFieldNames = query.getCategoryFilters().keySet().stream()
+				.filter(Predicate.not(VariantUtils::pathIsVariantSpec))
+				.collect(Collectors.toSet());
+
+		allFields.addAll(catFieldNames);
+		for(String field : includingOnlyDictionaryFields(catFieldNames, dictionaryFields)) {
+			if(!abstractProcessor.getDictionary().get(field).isCategorical()) {
+				badCategoryFilters.add(field);
 			}
 		}
 
-		for(String field : allFields) {
-			if(!dictionaryFields.contains(field)) {
-				missingFields.add(field);
-			}
-		}
+		List<String> missingFields = allFields.stream()
+			.filter(Predicate.not(dictionaryFields::contains))
+			.collect(Collectors.toList());
 
-		if(missingFields.isEmpty() && badNumericFilters.isEmpty() && badCategoryFilters.isEmpty()) {
-			System.out.println("All fields passed validation");
-			return null;
+		if(badNumericFilters.isEmpty() && badCategoryFilters.isEmpty()) {
+			log.info("All fields passed validation");
+			return true;
 		} else {
-			log.info("Query failed due to field validation : " + query.id);
+			log.info("Query failed due to field validation : " + query.getId());
 			log.info("Non-existant fields : " + String.join(",", missingFields));
 			log.info("Bad numeric fields : " + String.join(",", badNumericFilters));
 			log.info("Bad category fields : " + String.join(",", badCategoryFilters));
-			return ImmutableMap.of(
-					"nonExistantFileds", missingFields, 
-					"numeric_filters_on_categorical_variables", badNumericFilters, 
-					"category_filters_on_numeric_variables", badCategoryFilters)
-					;
+			return false;
 		}
 	}
 
@@ -211,30 +214,26 @@ public class QueryService {
 
 	public AsyncResult getStatusFor(String queryId) {
 		AsyncResult asyncResult = results.get(queryId);
-		AsyncResult[] queue = asyncResult.query.fields.size() > SMALL_JOB_LIMIT ? 
-				largeTaskExecutionQueue.toArray(new AsyncResult[largeTaskExecutionQueue.size()]) : 
+		AsyncResult[] queue = asyncResult.getQuery().getFields().size() > SMALL_JOB_LIMIT ?
+				largeTaskExecutionQueue.toArray(new AsyncResult[largeTaskExecutionQueue.size()]) :
 					smallTaskExecutionQueue.toArray(new AsyncResult[smallTaskExecutionQueue.size()]);
-				if(asyncResult.status == Status.PENDING) {
+				if(asyncResult.getStatus() == Status.PENDING) {
 					ArrayList<AsyncResult> queueSnapshot = new ArrayList<AsyncResult>();
 					for(int x = 0;x<queueSnapshot.size();x++) {
-						if(queueSnapshot.get(x).id.equals(queryId)) {
-							asyncResult.positionInQueue = x;
+						if(queueSnapshot.get(x).getId().equals(queryId)) {
+							asyncResult.setPositionInQueue(x);
 							break;
 						}
-					}			
+					}
 				}else {
-					asyncResult.positionInQueue = -1;
+					asyncResult.setPositionInQueue(-1);
 				}
-				asyncResult.queueDepth = queue.length;
+				asyncResult.setQueueDepth(queue.length);
 				return asyncResult;
 	}
 
 	public AsyncResult getResultFor(String queryId) {
 		return results.get(queryId);
-	}
-
-	public TreeMap<String, ColumnMeta> getDataDictionary() {
-		return AbstractProcessor.getDictionary();
 	}
 
 	private int getIntProp(String key) {

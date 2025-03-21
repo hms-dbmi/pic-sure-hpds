@@ -6,7 +6,7 @@
 	<parent>
 		<artifactId>pic-sure-hpds</artifactId>
 		<groupId>edu.harvard.hms.dbmi.avillach.hpds</groupId>
-		<version>1.0-SNAPSHOT</version>
+		<version>3.0.0-SNAPSHOT</version>
 	</parent>
 	<artifactId>hpds-war</artifactId>
 	<packaging>war</packaging>
@@ -21,36 +21,12 @@
 		<pluginManagement>
 			<plugins>
 				<plugin>
-					<groupId>org.apache.tomcat.maven</groupId>
-					<artifactId>tomcat7-maven-plugin</artifactId>
-					<version>2.0</version>
-					<executions>
-						<execution>
-							<id>default-cli</id>
-							<goals>
-								<goal>run</goal>
-							</goals>
-							<configuration>
-								<port>13000</port>
-								<path>/jaxrs-service</path>
-								<useSeparateTomcatClassLoader>true</useSeparateTomcatClassLoader>
-								<jpda>true</jpda>
-								<systemProperties>
-									<JAVA_OPTS>-Xms256m -Xmx512m</JAVA_OPTS>
-								</systemProperties>
-							</configuration>
-						</execution>
-					</executions>
-					<configuration>
-					</configuration>
-				</plugin>
-				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-compiler-plugin</artifactId>
 					<configuration>
 						<release>9</release>
 					</configuration>
-					<version>3.8.0</version>
+					<version>3.11.0</version>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
@@ -64,49 +40,5 @@
 				</plugin>
 			</plugins>
 		</pluginManagement>
-		<plugins>
-			<plugin>
-				<artifactId>maven-clean-plugin</artifactId>
-				<executions>
-					<execution>
-						<id>default-clean</id>
-						<phase>clean</phase>
-						<goals>
-							<goal>clean</goal>
-						</goals>
-						<configuration>
-							<filesets>
-								<fileset>
-									<directory>../docker/pic-sure-hpds</directory>
-									<includes>
-										<include>*.war</include>
-										<include>*.jar</include>
-										<include>war-exec.*</include>
-									</includes>
-								</fileset>
-							</filesets>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.tomcat.maven</groupId>
-				<artifactId>tomcat7-maven-plugin</artifactId>
-				<executions>
-					<execution>
-						<id>tomcat-run</id>
-						<goals>
-							<goal>exec-war-only</goal>
-						</goals>
-						<phase>package</phase>
-						<configuration>
-							<attachArtifact>true</attachArtifact>
-							<buildDirectory>../docker/pic-sure-hpds</buildDirectory>
-							<path>/</path>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-		</plugins>
 	</build>
 </project>

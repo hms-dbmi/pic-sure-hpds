@@ -6,6 +6,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedJavaIndexedStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,20 +34,16 @@ public class BucketIndexBySample implements Serializable {
 	 * finding the offset of a given bucket.
 	 */
 	private ArrayList<String> bucketList = new ArrayList<String>();
-
-	public BucketIndexBySample(VariantStore variantStore) throws FileNotFoundException {
-		this(variantStore, "/opt/local/hpds/all/");
-	}
 	
 	public BucketIndexBySample(VariantStore variantStore, String storageDir) throws FileNotFoundException {
 		log.info("Creating new Bucket Index by Sample");
 		final String storageFileStr = storageDir + STORAGE_FILE_NAME;
 		
-		contigSet = new ArrayList<String>(variantStore.variantMaskStorage.keySet());
+		contigSet = new ArrayList<String>(variantStore.getVariantMaskStorage().keySet());
 		
 		//Create a bucketList, containing keys for all buckets in the variantStore
 		for(String contig: contigSet){
-			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>> contigStore = variantStore.variantMaskStorage.get(contig);
+			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>> contigStore = variantStore.getVariantMaskStorage().get(contig);
 			if(contigStore != null && contigStore.keys() != null) {
 				bucketList.addAll(contigStore.keys().stream().map(
 						(Integer bucket)->{
@@ -77,40 +74,35 @@ public class BucketIndexBySample implements Serializable {
 			patientBucketCharMasks[x] = emptyBucketMaskChar();
 		}
 		contigSet.parallelStream().forEach((contig)->{
-			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>> contigStore =
-					variantStore.variantMaskStorage.get(contig);
+			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>> contigStore =
+					variantStore.getVariantMaskStorage().get(contig);
 			if(contigStore != null && contigStore.keys() != null) {
 				contigStore.keys().stream().forEach(
 						(Integer bucket)->{
 							String bucketKey = contig  +  ":" + bucket;
 							
 							// Create a bitmask with 1 values for each patient who has any variant in this bucket
-							BigInteger[] patientMaskForBucket = {variantStore.emptyBitmask()};
-							try {
-								contigStore.get(bucket).values().forEach((VariantMasks masks)->{
-									if(masks.heterozygousMask!=null) {
-										patientMaskForBucket[0] = patientMaskForBucket[0].or(masks.heterozygousMask);
-									}
-									//add hetreo no call bits to mask
-									if(masks.heterozygousNoCallMask!=null) {
-										patientMaskForBucket[0] = patientMaskForBucket[0].or(masks.heterozygousNoCallMask);
-									}
-									if(masks.homozygousMask!=null) {
-										patientMaskForBucket[0] = patientMaskForBucket[0].or(masks.homozygousMask);
-									}
-								});
-							} catch (IOException e) {
-								e.printStackTrace();
-							}
+							VariantMask[] patientMaskForBucket = {new VariantMaskSparseImpl(Set.of())};
+							contigStore.get(bucket).values().forEach((VariableVariantMasks masks)->{
+								if(masks.heterozygousMask!=null) {
+									patientMaskForBucket[0] = patientMaskForBucket[0].union(masks.heterozygousMask);
+								}
+								//add hetreo no call bits to mask
+								if(masks.heterozygousNoCallMask!=null) {
+									patientMaskForBucket[0] = patientMaskForBucket[0].union(masks.heterozygousNoCallMask);
+								}
+								if(masks.homozygousMask!=null) {
+									patientMaskForBucket[0] = patientMaskForBucket[0].union(masks.homozygousMask);
+								}
+							});
 							
 							// For each patient set the patientBucketCharMask entry to 0 or 1 if they have a variant in the bucket.
-							int maxIndex = patientMaskForBucket[0].bitLength() - 1;
 							int indexOfBucket = Collections.binarySearch(bucketList, bucketKey) + 2; //patientBucketCharMasks has bookend bits
-							for(int x = 2;x<patientMaskForBucket[0].bitLength()-2;x++) {
-								if(patientMaskForBucket[0].testBit(maxIndex - x)) {  //testBit uses inverted indexes
-									patientBucketCharMasks[x-2][indexOfBucket] = '1';									
+							for(int x = 0; x < patientIds.size(); x++) {
+								if(patientMaskForBucket[0].testBit(x)) {
+									patientBucketCharMasks[x][indexOfBucket] = '1';
 								}else {
-									patientBucketCharMasks[x-2][indexOfBucket] = '0';
+									patientBucketCharMasks[x][indexOfBucket] = '0';
 								}
 							}
 						});
@@ -121,37 +113,17 @@ public class BucketIndexBySample implements Serializable {
 		});
 		
 		// populate patientBucketMasks with bucketMasks for each patient 
-		patientBucketMasks = new FileBackedByteIndexedStorage<Integer, BigInteger>(Integer.class, BigInteger.class, new File(storageFileStr));
+		patientBucketMasks = new FileBackedJavaIndexedStorage(Integer.class, BigInteger.class, new File(storageFileStr));
 		
-		//the process to write out the bucket masks takes a very long time.  
-		//Lets spin up another thread that occasionally logs progress
 		int[] processedPatients = new int[1];
-		processedPatients[0] = 0;
-		new Thread(new Runnable() {
-			@Override
-			public void run() {
-				log.info("writing patient bucket masks to backing store (this may take some time).");
-				while(!patientBucketMasks.isComplete()) {
-					try {
-						Thread.sleep(5 * 1000 * 60); //log a message every 5 minutes
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}  
-					log.info("wrote " + processedPatients[0] + " patient bucket masks");
-				}
-			}
-		}).start();
-		
 		patientIds.parallelStream().forEach((patientId)->{
-			try {
-				BigInteger patientMask = new BigInteger(new String(patientBucketCharMasks[patientIds.indexOf(patientId)]),2);
-				patientBucketMasks.put(patientId, patientMask);
-			}catch(NumberFormatException e) {
-				log.error("NFE caught for " + patientId, e);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+			BigInteger patientMask = new BigInteger(new String(patientBucketCharMasks[patientIds.indexOf(patientId)]),2);
+			patientBucketMasks.put(patientId, patientMask);
 			processedPatients[0] += 1;
+			int processedPatientsCount = processedPatients[0];
+			if (processedPatientsCount % 1000 == 0) {
+				log.info("wrote " + processedPatientsCount + " patient bucket masks");
+			}
 		});
 		patientBucketMasks.complete();
 		log.info("Done creating patient bucket masks");
@@ -167,21 +139,16 @@ public class BucketIndexBySample implements Serializable {
 	 * @return
 	 * @throws IOException 
 	 */
-	public Collection<String> filterVariantSetForPatientSet(Set<String> variantSet, List<Integer> patientSet) throws IOException{
-		
-		//a bitmask of which buckets contain any relevant variant. 
-		BigInteger patientBucketMask = patientSet.size() == 0 ? 
-				new BigInteger(new String(emptyBucketMaskChar()),2) : patientBucketMasks.get(patientSet.get(0));
-		
+	public Set<String> filterVariantSetForPatientSet(Set<String> variantSet, Collection<Integer> patientSet) throws IOException{
+
+		BigInteger patientBucketMask = patientSet.stream().findFirst()
+				.map(id -> patientBucketMasks.get(id))
+				.orElseGet(() -> new BigInteger(new String(emptyBucketMaskChar()),2));
+
 		BigInteger _defaultMask = patientBucketMask;
-		List<BigInteger> patientBucketmasksForSet = patientSet.parallelStream().map((patientNum)->{
-			try {
-				return patientBucketMasks.get(patientNum);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-			return _defaultMask;
-		}).collect(Collectors.toList());
+		List<BigInteger> patientBucketmasksForSet = patientSet.parallelStream()
+				.map((patientNum)-> patientBucketMasks.get(patientNum))
+				.collect(Collectors.toList());
 		for(BigInteger patientMask : patientBucketmasksForSet) {
 			patientBucketMask = patientMask.or(patientBucketMask);
 		}
@@ -192,7 +159,11 @@ public class BucketIndexBySample implements Serializable {
 			String bucketKey = variantSpec.split(",")[0] + ":" + (Integer.parseInt(variantSpec.split(",")[1])/1000);
 			
 			//testBit uses inverted indexes include +2 offset for bookends
-			return _bucketMask.testBit(maxIndex - Collections.binarySearch(bucketList, bucketKey)  + 2);
+			int bucketKeyIndex = Collections.binarySearch(bucketList, bucketKey);
+			if (bucketKeyIndex < 0) {
+				return false;
+			}
+			return _bucketMask.testBit(maxIndex - bucketKeyIndex + 2);
 		}).collect(Collectors.toSet());
 	}
 
@@ -217,18 +188,5 @@ public class BucketIndexBySample implements Serializable {
 			_emptyBucketMaskChar = bucketMaskChar;
 		}
 		return _emptyBucketMaskChar.clone();
-	}
-	
-	/**
-	 * Use while debugging
-	 */
-	public void printPatientMasks() {
-		for(Integer patientID : patientBucketMasks.keys()) {
-			try {
-				log.info("BucketMask length for " + patientID + ":\t" + patientBucketMasks.get(patientID).toString(2).length());
-			} catch (IOException e) {
-				log.error("FBBIS Error: ", e);
-			}
-		}
 	}
 }

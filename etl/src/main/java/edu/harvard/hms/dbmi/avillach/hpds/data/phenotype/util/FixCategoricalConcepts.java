@@ -18,7 +18,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.KeyAndValue;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
-import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.LoadingStore;
+import edu.harvard.hms.dbmi.avillach.hpds.etl.LoadingStore;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class FixCategoricalConcepts {
@@ -41,13 +41,15 @@ public class FixCategoricalConcepts {
 
 	private static final int TIMESTAMP = 4;
 
+	private static String HPDS_DIRECTORY = "/opt/local/hpds/";
+
 	public static void main(String[] args) throws IOException, ClassNotFoundException, ExecutionException {
 		sourceStore = initializeCache(); 
 		Object[] metadata = loadMetadata();
 		sourceMetaStore = (TreeMap<String, ColumnMeta>) metadata[0];
-		store.allObservationsStore = new RandomAccessFile("/opt/local/hpds/allObservationsStore.javabin", "rw");
+		store.allObservationsStore = new RandomAccessFile(HPDS_DIRECTORY + "allObservationsStore.javabin", "rw");
 		initialLoad();
-		store.saveStore();
+		store.saveStore(HPDS_DIRECTORY);
 	}
 
 	private static void initialLoad() throws IOException, ExecutionException {
@@ -123,7 +125,7 @@ public class FixCategoricalConcepts {
 				store.allIds.add(Integer.parseInt(record.get(PATIENT_NUM)));
 			}
 		} catch (ExecutionException e) {
-			e.printStackTrace();
+			log.error("Error processing record", e);
 		}
 	}
 
@@ -172,10 +174,9 @@ public class FixCategoricalConcepts {
 			Set<Integer> allIds = (TreeSet<Integer>) objectInputStream.readObject();
 			return new Object[] {metastoreScrubbed, allIds};
 		} catch (IOException | ClassNotFoundException e) {
-			e.printStackTrace();
 			log.warn("************************************************");
 			log.warn("************************************************");
-			log.warn("Could not load metastore");
+			log.warn("Could not load metastore", e);
 			log.warn("If you meant to include phenotype data of any kind, please check that the file /opt/local/source/columnMeta.javabin exists and is readable by the service.");
 			log.warn("************************************************");
 			log.warn("************************************************");

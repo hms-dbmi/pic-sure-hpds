@@ -20,7 +20,7 @@ import com.google.common.cache.LoadingCache;
 import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
-import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.LoadingStore;
+import edu.harvard.hms.dbmi.avillach.hpds.etl.LoadingStore;
 
 public class RenameCategories {
 
@@ -49,8 +49,7 @@ public class RenameCategories {
 			try {
 				loadingStoreTarget.store.put(key, store.get(key));
 			} catch (ExecutionException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				throw new RuntimeException(e);
 			}
 		});
 	}
@@ -67,7 +66,6 @@ public class RenameCategories {
 			Set<Integer> allIds = (TreeSet<Integer>) objectInputStream.readObject();
 			return new Object[] {metastoreScrubbed, allIds};
 		} catch (IOException | ClassNotFoundException e) {
-			e.printStackTrace();
 			throw new RuntimeException("Could not load metastore");
 		} 
 	}

@@ -18,7 +18,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.KeyAndValue;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
-import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.LoadingStore;
+import edu.harvard.hms.dbmi.avillach.hpds.etl.LoadingStore;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class RemapIds {
@@ -43,6 +43,8 @@ public class RemapIds {
 
 	private static final int TIMESTAMP = 4;
 
+	private static String HPDS_DIRECTORY = "/opt/local/hpds/";
+
 	public static void main(String[] args) throws IOException, ClassNotFoundException, ExecutionException {
 		loadPatientIdMap();
 		sourceStore = initializeCache(); 
@@ -50,7 +52,7 @@ public class RemapIds {
 		sourceMetaStore = (TreeMap<String, ColumnMeta>) metadata[0];
 		store.allObservationsStore = new RandomAccessFile("/opt/local/hpds/allObservationsStore.javabin", "rw");
 		initialLoad();
-		store.saveStore();
+		store.saveStore(HPDS_DIRECTORY);
 	}
 
 	private static void loadPatientIdMap() throws IOException {
@@ -122,7 +124,7 @@ public class RemapIds {
 				store.allIds.add(patientId);
 			}
 		} catch (ExecutionException e) {
-			e.printStackTrace();
+			log.error("Error processing record", e);
 		}
 	}
 
@@ -175,10 +177,9 @@ public class RemapIds {
 			Set<Integer> allIds = (TreeSet<Integer>) objectInputStream.readObject();
 			return new Object[] {metastoreScrubbed, allIds};
 		} catch (IOException | ClassNotFoundException e) {
-			e.printStackTrace();
 			log.warn("************************************************");
 			log.warn("************************************************");
-			log.warn("Could not load metastore");
+			log.warn("Could not load metastore", e);
 			log.warn("If you meant to include phenotype data of any kind, please check that the file /opt/local/source/columnMeta.javabin exists and is readable by the service.");
 			log.warn("************************************************");
 			log.warn("************************************************");

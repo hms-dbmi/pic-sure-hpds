@@ -13,6 +13,14 @@ public enum ResultType {
 	 * id.
 	 */
 	DATAFRAME,
+
+	/**
+	 * Create a dataframe, but do not allow conventional access to it.
+	 * Instead, the dataframe will be accessed in the backend only,
+	 * where it is sent to a S3 bucket by a GIC admin.
+	 *
+	 */
+	SECRET_ADMIN_DATAFRAME,
 	/**
 	 * Return one patient count for each concept path included in
 	 * the crossCountFields
@@ -41,12 +49,7 @@ public enum ResultType {
 	 * Return the number of observations for included patients and
 	 * included fields, broken up across the included cross count fields.
 	 */
-	OBSERVATION_CROSS_COUNT, 
-	/**
-	 * This was developed for UDN, but is completely useless and should
-	 * be deleted.
-	 */
-	DATAFRAME_MERGED, 
+	OBSERVATION_CROSS_COUNT,
 	/**
 	 * Not completely implemented and currently dead code. Someone with 
 	 * statistics experience needs to develop a p-value based filter for
@@ -86,5 +89,21 @@ public enum ResultType {
 	 * is suitable to time series analysis and/or loading into another 
 	 * instance of HPDS.
 	 */
-	DATAFRAME_TIMESERIES
+	DATAFRAME_TIMESERIES,
+
+	/**
+	 * Count number of patients and number of available concept paths. Useful for federated networks
+	 * where not every concept path in a query is guaranteed to be in a specific portal
+	 */
+	PATIENT_AND_CONCEPT_COUNT,
+	/**
+     * Exports data as PFB, using avro
+     * <a href="https://uc-cdis.github.io/pypfb/">https://uc-cdis.github.io/pypfb/</a>
+     */
+	DATAFRAME_PFB,
+
+	/**
+	 * Patients associated with this query
+	 */
+	PATIENTS
 }

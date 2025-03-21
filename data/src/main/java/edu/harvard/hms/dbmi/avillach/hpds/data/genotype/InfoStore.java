@@ -3,6 +3,7 @@ package edu.harvard.hms.dbmi.avillach.hpds.data.genotype;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentHashMap.KeySetView;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -14,7 +15,7 @@ public class InfoStore implements Serializable {
 	public final String column_key;
 	public final String description;
 
-	public ConcurrentHashMap<String, ConcurrentSkipListSet<String>> allValues = new ConcurrentHashMap<>();
+	public ConcurrentHashMap<String, ConcurrentSkipListSet<Integer>> allValues = new ConcurrentHashMap<>();
 	private String prefix;
 
 	public List<String> search(String term) {
@@ -22,26 +23,11 @@ public class InfoStore implements Serializable {
 			return new ArrayList<String>();
 		}else {
 			return allValues.keySet().stream().filter((value)->{
-				String lowerTerm = term.toLowerCase();
-				return value.toLowerCase().contains(lowerTerm);
+				String lowerTerm = term.toLowerCase(Locale.ENGLISH);
+				return value.toLowerCase(Locale.ENGLISH).contains(lowerTerm);
 			}).collect(Collectors.toList());			
 		}
 	}
-
-	public void processRecord(VariantSpec spec, String[] values) {
-		for(String value : values) {
-			if(value.startsWith(column_key + "=")) {
-				String valueWithoutkey = value.replaceFirst(column_key + "=", "");
-				ConcurrentSkipListSet<String> entriesForValue = allValues.get(valueWithoutkey);
-				if(entriesForValue == null) {
-					entriesForValue = new ConcurrentSkipListSet<>();
-					allValues.put(valueWithoutkey, entriesForValue);
-				}
-				entriesForValue.add(spec.specNotation());
-			}
-		}
-	}
-
 
 	public InfoStore(String description, String delimiter, String key) {
 		this.prefix = key + "=";
@@ -53,7 +39,7 @@ public class InfoStore implements Serializable {
 		int nonNumericCount = 0;
 		int numericCount = 0;
 		System.out.println("Testing for numeric : " + this.column_key + " : " + allValues.size() + " values");
-		KeySetView<String, ConcurrentSkipListSet<String>> allKeys = allValues.keySet();
+		KeySetView<String, ConcurrentSkipListSet<Integer>> allKeys = allValues.keySet();
 		for(String key : allKeys){
 			try {
 				Double.parseDouble(key);
@@ -84,16 +70,16 @@ public class InfoStore implements Serializable {
 		return false;
 	}
 
-	public void processRecord(String specNotation, String[] infoValues) {
+	public void processRecord(Integer variantId, String[] infoValues) {
 		for(String value : infoValues) {
 			if(value.startsWith(prefix)) {
 				String valueWithoutkey = value.substring(prefix.length());
-				ConcurrentSkipListSet<String> entriesForValue = allValues.get(valueWithoutkey);
+				ConcurrentSkipListSet<Integer> entriesForValue = allValues.get(valueWithoutkey);
 				if(entriesForValue == null) {
 					entriesForValue = new ConcurrentSkipListSet<>();
 					allValues.put(valueWithoutkey, entriesForValue);
 				}
-				entriesForValue.add(specNotation);
+				entriesForValue.add(variantId);
 			}
 		}
 	}

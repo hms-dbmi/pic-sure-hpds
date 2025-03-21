@@ -5,12 +5,14 @@
 	<parent>
 		<artifactId>pic-sure-hpds</artifactId>
 		<groupId>edu.harvard.hms.dbmi.avillach.hpds</groupId>
-		<version>1.0-SNAPSHOT</version>
+		<version>3.0.0-SNAPSHOT</version>
 	</parent>
 
 	<artifactId>data</artifactId>
 
 	<name>data</name>
+	<properties>
+	</properties>
 
 	<dependencies>
 		<dependency>
@@ -26,12 +28,8 @@
 			<artifactId>commons-csv</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.codehaus.jackson</groupId>
-			<artifactId>jackson-core-asl</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.codehaus.jackson</groupId>
-			<artifactId>jackson-mapper-asl</artifactId>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>edu.harvard.hms.dbmi.avillach</groupId>
@@ -43,11 +41,26 @@
 		</dependency>
 		<dependency>
 			<groupId>com.oracle.database.jdbc</groupId>
-			<artifactId>ojdbc6</artifactId>
+			<artifactId>ojdbc10</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-jdbc</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>s3</artifactId>
+			<exclusions>
+				<!--Spring boot will complain about this dep on startup. It's not needed (we use SLF4J + Logback)-->
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 	</dependencies>
 

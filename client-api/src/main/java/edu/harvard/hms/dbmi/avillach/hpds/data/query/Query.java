@@ -4,8 +4,12 @@ import java.util.*;
 
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Filter.DoubleFilter;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Filter.FloatFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Query {
+
+	private static final Logger log = LoggerFactory.getLogger(Query.class);
 
 	public Query() {
 
@@ -26,17 +30,112 @@ public class Query {
 			});
 		}
 		this.id = query.id;
+		this.picSureId = query.picSureId;
 	}
 
-	public ResultType expectedResultType = ResultType.COUNT;
-	public List<String> crossCountFields = new ArrayList<String>();
-	public List<String> fields = new ArrayList<String>();
-	public List<String> requiredFields;
-	public List<String> anyRecordOf;
-	public Map<String, DoubleFilter> numericFilters;
-	public Map<String, String[]> categoryFilters;
-	public List<VariantInfoFilter> variantInfoFilters;
-	public String id;
+	private ResultType expectedResultType = ResultType.COUNT;
+	private List<String> crossCountFields = new ArrayList<>();
+	private List<String> fields = new ArrayList<>();
+	private List<String> requiredFields = new ArrayList<>();
+	private List<String> anyRecordOf = new ArrayList<>();
+	private List<List<String>> anyRecordOfMulti = new ArrayList<>();
+	private Map<String, DoubleFilter> numericFilters = new HashMap<>();
+	private Map<String, String[]> categoryFilters = new HashMap<>();
+	private List<VariantInfoFilter> variantInfoFilters = new ArrayList<>();
+	private String id;
+
+	private String picSureId;
+
+	public ResultType getExpectedResultType() {
+		return expectedResultType;
+	}
+
+	public List<String> getCrossCountFields() {
+		return crossCountFields;
+	}
+
+	public List<String> getFields() {
+		return fields;
+	}
+
+	public List<String> getRequiredFields() {
+		return requiredFields;
+	}
+
+	public List<String> getAnyRecordOf() {
+		return anyRecordOf;
+	}
+	public List<List<String>> getAnyRecordOfMulti() {
+		return anyRecordOfMulti;
+	}
+	public List<List<String>> getAllAnyRecordOf() {
+		List<List<String>> anyRecordOfMultiCopy = new ArrayList<>(anyRecordOfMulti);
+		anyRecordOfMultiCopy.add(anyRecordOf);
+		return anyRecordOfMultiCopy;
+	}
+
+	public Map<String, DoubleFilter> getNumericFilters() {
+		return numericFilters;
+	}
+
+	public Map<String, String[]> getCategoryFilters() {
+		return categoryFilters;
+	}
+
+	public List<VariantInfoFilter> getVariantInfoFilters() {
+		return variantInfoFilters;
+	}
+
+	public String getId() {
+		return id;
+	}
+
+	public void setExpectedResultType(ResultType expectedResultType) {
+		this.expectedResultType = expectedResultType;
+	}
+
+	public void setCrossCountFields(Collection<String> crossCountFields) {
+		this.crossCountFields = crossCountFields != null ? new ArrayList<>(crossCountFields) : new ArrayList<>();
+	}
+
+	public void setFields(Collection<String> fields) {
+		this.fields = fields != null ? new ArrayList<>(fields) : new ArrayList<>();
+	}
+
+	public void setRequiredFields(Collection<String> requiredFields) {
+		this.requiredFields = requiredFields!= null ? new ArrayList<>(requiredFields) : new ArrayList<>();
+	}
+
+	public void setAnyRecordOf(Collection<String> anyRecordOf) {
+		this.anyRecordOf = anyRecordOf != null ? new ArrayList<>(anyRecordOf) : new ArrayList<>();
+	}
+	public void setAnyRecordOfMulti(Collection<List<String>> anyRecordOfMulti) {
+		this.anyRecordOfMulti = anyRecordOfMulti != null ? new ArrayList<>(anyRecordOfMulti) : new ArrayList<>();
+	}
+
+	public void setNumericFilters(Map<String, DoubleFilter> numericFilters) {
+		this.numericFilters = numericFilters != null ? new HashMap<>(numericFilters) : new HashMap<>();
+	}
+
+	public void setCategoryFilters(Map<String, String[]> categoryFilters) {
+		this.categoryFilters = categoryFilters != null ? new HashMap<>(categoryFilters) : new HashMap<>();
+	}
+
+	public void setVariantInfoFilters(Collection<VariantInfoFilter> variantInfoFilters) {
+		this.variantInfoFilters = variantInfoFilters != null ? new ArrayList<>(variantInfoFilters) : new ArrayList<>();
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public String getPicSureId() {
+		return picSureId;
+	}
+
+	public void setPicSureId(String picSureId) {
+		this.picSureId = picSureId;
+	}
 
 	public static class VariantInfoFilter {
 		public VariantInfoFilter() {
@@ -90,7 +189,8 @@ public class Query {
 			writePartFormat("Observation Count Fields", fields, builder, true);
 			break;
 		case DATAFRAME:
-		case DATAFRAME_MERGED:
+		case SECRET_ADMIN_DATAFRAME:
+		case PATIENTS:
 			writePartFormat("Data Export Fields", fields, builder, true);
 			break;
 		case DATAFRAME_TIMESERIES:
@@ -106,14 +206,14 @@ public class Query {
 			break;
 		default:
 			//no logic here; all enum values should be present above
-			System.out.println("Formatting not supported for type " + expectedResultType);
+			log.warn("Formatting not supported for type {}", expectedResultType);
 		}
 
 		writePartFormat("Required Fields", requiredFields, builder, false);
 		writePartFormat("Numeric filters", numericFilters, builder);
 		writePartFormat("Category filters", categoryFilters, builder);
 		writePartFormat("Variant Info filters", variantInfoFilters, builder, false);
-		writePartFormat("Any-Record-Of filters", anyRecordOf, builder, true);
+		writePartFormat("Any-Record-Of filters", getAllAnyRecordOf(), builder, true);
 
 		return builder.toString();
 	}
@@ -156,7 +256,7 @@ public class Query {
 				
 				Integer count = countMap.get(firstLevel);
 				if(count == null) {
-					count = new Integer(1);
+					count = 1;
 				} else {
 					count = count + 1;
 				}

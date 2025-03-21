@@ -1,99 +1,84 @@
 package edu.harvard.hms.dbmi.avillach.hpds.data.genotype;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.Serializable;
+import com.google.common.collect.RangeSet;
+import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHolder;
+import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedJsonIndexStorage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.*;
 import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.event.Level;
-
-import com.google.common.collect.RangeSet;
-
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHolder;
-import edu.harvard.hms.dbmi.avillach.hpds.storage.FileBackedByteIndexedStorage;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 public class VariantStore implements Serializable {
+	private static final long serialVersionUID = -6970128712587609414L;
+	public static final String VARIANT_STORE_JAVABIN_FILENAME = "variantStore.javabin";
+	public static final String VARIANT_SPEC_INDEX_JAVABIN_FILENAME = "variantSpecIndex.javabin";
 	private static Logger log = LoggerFactory.getLogger(VariantStore.class);
 	public static final int BUCKET_SIZE = 1000;
-	private static final long serialVersionUID = -6970128712587609414L;
+
 	private BigInteger emptyBitmask;
 	private String[] patientIds;
 
-	private Integer variantStorageSize;
+	private transient String[] variantSpecIndex;
 
-	private String[] vcfHeaders = new String[24];
+	private Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>>> variantMaskStorage = new TreeMap<>();
 
-	public TreeMap<String, FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>>> variantMaskStorage = new TreeMap<>();
-
-	public ArrayList<String> listVariants() {
-		ArrayList<String> allVariants = new ArrayList<>();
-		for (String key : variantMaskStorage.keySet()) {
-			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>> storage = variantMaskStorage
-					.get(key);
-			storage.keys().stream().forEach((Integer bucket) -> {
-				try {
-					for (String variant : storage.get(bucket).keySet()) {
-						allVariants.add(variant);
-					}
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			});
-		}
-		return allVariants;
+	public Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>>> getVariantMaskStorage() {
+		return variantMaskStorage;
 	}
 
-	public Map<String, int[]> countVariants() {
-		HashMap<String, Integer> countOffsetMap = new HashMap<String, Integer>();
-		TreeMap<String, int[]> counts = new TreeMap<>();
-		for (String contig : variantMaskStorage.keySet()) {
-			counts.put(contig, new int[5]);
-			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, VariantMasks>> storage = variantMaskStorage
-					.get(contig);
-			storage.keys().stream().forEach((Integer key) -> {
-				int[] contigCounts = counts.get(contig);
-				try {
-					Collection<VariantMasks> values = storage.get(key).values();
-					contigCounts[0] += values.stream().collect(Collectors.summingInt((VariantMasks masks) -> {
-						return masks.heterozygousMask != null ? 1 : 0;
-					}));
-					contigCounts[1] += values.stream().collect(Collectors.summingInt((VariantMasks masks) -> {
-						return masks.homozygousMask != null ? 1 : 0;
-					}));
-					contigCounts[2] += values.stream().collect(Collectors.summingInt((VariantMasks masks) -> {
-						return masks.heterozygousNoCallMask != null ? 1 : 0;
-					}));
-					contigCounts[3] += values.stream().collect(Collectors.summingInt((VariantMasks masks) -> {
-						return masks.homozygousNoCallMask != null ? 1 : 0;
-					}));
-					contigCounts[4] += values.stream().collect(Collectors.summingInt((VariantMasks masks) -> {
-						return masks.heterozygousMask != null || masks.homozygousMask != null
-								|| masks.heterozygousNoCallMask != null || masks.homozygousNoCallMask != null ? 1 : 0;
-					}));
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			});
-		}
-		return counts;
+	public void setVariantMaskStorage(Map<String, FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>>> variantMaskStorage) {
+		this.variantMaskStorage = variantMaskStorage;
 	}
 
-	public String[] getVCFHeaders() {
-		return vcfHeaders;
+	public String[] getVariantSpecIndex() {
+		return variantSpecIndex;
+	}
+	public void setVariantSpecIndex(String[] variantSpecIndex) {
+		this.variantSpecIndex = variantSpecIndex;
+	}
+
+	public static VariantStore readInstance(String genomicDataDirectory) throws IOException, ClassNotFoundException {
+		try (GZIPInputStream gzipInputStream = new GZIPInputStream(new FileInputStream(genomicDataDirectory + VARIANT_STORE_JAVABIN_FILENAME));
+			 ObjectInputStream ois = new ObjectInputStream(gzipInputStream)) {
+			VariantStore variantStore = (VariantStore) ois.readObject();
+			ois.close();
+			variantStore.getVariantMaskStorage().values().forEach(store -> {
+				store.updateStorageDirectory(new File(genomicDataDirectory));
+			});
+			variantStore.open();
+			variantStore.setVariantSpecIndex(loadVariantIndexFromFile(genomicDataDirectory));
+			return variantStore;
+		}
+	}
+
+	public void writeInstance(String genomicDirectory) {
+		try (FileOutputStream fos = new FileOutputStream(new File(genomicDirectory, VARIANT_STORE_JAVABIN_FILENAME));
+			 GZIPOutputStream gzos = new GZIPOutputStream(fos);
+			 ObjectOutputStream oos = new ObjectOutputStream(gzos);) {
+			oos.writeObject(this);
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
+		try (FileOutputStream fos = new FileOutputStream(new File(genomicDirectory, VARIANT_SPEC_INDEX_JAVABIN_FILENAME));
+			 GZIPOutputStream gzos = new GZIPOutputStream(fos);
+			 ObjectOutputStream oos = new ObjectOutputStream(gzos);) {
+			oos.writeObject(Arrays.asList(variantSpecIndex));
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
 	}
 
 	public String[] getPatientIds() {
 		return patientIds;
 	}
 
-	public VariantMasks getMasks(String variant, VariantBucketHolder<VariantMasks> bucketCache) throws IOException {
+	public Optional<VariableVariantMasks> getMasks(String variant, VariantBucketHolder<VariableVariantMasks> bucketCache) throws IOException {
 		String[] segments = variant.split(",");
 		if (segments.length < 2) {
 			log.error("Less than 2 segments found in this variant : " + variant);
@@ -102,35 +87,47 @@ public class VariantStore implements Serializable {
 		int chrOffset = Integer.parseInt(segments[1]) / BUCKET_SIZE;
 		String contig = segments[0];
 
-//		if (Level.DEBUG.equals(log.getEffectiveLevel())) {
-//			log.debug("Getting masks for variant " + variant + "  Same bucket test: " + (bucketCache.lastValue != null
-//					&& contig.contentEquals(bucketCache.lastContig) && chrOffset == bucketCache.lastChunkOffset));
-//		}
-
 		if (bucketCache.lastValue != null && contig.contentEquals(bucketCache.lastContig)
 				&& chrOffset == bucketCache.lastChunkOffset) {
 			// TODO : This is a temporary efficiency hack, NOT THREADSAFE!!!
 		} else {
-			bucketCache.lastValue = variantMaskStorage.get(contig).get(chrOffset);
+			// todo: don't bother doing a lookup if this node does not have the chromosome specified
+			FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>> indexedStorage = variantMaskStorage.get(contig);
+			if (indexedStorage == null) {
+				return Optional.empty();
+			}
+			bucketCache.lastValue = indexedStorage.get(chrOffset);
 			bucketCache.lastContig = contig;
 			bucketCache.lastChunkOffset = chrOffset;
 		}
-		return bucketCache.lastValue == null ? null : bucketCache.lastValue.get(variant);
+		return bucketCache.lastValue == null ? Optional.empty() : Optional.ofNullable(bucketCache.lastValue.get(variant));
 	}
+	public List<VariableVariantMasks> getMasksForDbSnpSpec(String variant) {
+		String[] segments = variant.split(",");
+		if (segments.length < 2) {
+			log.error("Less than 2 segments found in this variant : " + variant);
+		}
 
-	public String[] getHeaders() {
-		return vcfHeaders;
+		int chrOffset = Integer.parseInt(segments[1]) / BUCKET_SIZE;
+		String contig = segments[0];
+
+		// todo: don't bother doing a lookup if this node does not have the chromosome specified
+		FileBackedJsonIndexStorage<Integer, ConcurrentHashMap<String, VariableVariantMasks>> indexedStorage = variantMaskStorage.get(contig);
+		if (indexedStorage == null) {
+			return List.of();
+		} else {
+			ConcurrentHashMap<String, VariableVariantMasks> specToMaskMap = indexedStorage.get(chrOffset);
+			return specToMaskMap.entrySet().stream()
+					.filter(entry -> entry.getKey().startsWith(variant))
+					.map(Map.Entry::getValue)
+					.collect(Collectors.toList());
+		}
 	}
 
 	public void open() {
 		variantMaskStorage.values().stream().forEach((fbbis -> {
 			if (fbbis != null) {
-				try {
-					fbbis.open();
-				} catch (FileNotFoundException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
+				fbbis.open();
 			}
 		}));
 	}
@@ -143,34 +140,6 @@ public class VariantStore implements Serializable {
 		this.patientIds = patientIds;
 	}
 
-	public int getVariantStorageSize() {
-		return variantStorageSize;
-	}
-
-	public void setVariantStorageSize(int variantStorageSize) {
-		this.variantStorageSize = variantStorageSize;
-	}
-
-	public List<VariantMasks> getMasksForRangesOfChromosome(String contigForGene, List<Integer> offsetsForGene,
-			RangeSet<Integer> rangeSetsForGene) throws IOException {
-		FileBackedByteIndexedStorage masksForChromosome = variantMaskStorage.get(contigForGene);
-		Set<Integer> bucketsForGene = offsetsForGene.stream().map((offset) -> {
-			return offset / BUCKET_SIZE;
-		}).collect(Collectors.toSet());
-		List<VariantMasks> masks = new ArrayList<VariantMasks>();
-		for (Integer bucket : bucketsForGene) {
-			Map<String, VariantMasks> variantMaskBucket = (Map<String, VariantMasks>) masksForChromosome.get(bucket);
-			variantMaskBucket.keySet().stream().filter((String spec) -> {
-				int offsetForVariant = Integer.parseInt(spec.split(",")[1]);
-				return rangeSetsForGene.contains(offsetForVariant);
-			}).forEach((spec) -> {
-				System.out.println(spec);
-				masks.add(variantMaskBucket.get(spec));
-			});
-		}
-		return masks;
-	}
-
 	public BigInteger emptyBitmask() {
 		if (emptyBitmask == null || emptyBitmask.testBit(emptyBitmask.bitLength() / 2)) {
 			String emptyVariantMask = "";
@@ -181,5 +150,17 @@ public class VariantStore implements Serializable {
 		}
 		return emptyBitmask;
 	}
+
+	@SuppressWarnings("unchecked")
+	public static String[] loadVariantIndexFromFile(String genomicDataDirectory) {
+		try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream(genomicDataDirectory + "/" + VARIANT_SPEC_INDEX_JAVABIN_FILENAME)));){
+
+			List<String> variants = (List<String>) objectInputStream.readObject();
+			return variants.toArray(new String[0]);
+
+		} catch (IOException | ClassNotFoundException e) {
+			throw new RuntimeException(e);
+		}
+    }
 
 }

@@ -4,47 +4,68 @@ package edu.harvard.hms.dbmi.avillach.hpds.processing;
 import java.io.*;
 import java.math.BigInteger;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import java.util.zip.GZIPInputStream;
 
+import org.checkerframework.checker.units.qual.C;
+import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.cache.CacheLoader.InvalidCacheLoadException;
-
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMasks;
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMetadataIndex;
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantSpec;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHolder;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.exception.NotEnoughMemoryException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
-public class VariantListProcessor extends AbstractProcessor {
+@Component
+public class VariantListProcessor implements HpdsProcessor {
 
-	private VariantMetadataIndex metadataIndex = null;
+	private final GenomicProcessor genomicProcessor;
 
 	private static Logger log = LoggerFactory.getLogger(VariantListProcessor.class);
 	
-	private static final Boolean VCF_EXCERPT_ENABLED;
-	private static final Boolean AGGREGATE_VCF_EXCERPT_ENABLED;
-	private static final Boolean VARIANT_LIST_ENABLED;
-	
-	static {
+	private final Boolean VCF_EXCERPT_ENABLED;
+	private final Boolean AGGREGATE_VCF_EXCERPT_ENABLED;
+	private final Boolean VARIANT_LIST_ENABLED;
+	private final String ID_CUBE_NAME;
+	private final int ID_BATCH_SIZE;
+	private final int CACHE_SIZE;
+
+	private final AbstractProcessor abstractProcessor;
+	private final ColumnSorter columnSorter;
+
+
+	@Autowired
+	public VariantListProcessor(AbstractProcessor abstractProcessor, GenomicProcessor genomicProcessor, ColumnSorter columnSorter, @Value("${VCF_EXCERPT_ENABLED:false}") boolean vcfExcerptEnabled) {
+		this.abstractProcessor = abstractProcessor;
+		this.genomicProcessor = genomicProcessor;
+		this.columnSorter = columnSorter;
+
+		VCF_EXCERPT_ENABLED = vcfExcerptEnabled;
+		//always enable aggregate queries if full queries are permitted.
+		AGGREGATE_VCF_EXCERPT_ENABLED = VCF_EXCERPT_ENABLED || "TRUE".equalsIgnoreCase(System.getProperty("AGGREGATE_VCF_EXCERPT_ENABLED", "FALSE"));
+		VARIANT_LIST_ENABLED = VCF_EXCERPT_ENABLED || AGGREGATE_VCF_EXCERPT_ENABLED;
+		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
+		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
+		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
+
+	}
+
+	public VariantListProcessor(boolean isOnlyForTests, AbstractProcessor abstractProcessor)  {
+		this.abstractProcessor = abstractProcessor;
+		this.genomicProcessor = null;
+		this.columnSorter = new ColumnSorter("");
+
 		VCF_EXCERPT_ENABLED = "TRUE".equalsIgnoreCase(System.getProperty("VCF_EXCERPT_ENABLED", "FALSE"));
 		//always enable aggregate queries if full queries are permitted.
 		AGGREGATE_VCF_EXCERPT_ENABLED = VCF_EXCERPT_ENABLED || "TRUE".equalsIgnoreCase(System.getProperty("AGGREGATE_VCF_EXCERPT_ENABLED", "FALSE"));
 		VARIANT_LIST_ENABLED = VCF_EXCERPT_ENABLED || AGGREGATE_VCF_EXCERPT_ENABLED;
-	}	
+		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
+		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
+		ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
 
-	public VariantListProcessor() throws ClassNotFoundException, FileNotFoundException, IOException {
-		super();
-		initializeMetadataIndex();
-	}
-
-	public VariantListProcessor(boolean isOnlyForTests) throws ClassNotFoundException, FileNotFoundException, IOException  {
-		super(true);
 		if(!isOnlyForTests) {
 			throw new IllegalArgumentException("This constructor should never be used outside tests");
 		}
@@ -62,7 +83,7 @@ public class VariantListProcessor extends AbstractProcessor {
 	 * 
 	 * This should not actually do any filtering based on bitmasks, just INFO columns.
 	 * 
-	 * @param incomingQuery
+	 * @param query
 	 * @return a List of VariantSpec strings that would be eligible to filter patients if the incomingQuery was run as a COUNT query.
 	 * @throws IOException 
 	 */
@@ -73,19 +94,19 @@ public class VariantListProcessor extends AbstractProcessor {
 			return "VARIANT_LIST query type not allowed";
 		}
 		
-		return  Arrays.toString( getVariantList(query).toArray());
+		return  Arrays.toString( abstractProcessor.getVariantList(query).toArray());
 	}
 	
 	/**
 	 * Process only variantInfoFilters to count the number of variants that would be included in evaluating the query.
 	 * 
-	 * @param incomingQuery
+	 * @param query
 	 * @return the number of variants that would be used to filter patients if the incomingQuery was run as a COUNT query.
 	 * @throws IOException 
 	 */
 	public int runVariantCount(Query query) throws IOException {
-		if(query.variantInfoFilters != null && !query.variantInfoFilters.isEmpty()) {
-			return getVariantList(query).size();
+		if(!query.getVariantInfoFilters().isEmpty()) {
+			return abstractProcessor.getVariantList(query).size();
 		}
 		return 0;
 	}
@@ -102,7 +123,7 @@ public class VariantListProcessor extends AbstractProcessor {
 	 *  The default patientId header value can be overridden by passing the ID_CUBE_NAME environment variable to 
 	 *  the java VM.
 	 *  
-	 *  @param Query A VCF_EXCERPT type query
+	 *  @param query A VCF_EXCERPT type query
 	 *  @param includePatientData whether to include patient specific data
 	 *  @return A Tab-separated string with one line per variant and one column per patient (plus variant data columns)
 	 * @throws IOException 
@@ -120,16 +141,16 @@ public class VariantListProcessor extends AbstractProcessor {
 		
 		log.info("Running VCF Extract query");
 
-		Collection<String> variantList = getVariantList(query);
+		Collection<String> variantList = abstractProcessor.getVariantList(query);
 		
 		log.debug("variantList Size " + variantList.size());
 
-		Map<String, String[]> metadata = (metadataIndex == null ? null : metadataIndex.findByMultipleVariantSpec(variantList));
+		Map<String, Set<String>> metadata =  genomicProcessor.getVariantMetadata(variantList);
 
 		log.debug("metadata size " + metadata.size());
 		
 		// Sort the variantSpecs so that the user doesn't lose their mind
-		TreeMap<String, String[]> metadataSorted = new TreeMap<>((o1, o2) -> {
+		TreeMap<String, Set<String>> metadataSorted = new TreeMap<>((o1, o2) -> {
 			return new VariantSpec(o1).compareTo(new VariantSpec(o2));
 		});
 		metadataSorted.putAll(metadata);
@@ -143,12 +164,7 @@ public class VariantListProcessor extends AbstractProcessor {
 
 		PhenoCube<String> idCube = null;
 		if(!ID_CUBE_NAME.contentEquals("NONE")) {
-			try {
-				//				log.info("Looking up ID cube " + ID_CUBE_NAME);
-				idCube = (PhenoCube<String>) store.get(ID_CUBE_NAME);
-			} catch (ExecutionException |  InvalidCacheLoadException e) {
-				log.warn("Unable to identify ID_CUBE_NAME data, using patientId instead.  " + e.getLocalizedMessage());
-			}
+			idCube = (PhenoCube<String>) abstractProcessor.getCube(ID_CUBE_NAME);
 		}
 
 		//
@@ -159,24 +175,25 @@ public class VariantListProcessor extends AbstractProcessor {
 		//5 columns for gene info
 		builder.append("CHROM\tPOSITION\tREF\tALT");
 
+		List<String> infoStoreColumns = columnSorter.sortInfoColumns(abstractProcessor.getInfoStoreColumns());
 		//now add the variant metadata column headers
-		for(String key : infoStores.keySet()) {
+		for(String key : infoStoreColumns) {
 			builder.append("\t" + key);
 		}
 
 		//patient count columns
-		builder.append("\tPatients with this variant in subset\tPatients With this variant NOT in subset");
+		builder.append("\tPatients with this variant in subset\tPatients with this variant NOT in subset");
 
 		//then one column per patient.  We also need to identify the patient ID and
 		// map it to the right index in the bit mask fields.
-		TreeSet<Integer> patientSubset = getPatientSubsetForQuery(query);
+		Set<Integer> patientSubset = abstractProcessor.getPatientSubsetForQuery(query);
 		log.debug("identified " + patientSubset.size() + " patients from query");
 		Map<String, Integer> patientIndexMap = new LinkedHashMap<String, Integer>(); //keep a map for quick index lookups
-		BigInteger patientMasks = createMaskForPatientSet(patientSubset);
-		int index = 2; //variant bitmasks are bookended with '11'
+		VariantMask patientMasks = abstractProcessor.createMaskForPatientSet(patientSubset);
+		int index = 0;
 
 		
-		for(String patientId : variantStore.getPatientIds()) {
+		for(String patientId : abstractProcessor.getPatientIds()) {
 			Integer idInt = Integer.parseInt(patientId);
 			if(patientSubset.contains(idInt)){
 				patientIndexMap.put(patientId, index);
@@ -202,10 +219,10 @@ public class VariantListProcessor extends AbstractProcessor {
 		}
 		//End of headers
 		builder.append("\n");
-		VariantBucketHolder<VariantMasks> variantMaskBucketHolder = new VariantBucketHolder<VariantMasks>();
+		VariantBucketHolder<VariableVariantMasks> variantMaskBucketHolder = new VariantBucketHolder<VariableVariantMasks>();
 
 		//loop over the variants identified, and build an output row
-		metadata.forEach((String variantSpec, String[] variantMetadata)->{
+		metadata.forEach((String variantSpec, Set<String> variantMetadata)->{
 
 			String[] variantDataColumns = variantSpec.split(",");
 			//4 fixed columns in variant ID (CHROM POSITION REF ALT)
@@ -238,7 +255,7 @@ public class VariantListProcessor extends AbstractProcessor {
 			}
 
 			//need to make sure columns are pushed out in the right order; use same iterator as headers
-			for(String key : infoStores.keySet()) {
+			for(String key : infoStoreColumns) {
 				Set<String> columnMeta = variantColumnMap.get(key);
 				if(columnMeta != null) {
 					//collect our sets to a single entry
@@ -248,57 +265,41 @@ public class VariantListProcessor extends AbstractProcessor {
 				}
 			}
 
-			//Now put the patient zygosities in the right columns
-			try {
-				VariantMasks masks = variantStore.getMasks(variantSpec, variantMaskBucketHolder);
+			VariableVariantMasks masks = abstractProcessor.getMasks(variantSpec, variantMaskBucketHolder).get();
 
-				//make strings of 000100 so we can just check 'char at'
-				//so heterozygous no calls we want, homozygous no calls we don't
-				BigInteger heteroMask = masks.heterozygousMask != null? masks.heterozygousMask : masks.heterozygousNoCallMask != null ? masks.heterozygousNoCallMask : null;
-				BigInteger homoMask = masks.homozygousMask != null? masks.homozygousMask : null;
+			//make strings of 000100 so we can just check 'char at'
+			//so heterozygous no calls we want, homozygous no calls we don't
+			VariantMask heteroMask = masks.heterozygousMask != null? masks.heterozygousMask : masks.heterozygousNoCallMask != null ? masks.heterozygousNoCallMask : null;
+			VariantMask homoMask = masks.homozygousMask != null? masks.homozygousMask : null;
 
-				
-				String heteroMaskString = heteroMask != null ? heteroMask.toString(2) : null;
-				String homoMaskString = homoMask != null ? homoMask.toString(2) : null;
+			// Patient count = (hetero mask | homo mask) & patient mask
+			VariantMask heteroOrHomoMask = orNullableMasks(heteroMask, homoMask);
+			int patientCount = heteroOrHomoMask == null ? 0 :  (heteroOrHomoMask.intersection(patientMasks).bitCount());
 
-				// Patient count = (hetero mask | homo mask) & patient mask
-				BigInteger heteroOrHomoMask = orNullableMasks(heteroMask, homoMask);
-				int patientCount = heteroOrHomoMask == null ? 0 :  (heteroOrHomoMask.and(patientMasks).bitCount() - 4);
+			int bitCount = masks.heterozygousMask == null? 0 : (masks.heterozygousMask.bitCount());
+			bitCount += masks.homozygousMask == null? 0 : (masks.homozygousMask.bitCount());
 
-				int bitCount = masks.heterozygousMask == null? 0 : (masks.heterozygousMask.bitCount() - 4);
-				bitCount += masks.homozygousMask == null? 0 : (masks.homozygousMask.bitCount() - 4);
-
-				//count how many patients have genomic data available
-				Integer patientsWithVariantsCount = null;
-				if(heteroMaskString != null) {
-					patientsWithVariantsCount = heteroMaskString.length() - 4;
-				} else if (homoMaskString != null ) {
-					patientsWithVariantsCount = homoMaskString.length() - 4;
-				} else {
-					patientsWithVariantsCount = -1;
-				}
+			//count how many patients have genomic data available
+			Integer patientsWithVariantsCount = patientMasks.bitCount();
 
 
-				// (patients with/total) in subset   \t   (patients with/total) out of subset.
-				builder.append("\t"+ patientCount + "/" + patientIndexMap.size() + "\t" + (bitCount - patientCount) + "/" + (patientsWithVariantsCount - patientIndexMap.size()));
+			// (patients with/total) in subset   \t   (patients with/total) out of subset.
+			builder.append("\t"+ patientCount + "/" + patientIndexMap.size() + "\t" + (bitCount - patientCount) + "/" + (patientsWithVariantsCount - patientIndexMap.size()));
 
-				if (includePatientData) {
-					//track the number of subjects without the variant; use a second builder to keep the column order
-					StringBuilder patientListBuilder = new StringBuilder();
+			if (includePatientData) {
+				//track the number of subjects without the variant; use a second builder to keep the column order
+				StringBuilder patientListBuilder = new StringBuilder();
 
-					for(Integer patientIndex : patientIndexMap.values()) {
-						if(heteroMaskString != null && '1' == heteroMaskString.charAt(patientIndex)) {
-							patientListBuilder.append("\t0/1");
-						}else if(homoMaskString != null && '1' == homoMaskString.charAt(patientIndex)) {
-							patientListBuilder.append("\t1/1");
-						}else {
-							patientListBuilder.append("\t0/0");
-						}
+				for(Integer patientIndex : patientIndexMap.values()) {
+					if(heteroMask != null && heteroMask.testBit(patientIndex)) {
+						patientListBuilder.append("\t0/1");
+					}else if(homoMask != null && homoMask.testBit(patientIndex)) {
+						patientListBuilder.append("\t1/1");
+					}else {
+						patientListBuilder.append("\t0/0");
 					}
-					builder.append(patientListBuilder.toString());
 				}
-			} catch (IOException e) {
-				log.error("error getting masks", e);
+				builder.append(patientListBuilder);
 			}
 
 			builder.append("\n");
@@ -308,10 +309,10 @@ public class VariantListProcessor extends AbstractProcessor {
 		return builder.toString();
 	}
 
-	private BigInteger orNullableMasks(BigInteger heteroMask, BigInteger homoMask) {
+	private VariantMask orNullableMasks(VariantMask heteroMask, VariantMask homoMask) {
 		if (heteroMask != null) {
 			if (homoMask != null) {
-				return heteroMask.or(homoMask);
+				return heteroMask.union(homoMask);
 			}
 			return heteroMask;
 		} else {
@@ -319,15 +320,7 @@ public class VariantListProcessor extends AbstractProcessor {
 		}
 	}
 
-	private void initializeMetadataIndex() throws IOException{
-		if(metadataIndex == null) {
-			String metadataIndexPath = VariantMetadataIndex.VARIANT_METADATA_BIN_FILE;
-			try(ObjectInputStream in = new ObjectInputStream(new GZIPInputStream(
-					new FileInputStream(metadataIndexPath)))){
-				metadataIndex = (VariantMetadataIndex) in.readObject();
-			}catch(Exception e) {
-				log.error("No Metadata Index found at " + metadataIndexPath);
-			}
-		}
+	public String[] getHeaderRow(Query query) {
+		return null;
 	}
 }
