@@ -216,7 +216,31 @@ public class PfbWriter implements ResultWriter {
 
 
         entityRecord.put("object", metadata);
-        entityRecord.put("name", "metadata");
+        entityRecord.put("name", this.patientTableName);
+        entityRecord.put("id", "null");
+        entityRecord.put("relations", List.of());
+
+        try {
+            dataFileWriter.append(entityRecord);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
+        nodeList = new ArrayList<>();
+        for (String field : List.of("concept_path", "display", "dataset", "description", "drs_uri")) {
+            GenericRecord nodeData = new GenericData.Record(nodeSchema);
+            nodeData.put("name", field);
+            nodeData.put("ontology_reference", "");
+            nodeData.put("values", Map.of());
+            nodeList.add(nodeData);
+        }
+        metadata = new GenericData.Record(metadataSchema);
+        metadata.put("misc", "");
+        metadata.put("nodes", nodeList);
+
+
+        entityRecord.put("object", metadata);
+        entityRecord.put("name", this.dataDictionaryTableName);
         entityRecord.put("id", "null");
         entityRecord.put("relations", List.of());
 
