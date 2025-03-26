@@ -1,14 +1,17 @@
 <configuration>
+    <springProperty scope="context" name="LOG_PATTERN" source="log.pattern"/>
+    <springProperty scope="context" name="LOG_FILE" source="logging.file.name"/>
+
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>${log.pattern:-%d{yyyy-MM-dd'T'HH:mm:ss.SSS'Z', UTC} %-5level --- [hpds] [%thread] %logger{36} : %msg%n}</pattern>
+            <pattern>${LOG_PATTERN}</pattern>
         </encoder>
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.FileAppender">
-        <file>${logging.file.name:-var/log/hpds.log}</file>
+        <file>${LOG_FILE:-var/log/hpds.log}</file>
         <encoder>
-            <pattern>${log.pattern:-%d{yyyy-MM-dd'T'HH:mm:ss.SSS'Z', UTC} %-5level --- [hpds] [%thread] %logger{36} : %msg%n}</pattern>
+            <pattern>${LOG_PATTERN}</pattern>
         </encoder>
     </appender>
 
