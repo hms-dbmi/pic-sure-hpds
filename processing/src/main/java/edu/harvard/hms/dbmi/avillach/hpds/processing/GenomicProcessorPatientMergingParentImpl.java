@@ -177,7 +177,12 @@ public class GenomicProcessorPatientMergingParentImpl implements GenomicProcesso
                 .map(node -> node.getVariantMetadata(variantList))
                 .reduce((p1, p2) -> {
                     Map<String, Set<String>> mapCopy = new HashMap<>(p1);
-                    mapCopy.putAll(p2);
+
+                    for (Map.Entry<String, Set<String>> map2Entry : p2.entrySet()) {
+                        Set<String> metadataValues = mapCopy.getOrDefault(map2Entry.getKey(), new HashSet<>());
+                        metadataValues.addAll(map2Entry.getValue());
+                        mapCopy.put(map2Entry.getKey(), metadataValues);
+                    }
                     return mapCopy;
                 }).orElseGet(Map::of);
     }
