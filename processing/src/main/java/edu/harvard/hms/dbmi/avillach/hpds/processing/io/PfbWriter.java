@@ -61,10 +61,20 @@ public class PfbWriter implements ResultWriter {
                 .namespace("edu.harvard.dbmi")
                 .fields();
 
+
+        Schema linksSchema = SchemaBuilder.record("Link")
+                .fields()
+                .requiredString("dst")
+                .name("multiplicity").type(
+                        SchemaBuilder.enumeration("Multiplicity").symbols("ONE_TO_ONE", "ONE_TO_MANY", "MANY_TO_ONE", "MANY_TO_MANY")
+                ).noDefault()
+                .endRecord();
+
         SchemaBuilder.FieldAssembler<Schema> nodeRecord = SchemaBuilder.record("nodes")
                 .fields()
                 .requiredString("name")
                 .nullableString("ontology_reference", "null")
+                .name("links").type(SchemaBuilder.array().items(linksSchema)).noDefault()
                 .name("values").type(SchemaBuilder.map().values(SchemaBuilder.nullable().stringType())).noDefault();
         nodeSchema = nodeRecord.endRecord();
 
@@ -208,6 +218,7 @@ public class PfbWriter implements ResultWriter {
             nodeData.put("name", field);
             nodeData.put("ontology_reference", "");
             nodeData.put("values", Map.of());
+            nodeData.put("links", List.of());
             nodeList.add(nodeData);
         }
         GenericRecord metadata = new GenericData.Record(metadataSchema);
@@ -232,6 +243,7 @@ public class PfbWriter implements ResultWriter {
             nodeData.put("name", field);
             nodeData.put("ontology_reference", "");
             nodeData.put("values", Map.of());
+            nodeData.put("links", List.of());
             nodeList.add(nodeData);
         }
         metadata = new GenericData.Record(metadataSchema);
