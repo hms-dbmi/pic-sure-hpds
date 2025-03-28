@@ -92,7 +92,8 @@ public class LowRAMCSVProcessor {
 
             String conceptPath = CSVParserUtil.parseConceptPath(record, doVarNameRollup);
             // TODO: check logic
-            IngestFn ingestFn = Strings.isEmpty(record.get(CSVParserUtil.NUMERIC_VALUE)) ? this::ingestNonNumeric : this::ingestNumeric;
+            // This is currently failing on all records.
+            IngestFn ingestFn = Strings.isBlank(record.get(CSVParserUtil.NUMERIC_VALUE)) ? this::ingestNonNumeric : this::ingestNumeric;
             Date date = CSVParserUtil.parseDate(record);
             int patientId = Integer.parseInt(record.get(CSVParserUtil.PATIENT_NUM));
             if (ingestFn.attemptIngest(record, conceptPath, patientId, date)) {
@@ -142,6 +143,7 @@ public class LowRAMCSVProcessor {
             concept = new PhenoCube<>(conceptPath, String.class);
             store.loadingCache.put(conceptPath, concept);
         }
+
         if (!concept.vType.equals(String.class)) {
             log.error("""
                 Concept bucket {} was configured for numeric types, but received non-numeric value {}
