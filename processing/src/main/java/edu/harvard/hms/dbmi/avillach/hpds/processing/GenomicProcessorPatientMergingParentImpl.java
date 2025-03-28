@@ -132,8 +132,6 @@ public class GenomicProcessorPatientMergingParentImpl implements GenomicProcesso
 
     @Override
     public Optional<VariableVariantMasks> getMasks(String path, VariantBucketHolder<VariableVariantMasks> variantMasksVariantBucketHolder) {
-        VariableVariantMasks aggregatedMasks = null;
-        int size = 0;
         return Optional.ofNullable(Flux.just(nodes.toArray(GenomicProcessor[]::new))
                 .flatMapSequential(node -> {
                     VariableVariantMasks masks = node.getMasks(path, new VariantBucketHolder<>()).orElseGet(VariableVariantMasks::new);
