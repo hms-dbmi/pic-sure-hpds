@@ -124,6 +124,8 @@ public class LowRAMCSVProcessor {
                 rows with an nval_num but no tval_char.
                 Offending record #{}
                 """, conceptPath, record.get(CSVParserUtil.NUMERIC_VALUE), record.getRecordNumber());
+
+            log.error("Entire record: {}", record);
             return false;
         }
         try {
@@ -151,6 +153,7 @@ public class LowRAMCSVProcessor {
                 rows with an nval_num but no tval_char.
                 Offending record #{}
                 """, conceptPath, record.get(CSVParserUtil.TEXT_VALUE), record.getRecordNumber());
+            log.error("Entire record: {}", record);
             return false;
         }
         String rawTextValue = CSVParserUtil.trim(record.get(CSVParserUtil.TEXT_VALUE));
