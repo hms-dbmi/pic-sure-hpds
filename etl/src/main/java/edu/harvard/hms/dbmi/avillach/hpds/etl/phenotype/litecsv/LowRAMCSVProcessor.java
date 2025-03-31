@@ -40,8 +40,6 @@ public class LowRAMCSVProcessor {
             // is more or less the same length
             // so we'll just provision n chunks, where n is max(1, file_size/max_chunk_size)
             log.info("Gathering stats about file {}", csv.getName());
-
-
             int chunks = Math.max(1, (int) Math.ceil((double) csv.length() / (maxChunkSizeGigs * 1024 * 1024 * 1024)));
             final long totalLineCount = rawLines.count();
             final long linesPerChunk = totalLineCount / chunks;
