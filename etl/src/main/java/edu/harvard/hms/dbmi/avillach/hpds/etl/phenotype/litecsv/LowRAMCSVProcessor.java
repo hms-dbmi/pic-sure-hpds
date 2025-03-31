@@ -64,6 +64,7 @@ public class LowRAMCSVProcessor {
                     // loading each concept in its entirety for a chunk will minimize disk IO and
                     // let us keep more valuable things in RAM
                     lines.sort(Comparator.comparing(a -> a.get(1)));
+                    lines.sort(Comparator.comparing(a -> a.get(3), Comparator.nullsLast(Comparator.naturalOrder())));
                     log.info("Finished sorting chunk {}", chunkCount);
                     Set<String> chunkConcepts = ingest(lines);
                     concepts.addAll(chunkConcepts);
