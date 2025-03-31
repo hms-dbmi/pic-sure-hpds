@@ -40,6 +40,8 @@ public class LowRAMCSVProcessor {
             // is more or less the same length
             // so we'll just provision n chunks, where n is max(1, file_size/max_chunk_size)
             log.info("Gathering stats about file {}", csv.getName());
+
+
             int chunks = Math.max(1, (int) Math.ceil((double) csv.length() / (maxChunkSizeGigs * 1024 * 1024 * 1024)));
             final long totalLineCount = rawLines.count();
             final long linesPerChunk = totalLineCount / chunks;
@@ -63,6 +65,12 @@ public class LowRAMCSVProcessor {
                     // sort by concept to prevent cache thrashing when ingesting
                     // loading each concept in its entirety for a chunk will minimize disk IO and
                     // let us keep more valuable things in RAM
+
+                    /*
+                       We have to sort the data by concept AND TVAL_CHAR.
+                       This is because of issues with data that has both numeric and non-numeric values. If both types of data
+                       are present for the same concept, we want to be forgiving and process it as a categorical concept.
+                    */
                     lines.sort(Comparator.comparing((CSVRecord a) -> a.get(1)).thenComparing(a -> a.get(3), Comparator.nullsLast(Comparator.naturalOrder())));
                     log.info("Finished sorting chunk {}", chunkCount);
                     Set<String> chunkConcepts = ingest(lines);
