@@ -38,6 +38,8 @@ public class ConfigLoader {
             } catch (Exception e) {
                 log.error(e.getMessage());
             }
+        } else {
+            log.error("ConfigLoader: Input directory does not exist: {}", INPUT_DIR);
         }
     }
 
