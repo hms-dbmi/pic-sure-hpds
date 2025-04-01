@@ -119,7 +119,7 @@ public class LowRAMCSVProcessor {
             if (csvConfig != null && csvConfig.isDataset_name_as_root_node()) {
                 String datasetName = csvConfig.getDataset_name();
                 // prepend the dataset name to the concept path
-                conceptPath = "\\" + datasetName + "\\" + conceptPath;
+                conceptPath = "\\" + datasetName + conceptPath;
             }
 
             IngestFn ingestFn = Strings.isBlank(record.get(CSVParserUtil.NUMERIC_VALUE)) ? this::ingestNonNumeric : this::ingestNumeric;
