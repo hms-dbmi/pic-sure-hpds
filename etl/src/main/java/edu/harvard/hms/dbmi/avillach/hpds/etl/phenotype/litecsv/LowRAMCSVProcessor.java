@@ -63,7 +63,13 @@ public class LowRAMCSVProcessor {
                     // sort by concept to prevent cache thrashing when ingesting
                     // loading each concept in its entirety for a chunk will minimize disk IO and
                     // let us keep more valuable things in RAM
-                    lines.sort(Comparator.comparing(a -> a.get(1)));
+
+                    /*
+                       We have to sort the data by concept AND TVAL_CHAR.
+                       This is because of issues with data that has both NVAL_NUM and TVAL_CHAR values. If both types of data
+                       are present for the same concept, we want to be forgiving and process it as a categorical concept.
+                    */
+                    lines.sort(Comparator.comparing((CSVRecord a) -> a.get(1)).thenComparing(a -> a.get(3), Comparator.nullsLast(Comparator.naturalOrder())));
                     log.info("Finished sorting chunk {}", chunkCount);
                     Set<String> chunkConcepts = ingest(lines);
                     concepts.addAll(chunkConcepts);
@@ -92,7 +98,8 @@ public class LowRAMCSVProcessor {
 
             String conceptPath = CSVParserUtil.parseConceptPath(record, doVarNameRollup);
             // TODO: check logic
-            IngestFn ingestFn = Strings.isEmpty(record.get(CSVParserUtil.NUMERIC_VALUE)) ? this::ingestNonNumeric : this::ingestNumeric;
+            // This is currently failing on all records.
+            IngestFn ingestFn = Strings.isBlank(record.get(CSVParserUtil.NUMERIC_VALUE)) ? this::ingestNonNumeric : this::ingestNumeric;
             Date date = CSVParserUtil.parseDate(record);
             int patientId = Integer.parseInt(record.get(CSVParserUtil.PATIENT_NUM));
             if (ingestFn.attemptIngest(record, conceptPath, patientId, date)) {
@@ -123,6 +130,8 @@ public class LowRAMCSVProcessor {
                 rows with an nval_num but no tval_char.
                 Offending record #{}
                 """, conceptPath, record.get(CSVParserUtil.NUMERIC_VALUE), record.getRecordNumber());
+
+            log.error("Entire record: {}", record);
             return false;
         }
         try {
@@ -142,6 +151,7 @@ public class LowRAMCSVProcessor {
             concept = new PhenoCube<>(conceptPath, String.class);
             store.loadingCache.put(conceptPath, concept);
         }
+
         if (!concept.vType.equals(String.class)) {
             log.error("""
                 Concept bucket {} was configured for numeric types, but received non-numeric value {}
@@ -149,6 +159,7 @@ public class LowRAMCSVProcessor {
                 rows with an nval_num but no tval_char.
                 Offending record #{}
                 """, conceptPath, record.get(CSVParserUtil.TEXT_VALUE), record.getRecordNumber());
+            log.error("Entire record: {}", record);
             return false;
         }
         String rawTextValue = CSVParserUtil.trim(record.get(CSVParserUtil.TEXT_VALUE));

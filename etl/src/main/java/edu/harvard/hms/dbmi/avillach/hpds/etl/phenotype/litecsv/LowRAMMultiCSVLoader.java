@@ -1,6 +1,8 @@
 package edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.litecsv;
 
 import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
+import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.config.CSVConfig;
+import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.config.ConfigLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,8 +33,9 @@ public class LowRAMMultiCSVLoader {
             }
         }
         String inputDir = "/opt/local/hpds_input";
+        ConfigLoader configLoader = new ConfigLoader();
         LowRAMLoadingStore store = new LowRAMLoadingStore();
-        LowRAMCSVProcessor lowRAMCSVProcessor = new LowRAMCSVProcessor(store, rollUpVarNames, 5D);
+        LowRAMCSVProcessor lowRAMCSVProcessor = new LowRAMCSVProcessor(store, rollUpVarNames, 5D, configLoader);
         int exitCode = new LowRAMMultiCSVLoader(store, lowRAMCSVProcessor, inputDir).processCSVsFromHPDSDir();
         try {
             store.saveStore();
@@ -40,6 +43,7 @@ public class LowRAMMultiCSVLoader {
             log.error("Error saving store: ", e);
             System.exit(1);
         }
+        // The application is exiting prematurely, o we need to close the store
         System.exit(exitCode);
     }
 
