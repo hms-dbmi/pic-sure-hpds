@@ -138,6 +138,7 @@ public class LowRAMCSVProcessor {
             String rawNumericValue = CSVParserUtil.trim(record.get(CSVParserUtil.NUMERIC_VALUE));
             double parsedValue = Double.parseDouble(rawNumericValue);
             concept.add(patientId, parsedValue, date);
+            store.allIds.add(patientId);
             return true;
         } catch (NumberFormatException e) {
             log.warn("Could not parse numeric value in line {}", record);
@@ -168,6 +169,7 @@ public class LowRAMCSVProcessor {
         }
         concept.setColumnWidth(Math.max(rawTextValue.getBytes().length, concept.getColumnWidth()));
         concept.add(patientId, rawTextValue, date);
+        store.allIds.add(patientId);
         return true;
     }
 }
