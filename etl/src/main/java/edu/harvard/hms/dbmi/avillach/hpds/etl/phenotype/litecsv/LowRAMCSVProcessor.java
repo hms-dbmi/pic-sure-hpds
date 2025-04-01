@@ -1,6 +1,8 @@
 package edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.litecsv;
 
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
+import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.config.CSVConfig;
+import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.config.ConfigLoader;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.csv.CSVParserUtil;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -21,11 +23,20 @@ public class LowRAMCSVProcessor {
     private final LowRAMLoadingStore store;
     private final boolean doVarNameRollup;
     private final double maxChunkSizeGigs;
+    private final ConfigLoader configLoader;
 
     public LowRAMCSVProcessor(LowRAMLoadingStore store, boolean doVarNameRollup, double maxChunkSizeGigs) {
         this.store = store;
         this.doVarNameRollup = doVarNameRollup;
         this.maxChunkSizeGigs = maxChunkSizeGigs;
+        this.configLoader = null;
+    }
+
+    public LowRAMCSVProcessor(LowRAMLoadingStore store, boolean doVarNameRollup, double maxChunkSizeGigs, ConfigLoader configLoader) {
+        this.store = store;
+        this.doVarNameRollup = doVarNameRollup;
+        this.maxChunkSizeGigs = maxChunkSizeGigs;
+        this.configLoader = configLoader;
     }
 
     public IngestStatus process(File csv) {
@@ -33,6 +44,17 @@ public class LowRAMCSVProcessor {
         log.info("Attempting to ingest file {}", csv.getAbsolutePath());
         try (Reader r = new FileReader(csv); Stream<String> rawLines = Files.lines(csv.toPath())) {
             CSVParser parser = CSVFormat.DEFAULT.withSkipHeaderRecord().withFirstRecordAsHeader().parse(new BufferedReader(r));
+
+            CSVConfig csvConfig = null;
+            if (configLoader != null && configLoader.hasConfigFor(csv.getName())) {
+                Optional<CSVConfig> config = configLoader.getConfigFor(csv.getName());
+                if (config.isPresent()) {
+                    csvConfig = config.get();
+                    log.info("Found config for file {}, using dataset_name {}", csv.getName(), csvConfig.getDataset_name());
+                } else {
+                    log.warn("No config found for file {}, using default settings", csv.getName());
+                }
+            }
 
             // we want to read the file in reasonably sized chunks so that we can handle chunks naively
             // in memory without going OOM
@@ -69,9 +91,10 @@ public class LowRAMCSVProcessor {
                        This is because of issues with data that has both NVAL_NUM and TVAL_CHAR values. If both types of data
                        are present for the same concept, we want to be forgiving and process it as a categorical concept.
                     */
+
                     lines.sort(Comparator.comparing((CSVRecord a) -> a.get(1)).thenComparing(a -> a.get(3), Comparator.nullsLast(Comparator.naturalOrder())));
                     log.info("Finished sorting chunk {}", chunkCount);
-                    Set<String> chunkConcepts = ingest(lines);
+                    Set<String> chunkConcepts = ingest(lines, csvConfig);
                     concepts.addAll(chunkConcepts);
                     log.info("Finished ingesting chunk {} with {} unique concepts", chunkCount, chunkConcepts.size());
                     lines = new ArrayList<>();
@@ -88,7 +111,7 @@ public class LowRAMCSVProcessor {
     }
 
 
-    private Set<String> ingest(List<CSVRecord> sortedRecords) {
+    private Set<String> ingest(List<CSVRecord> sortedRecords, CSVConfig csvConfig) {
         Set<String> concepts = new HashSet<>();
         for (CSVRecord record : sortedRecords) {
             if (record.size() < 4) {
@@ -97,8 +120,12 @@ public class LowRAMCSVProcessor {
             }
 
             String conceptPath = CSVParserUtil.parseConceptPath(record, doVarNameRollup);
-            // TODO: check logic
-            // This is currently failing on all records.
+            if (csvConfig != null && csvConfig.isDataset_name_as_root_node()) {
+                String datasetName = csvConfig.getDataset_name();
+                // prepend the dataset name to the concept path
+                conceptPath = "\\" + datasetName + "\\" + conceptPath;
+            }
+
             IngestFn ingestFn = Strings.isBlank(record.get(CSVParserUtil.NUMERIC_VALUE)) ? this::ingestNonNumeric : this::ingestNumeric;
             Date date = CSVParserUtil.parseDate(record);
             int patientId = Integer.parseInt(record.get(CSVParserUtil.PATIENT_NUM));
