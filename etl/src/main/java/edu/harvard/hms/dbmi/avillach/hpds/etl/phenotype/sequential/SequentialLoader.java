@@ -91,6 +91,8 @@ public class SequentialLoader {
 
         if (inputFiles.stream().allMatch(f -> f.endsWith(".csv"))) {
             LowRAMMultiCSVLoader.main(args);
+        } else {
+            log.info("Non-CSV files detected. Using SequentialLoader.");
         }
 
         // load each into observation store
@@ -250,6 +252,10 @@ public class SequentialLoader {
             String conceptPath =
                 conceptPathFromRow.endsWith("\\" + textValueFromRow + "\\") ? conceptPathFromRow.replaceAll("\\\\[^\\\\]*\\\\$", "\\\\")
                     : conceptPathFromRow;
+
+            // Check if the conceptPath should be prepended with dataset name
+
+
             // This is not getDouble because we need to handle null values, not coerce them into 0s
             String numericValue = record.getNumericValue();
             if ((numericValue == null || numericValue.isEmpty()) && textValueFromRow != null) {
