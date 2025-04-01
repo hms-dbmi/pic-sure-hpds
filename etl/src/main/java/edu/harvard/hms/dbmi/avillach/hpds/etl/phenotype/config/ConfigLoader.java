@@ -35,6 +35,9 @@ public class ConfigLoader {
                         csvConfigMap.remove(key);
                     }
                 }
+
+                log.info("Loaded config from {}", file.getAbsolutePath());
+                log.info("CSV Config Map: {}", csvConfigMap);
             } catch (Exception e) {
                 log.error(e.getMessage());
             }
@@ -79,7 +82,16 @@ public class ConfigLoader {
      * @return An Optional containing the CSVConfig if it exists, or an empty Optional if it does not
      */
     public Optional<CSVConfig> getConfigFor(String csvName) {
-        return hasConfigFor(csvName) ? Optional.ofNullable(csvConfigMap.get(csvName)) : Optional.empty();
+        // strip the .csv extension if it exists
+        if (csvName == null || csvName.isEmpty()) {
+            log.error("ConfigLoader: CSV name is null or empty");
+            return Optional.empty();
+        }
+
+        if (csvName.endsWith(".csv")) {
+            csvName = csvName.substring(0, csvName.length() - 4);
+        }
+        return hasConfigFor(csvName) ? Optional.of(csvConfigMap.get(csvName)) : Optional.empty();
     }
 
     /**

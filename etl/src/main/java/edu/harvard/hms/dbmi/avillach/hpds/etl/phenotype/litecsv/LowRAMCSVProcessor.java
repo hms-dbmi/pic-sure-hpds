@@ -46,7 +46,7 @@ public class LowRAMCSVProcessor {
             CSVParser parser = CSVFormat.DEFAULT.withSkipHeaderRecord().withFirstRecordAsHeader().parse(new BufferedReader(r));
 
             CSVConfig csvConfig = null;
-            if (configLoader != null && configLoader.hasConfigFor(csv.getName())) {
+            if (configLoader != null) {
                 Optional<CSVConfig> config = configLoader.getConfigFor(csv.getName());
                 if (config.isPresent()) {
                     csvConfig = config.get();
