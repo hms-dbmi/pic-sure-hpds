@@ -118,7 +118,14 @@ public class LowRAMCSVProcessor {
             String conceptPath = CSVParserUtil.parseConceptPath(record, doVarNameRollup);
             if (csvConfig != null && csvConfig.isDataset_name_as_root_node()) {
                 String datasetName = csvConfig.getDataset_name();
-                // prepend the dataset name to the concept path
+                // Set the first node to the dataset name
+                // Just as a precaution, we want to make sure that the
+                // current concept path starts with a backslash
+                // for example 1000 Genomes open access data does not.
+                if (!conceptPath.startsWith("\\")) {
+                    conceptPath = "\\" + conceptPath;
+                }
+
                 conceptPath = "\\" + datasetName + conceptPath;
             }
 
