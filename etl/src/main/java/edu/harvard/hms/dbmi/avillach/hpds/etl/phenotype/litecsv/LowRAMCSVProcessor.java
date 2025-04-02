@@ -115,20 +115,7 @@ public class LowRAMCSVProcessor {
                 continue;
             }
 
-            String conceptPath = CSVParserUtil.parseConceptPath(record, doVarNameRollup);
-            if (csvConfig != null && csvConfig.isDataset_name_as_root_node()) {
-                String datasetName = csvConfig.getDataset_name();
-                // Set the first node to the dataset name
-                // Just as a precaution, we want to make sure that the
-                // current concept path starts with a backslash
-                // for example 1000 Genomes open access data does not.
-                if (!conceptPath.startsWith("\\")) {
-                    conceptPath = "\\" + conceptPath;
-                }
-
-                conceptPath = "\\" + datasetName + conceptPath;
-            }
-
+            String conceptPath = CSVParserUtil.parseConceptPath(record, doVarNameRollup, csvConfig);
             IngestFn ingestFn = Strings.isBlank(record.get(CSVParserUtil.NUMERIC_VALUE)) ? this::ingestNonNumeric : this::ingestNumeric;
             Date date = CSVParserUtil.parseDate(record);
             int patientId = Integer.parseInt(record.get(CSVParserUtil.PATIENT_NUM));
