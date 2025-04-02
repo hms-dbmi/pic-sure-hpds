@@ -1,13 +1,15 @@
 package edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.sequential;
 
 import java.io.*;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 
+import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.config.CSVConfig;
+import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.config.ConfigLoader;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.litecsv.LowRAMMultiCSVLoader;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
@@ -15,7 +17,6 @@ import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import com.google.common.cache.CacheLoader.InvalidCacheLoadException;
@@ -70,7 +71,7 @@ public class SequentialLoader {
             inputFiles.addAll(readFileList());
         }
 
-        if (inputFiles.size() == 0) {
+        if (inputFiles.isEmpty()) {
             // check for prior default file locations
             File file = new File("/opt/local/hpds/loadQuery.sql");
             if (file.isFile()) {
@@ -83,7 +84,7 @@ public class SequentialLoader {
             }
         }
 
-        log.info("Input files: " + Arrays.deepToString(inputFiles.toArray()));
+        log.info("Input files: {}", Arrays.deepToString(inputFiles.toArray()));
 
         // Remove the config.json file from the inputFiles list if it exists.
         // We are only expecting to load CSV and SQL files.
@@ -95,18 +96,31 @@ public class SequentialLoader {
             log.info("Non-CSV files detected. Using SequentialLoader.");
         }
 
+        ConfigLoader configLoader = new ConfigLoader();
         // load each into observation store
         for (String filename : inputFiles) {
-            log.info("Loading file " + filename);
+            log.info("Loading file {}", filename);
+            Path path = Paths.get(HPDS_DIRECTORY + filename);
+            String fileName = path.getFileName().toString();
+            CSVConfig csvConfig = null;
+
+            Optional<CSVConfig> config = configLoader.getConfigFor(fileName);
+            if (config.isPresent()) {
+                csvConfig = config.get();
+                log.info("Found config for file {}, using dataset_name {}", fileName, csvConfig.getDataset_name());
+            } else {
+                log.warn("No config found for file {}, using default settings", fileName);
+            }
+
             if (filename.toLowerCase(Locale.ENGLISH).endsWith("sql")) {
-                loadSqlFile(filename);
+                loadSqlFile(filename, csvConfig);
             } else if (filename.toLowerCase(Locale.ENGLISH).endsWith("csv")) {
-                loadCsvFile(filename);
+                loadCsvFile(filename, csvConfig);
             }
         }
 
         // then complete, which will compact, sort, and write out the data in the final place
-        log.info("found a total of " + processedRecords + " entries");
+        log.info("found a total of {} entries", processedRecords);
         store.saveStore();
         store.dumpStats();
     }
@@ -119,8 +133,7 @@ public class SequentialLoader {
         return inputFiles;
     }
 
-    private static void loadCsvFile(String filename) throws IOException {
-
+    private static void loadCsvFile(String filename, CSVConfig csvConfig) throws IOException {
         Reader in = new FileReader(filename);
         BufferedReader reader = new BufferedReader(in, 1024 * 1024);
         Iterable<CSVRecord> records = CSVFormat.DEFAULT.withSkipHeaderRecord().withFirstRecordAsHeader().parse(reader);
@@ -134,26 +147,22 @@ public class SequentialLoader {
                 log.info("Processed {} records for file {}", count, filename);
             }
             if (record.size() < 4) {
-                log.warn("Record number " + record.getRecordNumber() + " had less records than we expected so we are skipping it.");
+                log.warn("Record number {} had less records than we expected so we are skipping it.", record.getRecordNumber());
                 continue;
             }
-            processRecord(currentConcept, record);
+            processRecord(currentConcept, record, csvConfig);
         }
         reader.close();
         in.close();
     }
 
-    private static void loadSqlFile(String filename) throws FileNotFoundException, IOException {
+    private static void loadSqlFile(String filename, CSVConfig csvConfig) throws IOException {
         loadTemplate();
-        String loadQuery = IOUtils.toString(new FileInputStream(filename), Charset.forName("UTF-8"));
+        String loadQuery = IOUtils.toString(new FileInputStream(filename), StandardCharsets.UTF_8);
 
         final PhenoCube[] currentConcept = new PhenoCube[1]; // used to identify new concepts
-        template.query(loadQuery, new RowCallbackHandler() {
-
-            @Override
-            public void processRow(ResultSet result) throws SQLException {
-                processRecord(currentConcept, new PhenoRecord(result));
-            }
+        template.query(loadQuery, result -> {
+            processRecord(currentConcept, new PhenoRecord(result), csvConfig);
         });
     }
 
@@ -170,7 +179,7 @@ public class SequentialLoader {
         }
     }
 
-    private static void processRecord(final PhenoCube[] currentConcept, CSVRecord record) {
+    private static void processRecord(final PhenoCube[] currentConcept, CSVRecord record, CSVConfig csvConfig) {
         if (record.size() < 4) {
             log.info("Record number " + record.getRecordNumber() + " had less records than we expected so we are skipping it.");
             return;
@@ -191,6 +200,20 @@ public class SequentialLoader {
             String conceptPath =
                 conceptPathFromRow.endsWith("\\" + textValueFromRow + "\\") ? conceptPathFromRow.replaceAll("\\\\[^\\\\]*\\\\$", "\\\\")
                     : conceptPathFromRow;
+            // Check if the conceptPath should be prepended with dataset name
+            if (csvConfig != null && csvConfig.isDataset_name_as_root_node()) {
+                String datasetName = csvConfig.getDataset_name();
+                // Set the first node to the dataset name
+                // Just as a precaution, we want to make sure that the
+                // current concept path starts with a backslash
+                // for example 1000 Genomes open access data does not.
+                if (!conceptPath.startsWith("\\")) {
+                    conceptPath = "\\" + conceptPath;
+                }
+
+                conceptPath = "\\" + datasetName + conceptPath;
+            }
+
             // This is not getDouble because we need to handle null values, not coerce them into 0s
             String numericValue = record.get(NUMERIC_VALUE);
             if ((numericValue == null || numericValue.isEmpty()) && textValueFromRow != null) {
@@ -232,7 +255,7 @@ public class SequentialLoader {
         }
     }
 
-    private static void processRecord(final PhenoCube[] currentConcept, PhenoRecord record) {
+    private static void processRecord(final PhenoCube[] currentConcept, PhenoRecord record, CSVConfig csvConfig) {
         if (record == null) {
             return;
         }
@@ -249,12 +272,23 @@ public class SequentialLoader {
             if (textValueFromRow != null) {
                 textValueFromRow = textValueFromRow.replaceAll("\\ufffd", "");
             }
+
             String conceptPath =
                 conceptPathFromRow.endsWith("\\" + textValueFromRow + "\\") ? conceptPathFromRow.replaceAll("\\\\[^\\\\]*\\\\$", "\\\\")
                     : conceptPathFromRow;
-
             // Check if the conceptPath should be prepended with dataset name
+            if (csvConfig != null && csvConfig.isDataset_name_as_root_node()) {
+                String datasetName = csvConfig.getDataset_name();
+                // Set the first node to the dataset name
+                // Just as a precaution, we want to make sure that the
+                // current concept path starts with a backslash
+                // for example 1000 Genomes open access data does not.
+                if (!conceptPath.startsWith("\\")) {
+                    conceptPath = "\\" + conceptPath;
+                }
 
+                conceptPath = "\\" + datasetName + conceptPath;
+            }
 
             // This is not getDouble because we need to handle null values, not coerce them into 0s
             String numericValue = record.getNumericValue();
