@@ -20,7 +20,7 @@ public class LowRAMMultiCSVLoader {
     public LowRAMMultiCSVLoader(LowRAMLoadingStore store, LowRAMCSVProcessor processor, String inputDir) {
         this.inputDir = inputDir == null ? "/opt/local/hpds_input" : inputDir;
         store = store == null ? new LowRAMLoadingStore() : store;
-        this.processor = processor == null ? new LowRAMCSVProcessor(store, false, 5D) : processor;
+        this.processor = processor == null ? new LowRAMCSVProcessor(store, false, 1D) : processor;
         Crypto.loadDefaultKey();
     }
 
@@ -35,7 +35,7 @@ public class LowRAMMultiCSVLoader {
         String inputDir = "/opt/local/hpds_input";
         ConfigLoader configLoader = new ConfigLoader();
         LowRAMLoadingStore store = new LowRAMLoadingStore();
-        LowRAMCSVProcessor lowRAMCSVProcessor = new LowRAMCSVProcessor(store, rollUpVarNames, 5D, configLoader);
+        LowRAMCSVProcessor lowRAMCSVProcessor = new LowRAMCSVProcessor(store, rollUpVarNames, 1D, configLoader);
         int exitCode = new LowRAMMultiCSVLoader(store, lowRAMCSVProcessor, inputDir).processCSVsFromHPDSDir();
         try {
             store.saveStore();
