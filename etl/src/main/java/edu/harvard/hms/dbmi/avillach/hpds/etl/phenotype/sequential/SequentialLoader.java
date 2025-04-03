@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.config.CSVConfig;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.config.ConfigLoader;
@@ -66,7 +67,7 @@ public class SequentialLoader {
         List<String> inputFiles = new ArrayList<String>();
         // read in input files
         if (args.length > 0) {
-            inputFiles.addAll(Arrays.asList(args));
+            inputFiles.addAll(Arrays.stream(args).filter(arg -> !arg.equals("NO_ROLLUP") && !arg.contains("MAX_CHUNK_SIZE")).collect(Collectors.toList()));
         } else {
             inputFiles.addAll(readFileList());
         }
