@@ -33,7 +33,7 @@ public class LowRAMMultiCSVLoader {
                 rollUpVarNames = false;
             }
 
-            if (arg.contains("maxChunkSize")) {
+            if (arg.contains("MAX_CHUNK_SIZE")) {
                 String[] parts = arg.split("=");
                 if (parts.length == 2) {
                     try {
