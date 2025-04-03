@@ -50,7 +50,7 @@ public class LowRAMMultiCSVLoader {
         ConfigLoader configLoader = new ConfigLoader();
         LowRAMLoadingStore store = new LowRAMLoadingStore();
         LowRAMCSVProcessor lowRAMCSVProcessor = new LowRAMCSVProcessor(store, rollUpVarNames, maxChunkSize, configLoader);
-        int exitCode = new LowRAMMultiCSVLoader(store, lowRAMCSVProcessor, inputDir).processCSVsFromHPDSDir();
+        int exitCode = new LowRAMMultiCSVLoader(store, lowRAMCSVProcessor, inputDir).processCSVsFromHPDSDir(maxChunkSize);
         try {
             store.saveStore();
         } catch (IOException | ClassNotFoundException e) {
@@ -61,10 +61,10 @@ public class LowRAMMultiCSVLoader {
         System.exit(exitCode);
     }
 
-    protected int processCSVsFromHPDSDir() {
+    protected int processCSVsFromHPDSDir(double maxChunkSize) {
         // find all files
-        log.info("Looking for files to process. All files must be smaller than 5G");
-        log.info("Files larger than 5G should be split into a series of CSVs");
+        log.info("Looking for files to process. All files must be smaller than {}G", maxChunkSize);
+        log.info("Files larger than {}G should be split into a series of CSVs", maxChunkSize);
         try (Stream<Path> input_files = Files.list(Path.of(inputDir))) {
             input_files.map(Path::toFile).filter(File::isFile).peek(f -> log.info("Found file {}", f.getAbsolutePath()))
 
