@@ -26,16 +26,30 @@ public class LowRAMMultiCSVLoader {
 
     public static void main(String[] args) {
         boolean rollUpVarNames = true;
-        if (args.length > 1) {
-            if (args[0].equalsIgnoreCase("NO_ROLLUP")) {
+        double maxChunkSize = 5D;
+        for (String arg : args) {
+            if (arg.equalsIgnoreCase("NO_ROLLUP")) {
                 log.info("Configured to not roll up variable names");
                 rollUpVarNames = false;
             }
+
+            if (arg.contains("maxChunkSize")) {
+                String[] parts = arg.split("=");
+                if (parts.length == 2) {
+                    try {
+                        maxChunkSize = Double.parseDouble(parts[1]);
+                        log.info("Configured to use a max chunk size of {} GB", maxChunkSize);
+                    } catch (NumberFormatException e) {
+                       throw new IllegalArgumentException("Invalid max chunk size " + maxChunkSize);
+                    }
+                }
+            }
         }
+
         String inputDir = "/opt/local/hpds_input";
         ConfigLoader configLoader = new ConfigLoader();
         LowRAMLoadingStore store = new LowRAMLoadingStore();
-        LowRAMCSVProcessor lowRAMCSVProcessor = new LowRAMCSVProcessor(store, rollUpVarNames, 1D, configLoader);
+        LowRAMCSVProcessor lowRAMCSVProcessor = new LowRAMCSVProcessor(store, rollUpVarNames, maxChunkSize, configLoader);
         int exitCode = new LowRAMMultiCSVLoader(store, lowRAMCSVProcessor, inputDir).processCSVsFromHPDSDir();
         try {
             store.saveStore();
