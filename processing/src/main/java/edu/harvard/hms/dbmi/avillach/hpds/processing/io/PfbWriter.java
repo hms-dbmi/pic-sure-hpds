@@ -34,6 +34,8 @@ public class PfbWriter implements ResultWriter {
     private final Schema metadataSchema;
     private final Schema nodeSchema;
 
+    private final Schema propertiesSchema;
+
     private final String queryId;
 
     private final String patientTableName;
@@ -70,11 +72,19 @@ public class PfbWriter implements ResultWriter {
                 ).noDefault()
                 .endRecord();
 
+        propertiesSchema = SchemaBuilder.record("Property")
+                .fields()
+                .requiredString("name")
+                .requiredString("ontology_reference")
+                .name("values").type(SchemaBuilder.map().values(SchemaBuilder.nullable().stringType())).noDefault()
+                .endRecord();
+
         SchemaBuilder.FieldAssembler<Schema> nodeRecord = SchemaBuilder.record("nodes")
                 .fields()
                 .requiredString("name")
                 .nullableString("ontology_reference", "null")
                 .name("links").type(SchemaBuilder.array().items(linksSchema)).noDefault()
+                .name("properties").type(SchemaBuilder.array().items(propertiesSchema)).noDefault()
                 .name("values").type(SchemaBuilder.map().values(SchemaBuilder.nullable().stringType())).noDefault();
         nodeSchema = nodeRecord.endRecord();
 
@@ -213,46 +223,45 @@ public class PfbWriter implements ResultWriter {
         GenericRecord entityRecord = new GenericData.Record(entitySchema);
 
         List<GenericRecord> nodeList = new ArrayList<>();
+        List<GenericRecord> propertiesList = new ArrayList<>();
+        GenericRecord nodeData = new GenericData.Record(nodeSchema);
+        nodeData.put("name", this.patientTableName);
+        nodeData.put("ontology_reference", "");
+        nodeData.put("values", Map.of());
+        nodeData.put("links", List.of());
         for (String field : formattedFields) {
-            GenericRecord nodeData = new GenericData.Record(nodeSchema);
-            nodeData.put("name", field);
-            nodeData.put("ontology_reference", "");
-            nodeData.put("values", Map.of());
-            nodeData.put("links", List.of());
-            nodeList.add(nodeData);
+            GenericRecord properties = new GenericData.Record(propertiesSchema);
+            properties.put("name", field);
+            properties.put("ontology_reference", "");
+            properties.put("values", Map.of());
+            propertiesList.add(properties);
         }
+        nodeData.put("properties", propertiesList);
+        nodeList.add(nodeData);
+
+
+        propertiesList = new ArrayList<>();
+        nodeData = new GenericData.Record(nodeSchema);
+        nodeData.put("name", this.dataDictionaryTableName);
+        nodeData.put("ontology_reference", "");
+        nodeData.put("values", Map.of());
+        nodeData.put("links", List.of());
+        for (String field : List.of("concept_path", "display", "dataset", "description", "drs_uri")) {
+            GenericRecord properties = new GenericData.Record(propertiesSchema);
+            properties.put("name", field);
+            properties.put("ontology_reference", "");
+            properties.put("values", Map.of());
+            propertiesList.add(properties);
+        }
+        nodeData.put("properties", propertiesList);
+        nodeList.add(nodeData);
+
         GenericRecord metadata = new GenericData.Record(metadataSchema);
         metadata.put("misc", "");
         metadata.put("nodes", nodeList);
 
-
         entityRecord.put("object", metadata);
-        entityRecord.put("name", this.patientTableName);
-        entityRecord.put("id", "null");
-        entityRecord.put("relations", List.of());
-
-        try {
-            dataFileWriter.append(entityRecord);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-
-        nodeList = new ArrayList<>();
-        for (String field : List.of("concept_path", "display", "dataset", "description", "drs_uri")) {
-            GenericRecord nodeData = new GenericData.Record(nodeSchema);
-            nodeData.put("name", field);
-            nodeData.put("ontology_reference", "");
-            nodeData.put("values", Map.of());
-            nodeData.put("links", List.of());
-            nodeList.add(nodeData);
-        }
-        metadata = new GenericData.Record(metadataSchema);
-        metadata.put("misc", "");
-        metadata.put("nodes", nodeList);
-
-
-        entityRecord.put("object", metadata);
-        entityRecord.put("name", this.dataDictionaryTableName);
+        entityRecord.put("name", "metadata");
         entityRecord.put("id", "null");
         entityRecord.put("relations", List.of());
 
