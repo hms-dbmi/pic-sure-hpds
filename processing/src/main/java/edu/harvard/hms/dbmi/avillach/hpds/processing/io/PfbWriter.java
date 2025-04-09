@@ -27,6 +27,7 @@ public class PfbWriter implements ResultWriter {
 
     public static final String PATIENT_TABLE_PREFIX = "pic-sure-patients-";
     public static final String DATA_DICTIONARY_TABLE_PREFIX = "pic-sure-data-dictionary-";
+    public static final List<String> DATA_DICTIONARY_FIELDS = List.of("concept_path", "display", "dataset", "description", "drs_uri");
     private Logger log = LoggerFactory.getLogger(PfbWriter.class);
 
     private final DictionaryService dictionaryService;
@@ -246,7 +247,7 @@ public class PfbWriter implements ResultWriter {
         nodeData.put("ontology_reference", "");
         nodeData.put("values", Map.of());
         nodeData.put("links", List.of());
-        for (String field : List.of("concept_path", "display", "dataset", "description", "drs_uri")) {
+        for (String field : DATA_DICTIONARY_FIELDS) {
             GenericRecord properties = new GenericData.Record(propertiesSchema);
             properties.put("name", field);
             properties.put("ontology_reference", "");
