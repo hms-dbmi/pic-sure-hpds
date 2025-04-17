@@ -33,7 +33,7 @@ public class CSVParserUtil {
             conceptPathFromRow = conceptPathFromRow.replaceAll("\\\\[^\\\\]*\\\\$", "\\\\");
         }
 
-        if (config != null && config.isDataset_name_as_root_node()) {
+        if (config != null && config.getDataset_name_as_root_node()) {
             String datasetName = config.getDataset_name();
             if (!conceptPathFromRow.startsWith("\\")) {
                 conceptPathFromRow = "\\" + conceptPathFromRow;
