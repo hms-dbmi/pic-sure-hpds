@@ -1,5 +1,6 @@
 package edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.csv;
 
+import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.config.CSVConfig;
 import org.apache.commons.csv.CSVRecord;
 
 import javax.annotation.Nonnull;
@@ -15,8 +16,11 @@ public class CSVParserUtil {
     public static final int TEXT_VALUE = 3;
     public static final int DATETIME = 4;
     
-    public static String parseConceptPath(CSVRecord record, boolean doVarNameRollup) {
+    public static String parseConceptPath(CSVRecord record, boolean doVarNameRollup, CSVConfig config) {
         String conceptPathFromRow = record.get(CONCEPT_PATH);
+
+        // replace the mu character with a backslash, see 1000 genome dataset
+        conceptPathFromRow = conceptPathFromRow.replace("µ", "\\");
         conceptPathFromRow = Arrays.stream(conceptPathFromRow.split("\\\\"))
             .map(String::trim)
             .collect(Collectors.joining("\\")) + "\\";
@@ -26,10 +30,19 @@ public class CSVParserUtil {
         String textValueFromRow = stripWeirdUnicodeChars(trim(record.get(TEXT_VALUE)));
         if (doVarNameRollup && conceptPathFromRow.endsWith("\\" + textValueFromRow + "\\")) {
             // This regex deletes the last node from the concept path, i.e. "rolling it up"
-            return conceptPathFromRow.replaceAll("\\\\[^\\\\]*\\\\$", "\\\\");
-        } else {
-            return conceptPathFromRow;
+            conceptPathFromRow = conceptPathFromRow.replaceAll("\\\\[^\\\\]*\\\\$", "\\\\");
         }
+
+        if (config != null && config.isDataset_name_as_root_node()) {
+            String datasetName = config.getDataset_name();
+            if (!conceptPathFromRow.startsWith("\\")) {
+                conceptPathFromRow = "\\" + conceptPathFromRow;
+            }
+
+            conceptPathFromRow = "\\" + datasetName + conceptPathFromRow;
+        }
+
+        return conceptPathFromRow;
     }
 
     private static String stripWeirdUnicodeChars(@Nonnull String raw) {
