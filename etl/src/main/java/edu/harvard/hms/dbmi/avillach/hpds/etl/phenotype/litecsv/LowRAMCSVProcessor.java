@@ -45,17 +45,7 @@ public class LowRAMCSVProcessor {
         try (Reader r = new FileReader(csv); Stream<String> rawLines = Files.lines(csv.toPath())) {
             CSVParser parser = CSVFormat.DEFAULT.withSkipHeaderRecord().withFirstRecordAsHeader().parse(new BufferedReader(r));
 
-            CSVConfig csvConfig = null;
-            if (configLoader != null) {
-                Optional<CSVConfig> config = configLoader.getConfigFor(csv.getName());
-                if (config.isPresent()) {
-                    csvConfig = config.get();
-                    log.info("Found config for file {}, using dataset_name {}", csv.getName(), csvConfig.getDataset_name());
-                } else {
-                    log.warn("No config found for file {}, using default settings", csv.getName());
-                }
-            }
-
+            CSVConfig csvConfig = configLoader != null ? configLoader.getConfigFor(csv.getName()) : null;
             // we want to read the file in reasonably sized chunks so that we can handle chunks naively
             // in memory without going OOM
             // to do this, we're going to assume that over the course of thousands of lines, each line

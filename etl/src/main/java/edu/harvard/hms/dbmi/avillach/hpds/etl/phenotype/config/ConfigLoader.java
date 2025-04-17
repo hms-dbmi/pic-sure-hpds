@@ -4,8 +4,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.annotations.NotNull;
 
 import java.io.File;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -42,36 +44,8 @@ public class ConfigLoader {
                 log.error(e.getMessage());
             }
         } else {
+            this.csvConfigMap = new HashMap<>();
             log.error("ConfigLoader: Input directory does not exist: {}", INPUT_DIR);
-        }
-    }
-
-    /**
-     * Checks if the config for the given csvName exists in the csvConfigMap.
-     * @param csvName The name of the CSV file (without .csv extension)
-     * @return true if the config exists, false otherwise
-     */
-    public boolean hasConfigFor(String csvName) {
-        if (csvName == null || csvName.isEmpty()) {
-            log.error("ConfigLoader: CSV name is null or empty");
-            return false;
-        }
-
-        if (csvName.endsWith(".csv")) {
-            csvName = csvName.substring(0, csvName.length() - 4);
-        }
-
-        if (csvConfigMap == null) {
-            log.error("ConfigLoader: csvConfigMap is null");
-            return false;
-        }
-
-        if (csvConfigMap.containsKey(csvName)) {
-            log.info("ConfigLoader: Found config for csv name {}", csvName);
-            return true;
-        } else {
-            log.error("ConfigLoader: No config found for csv name {}", csvName);
-            return false;
         }
     }
 
@@ -81,17 +55,19 @@ public class ConfigLoader {
      * @param csvName The name of the CSV file (without .csv extension)
      * @return An Optional containing the CSVConfig if it exists, or an empty Optional if it does not
      */
-    public Optional<CSVConfig> getConfigFor(String csvName) {
-        // strip the .csv extension if it exists
-        if (csvName == null || csvName.isEmpty()) {
-            log.error("ConfigLoader: CSV name is null or empty");
-            return Optional.empty();
-        }
-
+    public CSVConfig getConfigFor(@NotNull String csvName) {
         if (csvName.endsWith(".csv")) {
             csvName = csvName.substring(0, csvName.length() - 4);
         }
-        return hasConfigFor(csvName) ? Optional.of(csvConfigMap.get(csvName)) : Optional.empty();
+
+        CSVConfig csvConfig = this.csvConfigMap.get(csvName);
+        if (csvConfig != null) {
+            log.info("Found config for file {}, using dataset_name {}", csvName, csvConfig.getDataset_name());
+        } else {
+            log.warn("No config found for file {}, using default settings", csvName);
+        }
+
+        return csvConfig;
     }
 
     /**

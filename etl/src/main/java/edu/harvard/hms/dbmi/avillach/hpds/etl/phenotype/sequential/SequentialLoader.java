@@ -102,16 +102,8 @@ public class SequentialLoader {
             log.info("Loading file {}", filename);
             Path path = Paths.get(HPDS_DIRECTORY + filename);
             String fileName = path.getFileName().toString();
-            CSVConfig csvConfig = null;
 
-            Optional<CSVConfig> config = configLoader.getConfigFor(fileName);
-            if (config.isPresent()) {
-                csvConfig = config.get();
-                log.info("Found config for file {}, using dataset_name {}", fileName, csvConfig.getDataset_name());
-            } else {
-                log.warn("No config found for file {}, using default settings", fileName);
-            }
-
+            CSVConfig csvConfig = configLoader.getConfigFor(fileName);
             if (filename.toLowerCase(Locale.ENGLISH).endsWith("sql")) {
                 loadSqlFile(filename, csvConfig);
             } else if (filename.toLowerCase(Locale.ENGLISH).endsWith("csv")) {
