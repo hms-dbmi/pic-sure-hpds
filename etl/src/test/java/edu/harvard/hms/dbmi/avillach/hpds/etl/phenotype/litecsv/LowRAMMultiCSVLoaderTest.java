@@ -22,7 +22,7 @@ class LowRAMMultiCSVLoaderTest {
         LowRAMLoadingStore store = Mockito.mock(LowRAMLoadingStore.class);
 
         LowRAMMultiCSVLoader subject = new LowRAMMultiCSVLoader(store, processor, testDir.getAbsolutePath());
-        int actual = subject.processCSVsFromHPDSDir();
+        int actual = subject.processCSVsFromHPDSDir(5D);
 
         Assertions.assertEquals(0, actual);
         Mockito.verify(processor, Mockito.times(0)).process(Mockito.any());
@@ -40,7 +40,7 @@ class LowRAMMultiCSVLoaderTest {
         LowRAMLoadingStore store = Mockito.mock(LowRAMLoadingStore.class);
 
         LowRAMMultiCSVLoader subject = new LowRAMMultiCSVLoader(store, processor, testDir.getAbsolutePath());
-        int actual = subject.processCSVsFromHPDSDir();
+        int actual = subject.processCSVsFromHPDSDir(5D);
 
         Assertions.assertEquals(0, actual);
         Mockito.verify(processor, Mockito.times(1)).process(Mockito.any());
