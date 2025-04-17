@@ -145,7 +145,6 @@ public class LowRAMCSVProcessor {
                 Offending record #{}
                 """, conceptPath, record.get(CSVParserUtil.NUMERIC_VALUE), record.getRecordNumber());
 
-            log.error("Entire record: {}", record);
             return false;
         }
         try {
