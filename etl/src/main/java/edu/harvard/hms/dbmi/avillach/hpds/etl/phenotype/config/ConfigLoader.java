@@ -15,7 +15,7 @@ public class ConfigLoader {
 
     private static final Logger log = LoggerFactory.getLogger(ConfigLoader.class);
     private static final String INPUT_DIR = "/opt/local/hpds_input";
-    private Map<String, CSVConfig> csvConfigMap;
+    private Map<String, CSVConfig> csvConfigMap = new HashMap<>();
 
     /**
      * Constructor for ConfigLoader. It loads the configuration from a JSON file located in the INPUT_DIR.
@@ -44,7 +44,6 @@ public class ConfigLoader {
                 log.error(e.getMessage());
             }
         } else {
-            this.csvConfigMap = new HashMap<>();
             log.error("ConfigLoader: Input directory does not exist: {}", INPUT_DIR);
         }
     }
@@ -52,19 +51,19 @@ public class ConfigLoader {
     /**
      * Returns the CSVConfig for the given csvName. If the config does not exist, it returns an empty Optional.
      *
-     * @param csvName The name of the CSV file (without .csv extension)
+     * @param fileName The name of the CSV file (without .csv extension)
      * @return An Optional containing the CSVConfig if it exists, or an empty Optional if it does not
      */
-    public CSVConfig getConfigFor(@NotNull String csvName) {
-        if (csvName.endsWith(".csv")) {
-            csvName = csvName.substring(0, csvName.length() - 4);
+    public CSVConfig getConfigFor(@NotNull String fileName) {
+        if (fileName.endsWith(".csv") || fileName.endsWith(".sql")) {
+            fileName = fileName.substring(0, fileName.length() - 4);
         }
 
-        CSVConfig csvConfig = this.csvConfigMap.get(csvName);
+        CSVConfig csvConfig = this.csvConfigMap.get(fileName);
         if (csvConfig != null) {
-            log.info("Found config for file {}, using dataset_name {}", csvName, csvConfig.getDataset_name());
+            log.info("Found config for file {}, using dataset_name {}", fileName, csvConfig.getDataset_name());
         } else {
-            log.warn("No config found for file {}, using default settings", csvName);
+            log.warn("No config found for file {}, using default settings", fileName);
         }
 
         return csvConfig;

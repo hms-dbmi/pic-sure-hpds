@@ -15,12 +15,14 @@ public class CSVParserUtil {
     public static final int NUMERIC_VALUE = 2;
     public static final int TEXT_VALUE = 3;
     public static final int DATETIME = 4;
+
+    private static final String MU = "µ";
     
     public static String parseConceptPath(CSVRecord record, boolean doVarNameRollup, CSVConfig config) {
         String conceptPathFromRow = record.get(CONCEPT_PATH);
 
         // replace the mu character with a backslash, see 1000 genome dataset
-        conceptPathFromRow = conceptPathFromRow.replace("µ", "\\");
+        conceptPathFromRow = conceptPathFromRow.replace(MU, "\\");
         conceptPathFromRow = Arrays.stream(conceptPathFromRow.split("\\\\"))
             .map(String::trim)
             .collect(Collectors.joining("\\")) + "\\";

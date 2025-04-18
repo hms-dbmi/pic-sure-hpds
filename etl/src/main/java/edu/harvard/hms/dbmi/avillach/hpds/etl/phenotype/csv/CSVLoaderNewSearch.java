@@ -43,7 +43,7 @@ public class CSVLoaderNewSearch {
         Reader in = new FileReader(HPDS_DIRECTORY + "allConcepts.csv");
         Iterable<CSVRecord> records = CSVFormat.DEFAULT.withSkipHeaderRecord().withFirstRecordAsHeader().parse(new BufferedReader(in, 1024 * 1024));
 
-        CSVConfig csvConfig = configLoader.getConfigFor("allConcepts.csv");
+        CSVConfig csvConfig = configLoader.getConfigFor("allConcepts");
         final PhenoCube[] currentConcept = new PhenoCube[1];
         for (CSVRecord record : records) {
             processRecord(currentConcept, record, csvConfig);
