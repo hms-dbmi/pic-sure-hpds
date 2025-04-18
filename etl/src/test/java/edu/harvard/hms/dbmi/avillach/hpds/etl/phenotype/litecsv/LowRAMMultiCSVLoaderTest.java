@@ -45,4 +45,22 @@ class LowRAMMultiCSVLoaderTest {
         Assertions.assertEquals(0, actual);
         Mockito.verify(processor, Mockito.times(1)).process(Mockito.any());
     }
+
+    @Test
+    void shouldProcessSmallCSVs_withReducedChunkSize(@TempDir File testDir) throws IOException {
+        Path csvPath = Path.of(testDir.getAbsolutePath(), "test.csv");
+        RandomAccessFile largeFile = new RandomAccessFile(csvPath.toString(), "rw");
+        largeFile.setLength(6L*1024);
+
+        LowRAMCSVProcessor processor = Mockito.mock(LowRAMCSVProcessor.class);
+        Mockito.when(processor.process(Mockito.any()))
+                .thenReturn(new IngestStatus(csvPath, 10, 10, 10L));
+        LowRAMLoadingStore store = Mockito.mock(LowRAMLoadingStore.class);
+
+        LowRAMMultiCSVLoader subject = new LowRAMMultiCSVLoader(store, processor, testDir.getAbsolutePath());
+        int actual = subject.processCSVsFromHPDSDir(1D);
+
+        Assertions.assertEquals(0, actual);
+        Mockito.verify(processor, Mockito.times(1)).process(Mockito.any());
+    }
 }

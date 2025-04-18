@@ -9,7 +9,6 @@ import software.amazon.awssdk.annotations.NotNull;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 public class ConfigLoader {
 
@@ -75,6 +74,10 @@ public class ConfigLoader {
      */
     public Map<String, CSVConfig> getAllConfigs() {
         return csvConfigMap;
+    }
+
+    public void add(String fileName, CSVConfig csvConfig) {
+        this.csvConfigMap.put(fileName, csvConfig);
     }
 
 }
