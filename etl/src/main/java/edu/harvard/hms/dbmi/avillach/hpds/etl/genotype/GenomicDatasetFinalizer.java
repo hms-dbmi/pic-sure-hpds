@@ -6,10 +6,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.zip.GZIPOutputStream;
 
 public class GenomicDatasetFinalizer {
 
@@ -41,8 +44,19 @@ public class GenomicDatasetFinalizer {
                 sem.acquire();
                 executor.submit(() -> {
                     try {
-                        VariantStore variantStore = VariantStore.readInstance(chromosomeDirectory.getPath() + "/");
-                        BucketIndexBySample bucketIndexBySample = new BucketIndexBySample(variantStore, chromosomeDirectory.getPath() + "/");
+                        String bucketIndexDirectory = chromosomeDirectory.getPath() + "/";
+                        VariantStore variantStore = VariantStore.readInstance(bucketIndexDirectory);
+                        BucketIndexBySample bucketIndexBySample = new BucketIndexBySample(variantStore, bucketIndexDirectory);
+                        String bucketIndexFilename = bucketIndexDirectory + "BucketIndexBySample.javabin";
+                        log.info("creating new " + bucketIndexFilename);
+                        try (
+                                FileOutputStream fos = new FileOutputStream(bucketIndexFilename);
+                                GZIPOutputStream gzos = new GZIPOutputStream(fos);
+                                ObjectOutputStream oos = new ObjectOutputStream(gzos);
+                        ){
+                            oos.writeObject(bucketIndexBySample);
+                            oos.flush();
+                        }
                     } catch (IOException | ClassNotFoundException e) {
                         executor.shutdown();
                         throw new RuntimeException(e);
