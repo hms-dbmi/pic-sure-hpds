@@ -13,10 +13,10 @@ import java.util.concurrent.TimeUnit;
 
 public class GenomicDatasetFinalizer {
 
-    private static Logger log = LoggerFactory.getLogger(GenomicDatasetFinalizer.class);
+    private static final Logger log = LoggerFactory.getLogger(GenomicDatasetFinalizer.class);
     private static final String genomicDirectory = "/opt/local/hpds/all/";
-    private File[] chromosomeDirectories;
-    private Semaphore sem;
+    private final File[] chromosomeDirectories;
+    private final Semaphore sem;
 
 
     public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
@@ -51,7 +51,7 @@ public class GenomicDatasetFinalizer {
                 });
             }
             executor.shutdown();
-            while (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+            while (!executor.awaitTermination(1, TimeUnit.MINUTES)) {
                 log.info("Awaiting threadpool termination");
             }
         } catch (InterruptedException e) {
