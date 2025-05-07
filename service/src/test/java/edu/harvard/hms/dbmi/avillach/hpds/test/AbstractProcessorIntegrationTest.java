@@ -102,6 +102,15 @@ public class AbstractProcessorIntegrationTest {
     }
 
     @Test
+    public void getPatientSubsetForQuery_invalidRequiredVariant() {
+        Query query = new Query();
+        query.setRequiredFields(List.of("chr21,5061,A,G"));
+
+        Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
+        assertEquals(0, idList.size());
+    }
+
+    @Test
     public void getPatientSubsetForQuery_validRequiredVariantOldFormat() {
         Query query = new Query();
         query.setRequiredFields(List.of("chr21,5032061,A,G"));
@@ -110,6 +119,14 @@ public class AbstractProcessorIntegrationTest {
         assertEquals(8, idList.size());
     }
 
+    @Test
+    public void getPatientSubsetForQuery_invalidVariantSpecQuery() {
+        Query query = new Query();
+        query.setCategoryFilters(Map.of("chr21,5061,AAAA,GGGG", new String[]{"0/1", "1/1"}));
+
+        Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
+        assertEquals(0, idList.size());
+    }
     @Test
     public void getPatientSubsetForQuery_validRequiredVariantOldFormatCategoryFilter() {
         Query query = new Query();
