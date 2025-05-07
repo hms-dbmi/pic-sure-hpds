@@ -111,6 +111,33 @@ public class AbstractProcessorIntegrationTest {
     }
 
     @Test
+    public void getPatientSubsetForQuery_validRequiredVariantOldFormatCategoryFilter() {
+        Query query = new Query();
+        query.setCategoryFilters(Map.of("chr21,5032061,A,G", new String[]{"0/1", "1/1"}));
+
+        Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
+        assertEquals(8, idList.size());
+    }
+
+    @Test
+    public void getPatientSubsetForQuery_validRequiredVariantOldFormatCategoryFilterHomozygous() {
+        Query query = new Query();
+        query.setCategoryFilters(Map.of("chr21,5032061,A,G", new String[]{"1/1"}));
+
+        Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
+        assertEquals(3, idList.size());
+    }
+
+    @Test
+    public void getPatientSubsetForQuery_validRequiredVariantOldFormatCategoryFilterHeterozygous() {
+        Query query = new Query();
+        query.setCategoryFilters(Map.of("chr21,5032061,A,G", new String[]{"0/1"}));
+
+        Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
+        assertEquals(5, idList.size());
+    }
+
+    @Test
     public void getPatientSubsetForQuery_verifySeparateQueriesAreEquivalent() {
         Query query = new Query();
         query.setNumericFilters(Map.of("\\open_access-1000Genomes\\data\\SYNTHETIC_AGE\\", new Filter.DoubleFilter(35.0, 45.0)));
