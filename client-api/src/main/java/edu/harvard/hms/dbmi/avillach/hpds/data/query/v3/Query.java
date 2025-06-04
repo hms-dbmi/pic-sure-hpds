@@ -4,6 +4,12 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.query.ResultType;
 
 import java.util.List;
 
-public record Query(ResultType expectedResultType, List<String> select, PhenotypicClause phenotypicClause, List<GenomicFilter> genomicFilters) {
+public record Query(
+        ResultType expectedResultType,
+        List<AuthorizationFilter> authorizationFilters,
+        List<String> select,
+        PhenotypicClause phenotypicClause,
+        List<GenomicFilter> genomicFilters
+) {
 
 }
