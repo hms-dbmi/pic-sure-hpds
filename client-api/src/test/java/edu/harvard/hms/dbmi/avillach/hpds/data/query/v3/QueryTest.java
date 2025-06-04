@@ -21,11 +21,13 @@ public class QueryTest  {
                 PhenotypicFilterType.FILTER, "//abc//123///", List.of("turtle"), null, null, null
         );
 
+        List<AuthorizationFilter> authorizationFilters = List.of(new AuthorizationFilter("\\_consents\\", List.of("phs123", "phs456")));
+
         PhenotypicSubquery phenotypicSubquery = new PhenotypicSubquery(true, List.of(phenotypicFilter), Operator.AND);
         PhenotypicSubquery phenotypicSubquery2 = new PhenotypicSubquery(true, List.of(phenotypicFilter), Operator.AND);
 
         PhenotypicSubquery phenotypicQuery = new PhenotypicSubquery(null, List.of(phenotypicSubquery, phenotypicSubquery2, phenotypicFilter), Operator.OR);
-        Query query = new Query(ResultType.COUNT, List.of("PATIENT_ID"), phenotypicQuery, List.of());
+        Query query = new Query(ResultType.COUNT, authorizationFilters, List.of("PATIENT_ID"), phenotypicQuery, List.of());
 
         String serialized = objectMapper.writeValueAsString(query);
         System.out.println(serialized);
