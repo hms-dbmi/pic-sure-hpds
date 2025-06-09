@@ -1,5 +1,15 @@
 package edu.harvard.hms.dbmi.avillach.hpds.etl;
 
+import com.google.common.cache.*;
+import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
+import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
+import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.KeyAndValue;
+import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -9,18 +19,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.cache.*;
-
-import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
-import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
-import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.KeyAndValue;
-import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
  
 public class LoadingStore {
  
@@ -105,7 +103,7 @@ public class LoadingStore {
 			.build(
 					new CacheLoader<String, PhenoCube>() {
 						public PhenoCube load(String key) throws Exception {
-							log.info("Loading cube: " + key);
+							log.debug("Loading cube: " + key);
 							return null;
 						}
 					});
