@@ -5,6 +5,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.LoadingStore;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.config.CSVConfig;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.config.ConfigLoader;
+import jakarta.annotation.PostConstruct;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 import org.slf4j.Logger;
@@ -31,6 +32,11 @@ public class LoaderService {
 
     private static boolean DO_VARNAME_ROLLUP = false;
 
+    // Use post construct DO_VARNAME_ROLLUP is a static field messes with Spring injection
+    @PostConstruct
+    public void init() {
+        DO_VARNAME_ROLLUP = rollupEnabled;
+    }
 
     public void runEtlProcess() throws IOException {
         log.info("Starting ETL process... Rollup Enabled: {}", rollupEnabled);
@@ -94,9 +100,6 @@ public class LoaderService {
         if (currentConcept == null || !currentConcept.name.equals(conceptPath)) {
             currentConcept = store.store.getIfPresent(conceptPath);
             if (currentConcept == null) {
-                // Invalidating
-                store.store.invalidateAll(); // force onremoval to free up cache per concept
-                store.store.cleanUp();
                 currentConcept = new PhenoCube(conceptPath, isAlpha ? String.class : Double.class);
                 store.store.put(conceptPath, currentConcept);
             }

@@ -209,6 +209,10 @@ public class Crypto {
 	}
 
 	public static boolean hasKey(String keyName) {
-		return keys.containsKey(keyName);
+		if (!ENCRYPTION_ENABLED) {
+			return true;
+		} else {
+			return keys.containsKey(keyName);
+		}
 	}
 }
