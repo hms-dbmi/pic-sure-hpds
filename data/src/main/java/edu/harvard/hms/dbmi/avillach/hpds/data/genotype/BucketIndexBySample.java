@@ -49,9 +49,9 @@ public class BucketIndexBySample implements Serializable {
 						(Integer bucket)->{
 							return contig  +  ":" + bucket;
 						}).collect(Collectors.toList()));
-				log.info("Found " + contigStore.keys().size() + " buckets in contig " + contig);
+				log.debug("Found " + contigStore.keys().size() + " buckets in contig " + contig);
 			} else {
-				log.info("null entry for contig " + contig);
+				log.debug("null entry for contig " + contig);
 			}
 		}
 
@@ -59,7 +59,7 @@ public class BucketIndexBySample implements Serializable {
 		// in the patientBucketMask records
 		Collections.sort(bucketList);
 		
-		log.info("Found " + bucketList.size() + " total buckets");
+		log.debug("Found " + bucketList.size() + " total buckets");
 		
 		// get all patientIds as Integers, eventually this should be fixed in variantStore so they are
 		// Integers to begin with, which would mean reloading all variant data everywhere so that will
@@ -122,7 +122,7 @@ public class BucketIndexBySample implements Serializable {
 			processedPatients[0] += 1;
 			int processedPatientsCount = processedPatients[0];
 			if (processedPatientsCount % 1000 == 0) {
-				log.info("wrote " + processedPatientsCount + " patient bucket masks");
+				log.debug("wrote " + processedPatientsCount + " patient bucket masks");
 			}
 		});
 		patientBucketMasks.complete();
@@ -159,7 +159,11 @@ public class BucketIndexBySample implements Serializable {
 			String bucketKey = variantSpec.split(",")[0] + ":" + (Integer.parseInt(variantSpec.split(",")[1])/1000);
 			
 			//testBit uses inverted indexes include +2 offset for bookends
-			return _bucketMask.testBit(maxIndex - Collections.binarySearch(bucketList, bucketKey)  + 2);
+			int bucketKeyIndex = Collections.binarySearch(bucketList, bucketKey);
+			if (bucketKeyIndex < 0) {
+				return false;
+			}
+			return _bucketMask.testBit(maxIndex - bucketKeyIndex + 2);
 		}).collect(Collectors.toSet());
 	}
 
@@ -184,5 +188,9 @@ public class BucketIndexBySample implements Serializable {
 			_emptyBucketMaskChar = bucketMaskChar;
 		}
 		return _emptyBucketMaskChar.clone();
+	}
+
+	public void updateStorageDirectory(File storageDirectory) {
+		patientBucketMasks.updateStorageDirectory(storageDirectory);
 	}
 }

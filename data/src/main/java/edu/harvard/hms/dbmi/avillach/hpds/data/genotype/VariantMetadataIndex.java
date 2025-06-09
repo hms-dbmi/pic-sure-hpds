@@ -34,7 +34,7 @@ public class VariantMetadataIndex implements Serializable {
 	private final Map<String,  FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> > indexMap = new HashMap<>();
 
 	public static final String VARIANT_METADATA_STORAGE_FILE_PREFIX = "VariantMetadataStorage";
-	private static String fileStoragePrefix = "/opt/local/hpds/all/" + VARIANT_METADATA_STORAGE_FILE_PREFIX;
+	private String fileStoragePrefix = "/opt/local/hpds/all/" + VARIANT_METADATA_STORAGE_FILE_PREFIX;
 
 	/**
 	 * This map allows us to load millions of variants without re-writing the fbbis each time (which would blow up the disk space).
@@ -103,7 +103,7 @@ public class VariantMetadataIndex implements Serializable {
 
 	public Map<String, Set<String>> findByMultipleVariantSpec(Collection<String> varientSpecList) {
 //		log.debug("SPEC list "  + varientSpecList.size() + " :: " + Arrays.deepToString(varientSpecList.toArray()));
-		
+
 		VariantBucketHolder<String[]> bucketCache = new VariantBucketHolder<String[]>();
 		return varientSpecList.stream().collect(Collectors.toMap(
 				variant->{return variant;},
@@ -158,7 +158,7 @@ public class VariantMetadataIndex implements Serializable {
 	public synchronized void flush() throws IOException {
 		
 		for(String contig : loadingMap.keySet()) {
-			log.info("writing contig " + contig);
+			log.debug("writing contig " + contig);
 			
 			FileBackedByteIndexedStorage<Integer, ConcurrentHashMap<String, String[]>> contigFbbis = indexMap.get(contig);
 			if(contigFbbis == null) {
@@ -181,7 +181,7 @@ public class VariantMetadataIndex implements Serializable {
 				contigFbbis.put(bucketNumber, bucketStorage);
 			}
 			
-			log.info("Saved " + contig + " to FBBIS");
+			log.debug("Saved " + contig + " to FBBIS");
 		}
 		//now reset the map
 		loadingMap = new HashMap<String,  ConcurrentHashMap<Integer, ConcurrentHashMap<String, String[]>> >();

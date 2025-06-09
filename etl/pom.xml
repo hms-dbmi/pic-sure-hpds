@@ -16,7 +16,7 @@
 		<dependency>
     			<groupId>org.apache.commons</groupId>
    	 		<artifactId>commons-compress</artifactId>
-    			<version>1.21</version>
+    			<version>1.26.0</version>
 		</dependency>
 		<dependency>
     			<groupId>org.apache.httpcomponents</groupId>
@@ -50,7 +50,7 @@
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
-			<version>42.2.25</version>
+			<version>42.4.4</version>
 		</dependency>
 		<dependency>
 			<groupId>com.microsoft.sqlserver</groupId>
@@ -60,7 +60,7 @@
 		<dependency>
 			<groupId>com.github.samtools</groupId>
 			<artifactId>htsjdk</artifactId>
-			<version>2.19.0</version>
+			<version>3.0.1</version>
 		</dependency>
 	</dependencies>
 	<build>
@@ -104,6 +104,26 @@
 							</descriptorRefs>
 							<classifier>VCFLocalLoader</classifier>
 							<finalName>VCFLocalLoader</finalName>
+						</configuration>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>buildSplitChromosomeVcfLoader</id>
+						<configuration>
+							<archive>
+								<manifest>
+									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.SplitChromosomeVcfLoader</mainClass>
+								</manifest>
+							</archive>
+							<outputDirectory>${project.basedir}/../docker/pic-sure-hpds-etl</outputDirectory>
+							<descriptorRefs>
+								<descriptorRef>jar-with-dependencies</descriptorRef>
+							</descriptorRefs>
+							<classifier>SplitChromosomeVcfLoader</classifier>
+							<finalName>SplitChromosomeVcfLoader</finalName>
 						</configuration>
 						<phase>package</phase>
 						<goals>
@@ -275,7 +295,7 @@
 						<configuration>
 							<archive>
 								<manifest>
-									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.VariantMetadataLoader</mainClass>
+									<mainClass>edu.harvard.hms.dbmi.avillach.hpds.etl.genotype.SplitChromosomeVariantMetadataLoader</mainClass>
 								</manifest>
 							</archive>
 							<outputDirectory>${project.basedir}/../docker/pic-sure-hpds-etl</outputDirectory>

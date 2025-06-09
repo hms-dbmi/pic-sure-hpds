@@ -213,7 +213,7 @@ public class VariantListProcessor implements HpdsProcessor {
 			index++;
 
 			if(patientIndexMap.size() >= patientSubset.size()) {
-				log.info("Found all " + patientIndexMap.size() + " patient Indices at index " + index);
+				log.debug("Found all " + patientIndexMap.size() + " patient Indices at index " + index);
 				break;
 			}
 		}
@@ -265,7 +265,6 @@ public class VariantListProcessor implements HpdsProcessor {
 				}
 			}
 
-			// todo: deal with empty return
 			VariableVariantMasks masks = abstractProcessor.getMasks(variantSpec, variantMaskBucketHolder).get();
 
 			//make strings of 000100 so we can just check 'char at'

@@ -36,6 +36,20 @@ public class AbstractProcessorIntegrationTest {
     }
 
     @Test
+    public void getPatientSubsetForQuery_validEmptyQuery() {
+        Query query = new Query();
+        List<Query.VariantInfoFilter> variantInfoFilters = new ArrayList<>();
+        Query.VariantInfoFilter variantInfoFilter = new Query.VariantInfoFilter();
+        variantInfoFilter.categoryVariantInfoFilters = Map.of();
+        variantInfoFilter.numericVariantInfoFilters = Map.of();
+        variantInfoFilters.add(variantInfoFilter);
+        query.setVariantInfoFilters(variantInfoFilters);
+
+        Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
+        assertEquals(4978, idList.size());
+    }
+
+    @Test
     public void getPatientSubsetForQuery_validGeneWithVariantQuery() {
         Query query = new Query();
         List<Query.VariantInfoFilter> variantInfoFilters = new ArrayList<>();
@@ -88,12 +102,56 @@ public class AbstractProcessorIntegrationTest {
     }
 
     @Test
+    public void getPatientSubsetForQuery_invalidRequiredVariant() {
+        Query query = new Query();
+        query.setRequiredFields(List.of("chr21,5061,A,G"));
+
+        Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
+        assertEquals(0, idList.size());
+    }
+
+    @Test
     public void getPatientSubsetForQuery_validRequiredVariantOldFormat() {
         Query query = new Query();
         query.setRequiredFields(List.of("chr21,5032061,A,G"));
 
         Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
         assertEquals(8, idList.size());
+    }
+
+    @Test
+    public void getPatientSubsetForQuery_invalidVariantSpecQuery() {
+        Query query = new Query();
+        query.setCategoryFilters(Map.of("chr21,5061,AAAA,GGGG", new String[]{"0/1", "1/1"}));
+
+        Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
+        assertEquals(0, idList.size());
+    }
+    @Test
+    public void getPatientSubsetForQuery_validRequiredVariantOldFormatCategoryFilter() {
+        Query query = new Query();
+        query.setCategoryFilters(Map.of("chr21,5032061,A,G", new String[]{"0/1", "1/1"}));
+
+        Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
+        assertEquals(8, idList.size());
+    }
+
+    @Test
+    public void getPatientSubsetForQuery_validRequiredVariantOldFormatCategoryFilterHomozygous() {
+        Query query = new Query();
+        query.setCategoryFilters(Map.of("chr21,5032061,A,G", new String[]{"1/1"}));
+
+        Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
+        assertEquals(3, idList.size());
+    }
+
+    @Test
+    public void getPatientSubsetForQuery_validRequiredVariantOldFormatCategoryFilterHeterozygous() {
+        Query query = new Query();
+        query.setCategoryFilters(Map.of("chr21,5032061,A,G", new String[]{"0/1"}));
+
+        Set<Integer> idList = abstractProcessor.getPatientSubsetForQuery(query);
+        assertEquals(5, idList.size());
     }
 
     @Test

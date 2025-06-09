@@ -79,13 +79,12 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
         return Mono.fromCallable(() -> runGetPatientMask(distributableQuery)).subscribeOn(Schedulers.boundedElastic());
     }
     public VariantMask runGetPatientMask(DistributableQuery distributableQuery) {
-//		log.debug("filterdIDSets START size: " + filteredIdSets.size());
         /* VARIANT INFO FILTER HANDLING IS MESSY */
         if(distributableQuery.hasFilters()) {
             VariantIndex intersectionOfInfoFilters = null;
             for(Query.VariantInfoFilter filter : distributableQuery.getVariantInfoFilters()){
                 List<VariantIndex> variantSets = getVariantsMatchingFilters(filter);
-                log.info("Found " + variantSets.size() + " groups of sets for patient identification");
+                log.debug("Found " + variantSets.size() + " groups of sets for patient identification");
                 if(!variantSets.isEmpty()) {
                     // INTERSECT all the variant sets.
                     if (intersectionOfInfoFilters == null) {
@@ -109,6 +108,14 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
                 patientMask = createMaskForPatientSet(distributableQuery.getPatientIds());
             }
 
+            for (String snp : distributableQuery.getCategoryFilters().keySet()) {
+                VariantMask patientsForVariantSpec = getVariantIndexesForSpec(distributableQuery.getCategoryFilters().get(snp), snp);
+                if (patientMask == null) {
+                    patientMask = patientsForVariantSpec;
+                } else {
+                    patientMask = patientMask.intersection(patientsForVariantSpec);
+                }
+            }
 
             VariantBucketHolder<VariableVariantMasks> variantMasksVariantBucketHolder = new VariantBucketHolder<>();
             if (!distributableQuery.getRequiredFields().isEmpty() ) {
@@ -173,14 +180,20 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
         }
         if(filter.numericVariantInfoFilters != null && !filter.numericVariantInfoFilters.isEmpty()) {
             filter.numericVariantInfoFilters.forEach((String column, Filter.FloatFilter doubleFilter)->{
-                FileBackedByteIndexedInfoStore infoStore = getInfoStore(column);
+                Optional<FileBackedByteIndexedInfoStore> infoStoreOptional = getInfoStore(column);
 
                 doubleFilter.getMax();
                 Range<Float> filterRange = Range.closed(doubleFilter.getMin(), doubleFilter.getMax());
-                List<String> valuesInRange = infoStore.continuousValueIndex.getValuesInRange(filterRange);
-                for(String value : valuesInRange) {
-                    variantIndices.add(variantIndexCache.get(column, value));
-                }
+                infoStoreOptional.ifPresentOrElse(infoStore -> {
+                    List<String> valuesInRange = infoStore.continuousValueIndex.getValuesInRange(filterRange);
+                    for(String value : valuesInRange) {
+                        variantIndices.add(variantIndexCache.get(column, value));
+                    }},
+                    () -> {
+                        variantIndices.add(VariantIndex.empty());
+                    }
+                );
+
             });
         }
         return variantIndices;
@@ -190,9 +203,10 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
         String column = entry.getKey();
         String[] values = entry.getValue();
         Arrays.sort(values);
-        FileBackedByteIndexedInfoStore infoStore = getInfoStore(column);
+        Optional<FileBackedByteIndexedInfoStore> infoStoreOptional = getInfoStore(column);
 
-        List<String> infoKeys = filterInfoCategoryKeys(values, infoStore);
+        List<String> infoKeys = infoStoreOptional.map(infoStore -> filterInfoCategoryKeys(values, infoStore))
+                .orElseGet(ArrayList::new);
 
         if(infoKeys.size()>1) {
             // These should be ANDed
@@ -200,14 +214,13 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
                     .map(key -> variantIndexCache.get(column, key))
                     .reduce(VariantIndex::union)
                     .orElseGet(() -> {
-                        log.info("No variant index computed for category filter. This should never happen");
+                        log.warn("No variant index computed for category filter. This should never happen");
                         return VariantIndex.empty();
                     });
         } else if(infoKeys.size() == 1) {
             return variantIndexCache.get(column, infoKeys.get(0));
         } else { // infoKeys.size() == 0
-            log.info("No indexes found for column [" + column + "] for values [" + Joiner.on(",").join(values) + "]");
-            // todo: test this case. should this be empty list or a list with an empty VariantIndex?
+            log.debug("No indexes found for column [" + column + "] for values [" + Joiner.on(",").join(values) + "]");
             return VariantIndex.empty();
         }
     }
@@ -218,7 +231,7 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
             int insertionIndex = Arrays.binarySearch(values, key);
             return insertionIndex > -1 && insertionIndex < values.length;
         }).collect(Collectors.toList());
-        log.info("found " + infoKeys.size() + " keys");
+        log.debug("found " + infoKeys.size() + " keys for info category filters");
         return infoKeys;
     }
 
@@ -227,8 +240,8 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
         return new VariantMaskBitmaskImpl(patientVariantJoinHandler.createMaskForPatientSet(patientSubset));
     }
 
-    private FileBackedByteIndexedInfoStore getInfoStore(String column) {
-        return infoStores.get(column);
+    private Optional<FileBackedByteIndexedInfoStore> getInfoStore(String column) {
+        return Optional.ofNullable(infoStores.get(column));
     }
 
     private VariantIndex addVariantsForInfoFilter(VariantIndex unionOfInfoFilters, Query.VariantInfoFilter filter) {
@@ -237,7 +250,6 @@ public class GenomicProcessorNodeImpl implements GenomicProcessor {
         if(!variantSets.isEmpty()) {
             VariantIndex intersectionOfInfoFilters = variantSets.get(0);
             for(VariantIndex variantSet : variantSets) {
-                //						log.info("Variant Set : " + Arrays.deepToString(variantSet.toArray()));
                 intersectionOfInfoFilters = intersectionOfInfoFilters.intersection(variantSet);
             }
             unionOfInfoFilters = unionOfInfoFilters.union(intersectionOfInfoFilters);
