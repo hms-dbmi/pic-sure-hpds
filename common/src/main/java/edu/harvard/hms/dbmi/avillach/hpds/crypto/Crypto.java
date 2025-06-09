@@ -39,32 +39,12 @@ public class Crypto {
 		loadDefaultKey();
 	}
 
-	/**
-	 * Loads the default encryption key from the predefined file path.
-	 * <p>
-	 * This method checks if encryption is enabled before attempting to load the key.
-	 * If encryption is disabled, no action is taken.
-	 * <p>
-	 * The key is loaded using {@link #loadKey(String, String)} with the default key name
-	 * and default encryption key file path.
-	 */
 	public static void loadDefaultKey() {
 		if (ENCRYPTION_ENABLED) {
 			loadKey(DEFAULT_KEY_NAME, DEFAULT_ENCRYPTION_KEY_PATH);
 		}
 	}
 
-	/**
-	 * Loads an encryption key from the specified file path and stores it in memory.
-	 * <p>
-	 * The key is read as a string from the file, trimmed of any extra spaces, and
-	 * converted into a byte array before being stored in the key map.
-	 * <p>
-	 * If the key file is not found or an error occurs while reading, an error is logged.
-	 *
-	 * @param keyName  The name under which the key will be stored.
-	 * @param filePath The file path from which the encryption key is loaded.
-	 */
 	public static void loadKey(String keyName, String filePath) {
 		try {
 			setKey(keyName, IOUtils.toString(new FileInputStream(filePath), Charset.forName("UTF-8")).trim().getBytes());
@@ -74,38 +54,10 @@ public class Crypto {
 		}
 	}
 
-	/**
-	 * Encrypts the given plaintext using the default encryption key.
-	 * <p>
-	 * If encryption is disabled, the plaintext is returned as-is.
-	 * This method delegates encryption to {@link #encryptData(String, byte[])}
-	 * using the default key.
-	 *
-	 * @param plaintext The byte array to be encrypted.
-	 * @return The encrypted byte array, or the original plaintext if encryption is disabled.
-	 */
 	public static byte[] encryptData(byte[] plaintext) {
 		return encryptData(DEFAULT_KEY_NAME, plaintext);
 	}
 
-	/**
-	 * Encrypts the given plaintext using the specified encryption key.
-	 * <p>
-	 * This method uses AES/GCM/NoPadding encryption with a randomly generated IV.
-	 * The IV is included in the output for decryption purposes.
-	 * <p>
-	 * The method returns a byte array structured as follows:
-	 * - First 4 bytes: The length of the IV.
-	 * - Next IV-length bytes: The IV itself.
-	 * - Remaining bytes: The encrypted ciphertext.
-	 * <p>
-	 * If encryption is disabled, the plaintext is returned unmodified.
-	 *
-	 * @param keyName   The name of the encryption key to use.
-	 * @param plaintext The byte array containing the data to encrypt.
-	 * @return The encrypted byte array, or the original plaintext if encryption is disabled.
-	 * @throws RuntimeException If an error occurs during encryption.
-	 */
 	public static byte[] encryptData(String keyName, byte[] plaintext) {
 		if (!ENCRYPTION_ENABLED) {
 			return plaintext;
@@ -136,33 +88,10 @@ public class Crypto {
 		}
 	}
 
-	/**
-	 * Decrypts the provided data using the default encryption key.
-	 * <p>
-	 * If encryption is disabled, the method returns the input data as-is.
-	 *
-	 * @param data The byte array to be decrypted.
-	 * @return The decrypted byte array, or the original data if encryption is disabled.
-	 */
 	public static byte[] decryptData(byte[] data) {
 		return decryptData(DEFAULT_KEY_NAME, data);
 	}
 
-	/**
-	 * Decrypts the provided data using the specified encryption key.
-	 * <p>
-	 * If encryption is disabled, the method returns the input data as-is.
-	 * <p>
-	 * The method assumes the input data is structured as follows:
-	 * - First 4 bytes: The length of the IV (Initialization Vector).
-	 * - Next IV-length bytes: The actual IV.
-	 * - Remaining bytes: The ciphertext.
-	 *
-	 * @param keyName The name of the encryption key to use for decryption.
-	 * @param data The byte array containing the encrypted data.
-	 * @return The decrypted byte array, or the original data if encryption is disabled.
-	 * @throws RuntimeException If an error occurs during decryption.
-	 */
 	public static byte[] decryptData(String keyName, byte[] data) {
 		if (!ENCRYPTION_ENABLED) {
 			return data;
