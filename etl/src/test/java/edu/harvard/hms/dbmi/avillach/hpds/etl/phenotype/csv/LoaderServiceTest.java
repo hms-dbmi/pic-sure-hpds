@@ -12,10 +12,10 @@ import java.io.IOException;
         "encryption.enabled=false",
         "etl.hpds.directory=src/test/resources/"
 })
-class CSVLoaderServiceTest {
+class LoaderServiceTest {
 
     @Autowired
-    private CSVLoaderService service;
+    private LoaderService service;
 
     @Test
     void testEtlWithTestCsv() throws IOException {

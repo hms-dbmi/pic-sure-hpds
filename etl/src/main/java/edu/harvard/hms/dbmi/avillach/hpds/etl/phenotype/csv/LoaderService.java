@@ -3,6 +3,8 @@ package edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.csv;
 import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.LoadingStore;
+import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.config.CSVConfig;
+import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.config.ConfigLoader;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 import org.slf4j.Logger;
@@ -13,17 +15,22 @@ import org.springframework.stereotype.Service;
 import java.io.*;
 import java.util.Date;
 
+@SuppressWarnings({"unchecked", "rawtypes"})
 @Service
-public class CSVLoaderService {
+public class LoaderService {
 
-    private static final Logger log = LoggerFactory.getLogger(CSVLoaderService.class);
+    private static final Logger log = LoggerFactory.getLogger(LoaderService.class);
     private final LoadingStore store = new LoadingStore();
+    private static final ConfigLoader configLoader = new ConfigLoader();
 
     @Value("${etl.hpds.directory:/opt/local/hpds/}")
     private String hpdsDirectory;
 
     @Value("${etl.rollup.enabled:true}")
     private boolean rollupEnabled;
+
+    private static boolean DO_VARNAME_ROLLUP = false;
+
 
     public void runEtlProcess() throws IOException {
         log.info("Starting ETL process... Rollup Enabled: {}", rollupEnabled);
@@ -43,20 +50,27 @@ public class CSVLoaderService {
                 .withSkipHeaderRecord(true)
                 .parse(new BufferedReader(in, 1024 * 1024));
 
+        CSVConfig csvConfig = configLoader.getConfigFor("allConcepts");
+
         final PhenoCube[] currentConcept = new PhenoCube[1];
         for (CSVRecord record : records) {
-            processRecord(currentConcept, record);
+            processRecord(currentConcept, record, csvConfig);
         }
 
     }
 
-    private void processRecord(final PhenoCube[] currentConcept, CSVRecord record) {
+    private void processRecord(final PhenoCube[] currentConcept, CSVRecord record, CSVConfig csvConfig) {
         if (record.size() < 4) {
-            log.warn("Skipping record #{} due to missing fields.", record.getRecordNumber());
+            log.info("Record number {} had less records than we exgpected so we are skipping it.", record.getRecordNumber());
             return;
         }
 
-        String conceptPath = CSVParserUtil.parseConceptPath(record, rollupEnabled);
+        String conceptPath = CSVParserUtil.parseConceptPath(record, DO_VARNAME_ROLLUP, csvConfig);
+        if (conceptPath == null || conceptPath.isEmpty()) {
+            log.info("Record number {} had no concept path so we are skipping it.", record.getRecordNumber());
+            return;
+        }
+
         String numericValue = record.get(CSVParserUtil.NUMERIC_VALUE);
         boolean isAlpha = (numericValue == null || numericValue.isEmpty());
         String value = isAlpha ? record.get(CSVParserUtil.TEXT_VALUE) : numericValue;
