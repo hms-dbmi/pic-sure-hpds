@@ -34,7 +34,7 @@ public class LoadingStore {
 
 				@Override
 				public void onRemoval(RemovalNotification<String, PhenoCube> arg0) {
-					//log.debug("Cache removal and writing to disk: " + arg0.getKey());
+					log.debug("Cache removal and writing to disk: " + arg0.getKey());
 					if(arg0.getValue().getLoadingMap()!=null) {
 						complete(arg0.getValue());
 					}
