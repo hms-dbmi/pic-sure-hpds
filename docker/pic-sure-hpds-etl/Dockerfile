@@ -16,6 +16,7 @@ RUN apk add --no-cache --purge -uU bash curl wget unzip gnupg openssl && \
     rm -rf /var/cache/apk/* /tmp/*
 
 WORKDIR /app
+COPY --from=build /app/docker/pic-sure-hpds-etl/CSVHPDSLoader-jar-with-dependencies.jar .
 COPY --from=build /app/docker/pic-sure-hpds-etl/SQLLoader-jar-with-dependencies.jar .
 COPY --from=build /app/docker/pic-sure-hpds-etl/CSVLoader-jar-with-dependencies.jar .
 COPY --from=build /app/docker/pic-sure-hpds-etl/CSVLoaderNewSearch-jar-with-dependencies.jar .
