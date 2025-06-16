@@ -492,6 +492,43 @@ public class QueryExecutorIntegrationTest {
         assertEquals(Sets.union(finnishIdList, femaleIdList), bothIdList);
     }
 
+    @Test
+    public void getPatientSubsetForQuery_validPhenotypicAnyRecordOfQuery() {
+        PhenotypicFilter yorubaFilter = new PhenotypicFilter(PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", List.of("Yoruba"), null, null, null);
+        Query query = new Query(
+                List.of(),
+                List.of(),
+                yorubaFilter,
+                null,
+                ResultType.COUNT);
+        Set<Integer> yorubaIdList = abstractProcessor.getPatientSubsetForQuery(query);
+        assertEquals(208, yorubaIdList.size());
+
+        PhenotypicFilter ageFilter = new PhenotypicFilter(PhenotypicFilterType.ANY_RECORD_OF, "\\open_access-1000Genomes\\data\\SYNTHETIC_AGE\\", null, null, null, null);
+        query = new Query(
+                List.of(),
+                List.of(),
+                ageFilter,
+                null,
+                ResultType.COUNT);
+        Set<Integer> ageIdList = abstractProcessor.getPatientSubsetForQuery(query);
+        assertEquals(1126, ageIdList.size());
+
+        PhenotypicSubquery phenotypicSubquery = new PhenotypicSubquery(
+                null,
+                List.of(yorubaFilter, ageFilter),
+                Operator.AND
+        );
+        query = new Query(
+                List.of(),
+                List.of(),
+                phenotypicSubquery,
+                null,
+                ResultType.COUNT);
+        Set<Integer> bothIdList = abstractProcessor.getPatientSubsetForQuery(query);
+        assertEquals(Sets.intersection(yorubaIdList, ageIdList), bothIdList);
+    }
+
 
     @Test
     public void getPatientSubsetForQuery_validPhenotypicQueryWithAuthorizationFilter() {
