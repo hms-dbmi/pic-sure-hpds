@@ -25,9 +25,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Component
-public class PhenotypicProcessor {
+public class PhenotypicQueryExecutor {
 
-    private static Logger log = LoggerFactory.getLogger(PhenotypicProcessor.class);
+    private static Logger log = LoggerFactory.getLogger(PhenotypicQueryExecutor.class);
 
     private final int CACHE_SIZE;
 
@@ -37,7 +37,7 @@ public class PhenotypicProcessor {
 
     private final PhenotypeMetaStore phenotypeMetaStore;
 
-    public PhenotypicProcessor(
+    public PhenotypicQueryExecutor(
             PhenotypeMetaStore phenotypeMetaStore,
             @Value("${HPDS_DATA_DIRECTORY:/opt/local/hpds/}") String hpdsDataDirectory
     ) {

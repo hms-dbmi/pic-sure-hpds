@@ -1,38 +1,21 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing.v3;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.CacheLoader.InvalidCacheLoadException;
-import com.google.common.cache.LoadingCache;
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
-import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.FileBackedByteIndexedInfoStore;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.InfoColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariableVariantMasks;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMask;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHolder;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
-import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.v3.*;
-import edu.harvard.hms.dbmi.avillach.hpds.processing.DistributableQuery;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.GenomicProcessor;
-import edu.harvard.hms.dbmi.avillach.hpds.processing.PhenotypeMetaStore;
-import edu.harvard.hms.dbmi.avillach.hpds.processing.VariantUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.RandomAccessFile;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 
 @Component
@@ -43,16 +26,16 @@ public class QueryExecutor {
 
 	private final GenomicProcessor genomicProcessor;
 
-	private final PhenotypicProcessor phenotypicProcessor;
+	private final PhenotypicQueryExecutor phenotypicQueryExecutor;
 
 
 	@Autowired
 	public QueryExecutor(
 			GenomicProcessor genomicProcessor,
-			PhenotypicProcessor phenotypicProcessor
+			PhenotypicQueryExecutor phenotypicQueryExecutor
 	) throws ClassNotFoundException, IOException, InterruptedException {
 		this.genomicProcessor = genomicProcessor;
-		this.phenotypicProcessor = phenotypicProcessor;
+		this.phenotypicQueryExecutor = phenotypicQueryExecutor;
 	}
 
 	public Set<String> getInfoStoreColumns() {
@@ -70,9 +53,9 @@ public class QueryExecutor {
 	 * @return
 	 */
 	public Set<Integer> getPatientSubsetForQuery(Query query) {
-		Set<Integer> patientIdSet = phenotypicProcessor.getPatientSet(query);
+		Set<Integer> patientIdSet = phenotypicQueryExecutor.getPatientSet(query);
 		if (patientIdSet == null) {
-			return phenotypicProcessor.getPatientIds();
+			return phenotypicQueryExecutor.getPatientIds();
 		}
 		return patientIdSet;
 	}
@@ -106,7 +89,7 @@ public class QueryExecutor {
 
 
 	public TreeMap<String, ColumnMeta> getDictionary() {
-		return phenotypicProcessor.getMetaStore();
+		return phenotypicQueryExecutor.getMetaStore();
 	}
 
 	public List<String> getPatientIds() {
