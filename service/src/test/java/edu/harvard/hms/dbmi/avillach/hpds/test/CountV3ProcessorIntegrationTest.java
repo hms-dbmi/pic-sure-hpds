@@ -85,7 +85,9 @@ public class CountV3ProcessorIntegrationTest {
 
         Map<String, Map<String, Integer>> crossCounts = countProcessor.runCategoryCrossCounts(query);
         assertEquals(2, crossCounts.size());
+        assertEquals(1, crossCounts.get("\\open_access-1000Genomes\\data\\SEX\\").size());
         assertEquals(2648, crossCounts.get("\\open_access-1000Genomes\\data\\SEX\\").get("male"));
+        assertEquals(1, crossCounts.get("\\open_access-1000Genomes\\data\\POPULATION NAME\\").size());
         assertEquals(102, crossCounts.get("\\open_access-1000Genomes\\data\\POPULATION NAME\\").get("Finnish"));
     }
 
