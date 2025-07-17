@@ -38,8 +38,7 @@ public class PhenotypicQueryExecutor {
     private final PhenotypeMetaStore phenotypeMetaStore;
 
     public PhenotypicQueryExecutor(
-            PhenotypeMetaStore phenotypeMetaStore,
-            @Value("${HPDS_DATA_DIRECTORY:/opt/local/hpds/}") String hpdsDataDirectory
+        PhenotypeMetaStore phenotypeMetaStore, @Value("${HPDS_DATA_DIRECTORY:/opt/local/hpds/}") String hpdsDataDirectory
     ) {
         this.hpdsDataDirectory = hpdsDataDirectory;
         this.phenotypeMetaStore = phenotypeMetaStore;
@@ -48,18 +47,18 @@ public class PhenotypicQueryExecutor {
 
         store = initializeCache();
 
-        if(Crypto.hasKey(Crypto.DEFAULT_KEY_NAME)) {
+        if (Crypto.hasKey(Crypto.DEFAULT_KEY_NAME)) {
             List<String> cubes = new ArrayList<String>(phenotypeMetaStore.getColumnNames());
             int conceptsToCache = Math.min(cubes.size(), CACHE_SIZE);
-            for(int x = 0;x<conceptsToCache;x++){
+            for (int x = 0; x < conceptsToCache; x++) {
                 try {
-                    if(phenotypeMetaStore.getColumnMeta(cubes.get(x)).getObservationCount() == 0){
+                    if (phenotypeMetaStore.getColumnMeta(cubes.get(x)).getObservationCount() == 0) {
                         log.info("Rejecting : " + cubes.get(x) + " because it has no entries.");
-                    }else {
+                    } else {
                         store.get(cubes.get(x));
                         log.debug("loaded: " + cubes.get(x));
                         // +1 offset when logging to print _after_ each 10%
-                        if((x + 1) % (conceptsToCache * .1)== 0) {
+                        if ((x + 1) % (conceptsToCache * .1) == 0) {
                             log.info("cached: " + (x + 1) + " out of " + conceptsToCache);
                         }
                     }
@@ -82,11 +81,7 @@ public class PhenotypicQueryExecutor {
         }
 
         if (!mergedClauses.isEmpty()) {
-            PhenotypicSubquery authorizedSubquery = new PhenotypicSubquery(
-                    null,
-                    mergedClauses,
-                    Operator.AND
-            );
+            PhenotypicSubquery authorizedSubquery = new PhenotypicSubquery(null, mergedClauses, Operator.AND);
             return evaluatePhenotypicClause(authorizedSubquery);
         } else {
             // if there are no phenotypic queries, return all patients
@@ -96,7 +91,9 @@ public class PhenotypicQueryExecutor {
 
     private List<PhenotypicClause> authorizationFiltersToPhenotypicClause(List<AuthorizationFilter> authorizationFilters) {
         return authorizationFilters.parallelStream().map(authorizationFilter -> {
-            return new PhenotypicFilter(PhenotypicFilterType.FILTER, authorizationFilter.conceptPath(), authorizationFilter.values(), null, null, null);
+            return new PhenotypicFilter(
+                PhenotypicFilterType.FILTER, authorizationFilter.conceptPath(), authorizationFilter.values(), null, null, null
+            );
         }).collect(Collectors.toList());
     }
 
@@ -111,7 +108,12 @@ public class PhenotypicQueryExecutor {
         return switch (phenotypicFilter.phenotypicFilterType()) {
             case FILTER -> evaluateFilterFilter(phenotypicFilter);
             case REQUIRED -> evaluateRequiredFilter(phenotypicFilter);
+            case ANY_RECORD_OF -> evaluateAnyRecordOfFilter(phenotypicFilter);
         };
+    }
+
+    private Set<Integer> evaluateAnyRecordOfFilter(PhenotypicFilter phenotypicFilter) {
+        throw new RuntimeException("Not yet implemented");
     }
 
     private Set<Integer> evaluateFilterFilter(PhenotypicFilter phenotypicFilter) {
@@ -134,11 +136,10 @@ public class PhenotypicQueryExecutor {
     }
 
     private Set<Integer> evaluatePhenotypicSubquery(PhenotypicSubquery phenotypicSubquery) {
-        return phenotypicSubquery.phenotypicClauses().parallelStream()
-                .map(this::evaluatePhenotypicClause)
-                .reduce(getReducer(phenotypicSubquery.operator()))
-                // todo: deal with empty lists
-                .get();
+        return phenotypicSubquery.phenotypicClauses().parallelStream().map(this::evaluatePhenotypicClause)
+            .reduce(getReducer(phenotypicSubquery.operator()))
+            // todo: deal with empty lists
+            .get();
     }
 
     private BinaryOperator<Set<Integer>> getReducer(Operator operator) {
@@ -149,9 +150,8 @@ public class PhenotypicQueryExecutor {
     }
 
     /**
-     * If there are concepts in the list of paths which are already in the cache, push those to the
-     * front of the list so that we don't evict and then reload them for concepts which are not yet
-     * in the cache.
+     * If there are concepts in the list of paths which are already in the cache, push those to the front of the list so that we don't evict
+     * and then reload them for concepts which are not yet in the cache.
      *
      * @param paths
      * @param columnCount
@@ -164,15 +164,15 @@ public class PhenotypicQueryExecutor {
 
         ArrayList<Integer> columnIndex = new ArrayList<Integer>();
 
-        residentKeys.forEach(key ->{
+        residentKeys.forEach(key -> {
             columnIndex.add(paths.indexOf(key) + 1);
         });
 
-        Sets.difference(pathSet, residentKeys).forEach(key->{
+        Sets.difference(pathSet, residentKeys).forEach(key -> {
             columnIndex.add(paths.indexOf(key) + 1);
         });
 
-        for(x = 1;x < columnCount;x++) {
+        for (x = 1; x < columnCount; x++) {
             columnIndex.add(x);
         }
         return columnIndex;
@@ -187,9 +187,8 @@ public class PhenotypicQueryExecutor {
     }
 
     /**
-     * Get a cube without throwing an error if not found.
-     * Useful for federated pic-sure's where there are fewer
-     * guarantees about concept paths.
+     * Get a cube without throwing an error if not found. Useful for federated pic-sure's where there are fewer guarantees about concept
+     * paths.
      */
     public Optional<PhenoCube<?>> nullableGetCube(String path) {
         try {
@@ -205,32 +204,31 @@ public class PhenotypicQueryExecutor {
      * @return
      */
     protected LoadingCache<String, PhenoCube<?>> initializeCache() {
-        return CacheBuilder.newBuilder()
-                .maximumSize(CACHE_SIZE)
-                .build(
-                        new CacheLoader<String, PhenoCube<?>>() {
-                            public PhenoCube<?> load(String key) throws Exception {
-                                try(RandomAccessFile allObservationsStore = new RandomAccessFile(hpdsDataDirectory + "allObservationsStore.javabin", "r");){
-                                    ColumnMeta columnMeta = phenotypeMetaStore.getColumnMeta(key);
-                                    if(columnMeta != null) {
-                                        allObservationsStore.seek(columnMeta.getAllObservationsOffset());
-                                        int length = (int) (columnMeta.getAllObservationsLength() - columnMeta.getAllObservationsOffset());
-                                        byte[] buffer = new byte[length];
-                                        allObservationsStore.read(buffer);
-                                        allObservationsStore.close();
-                                        try (ObjectInputStream inStream = new ObjectInputStream(new ByteArrayInputStream(Crypto.decryptData(buffer)))) {
-                                            return (PhenoCube<?>)inStream.readObject();
-                                        }
-                                    }else {
-                                        log.warn("ColumnMeta not found for : [{}]", key);
-                                        return null;
-                                    }
-                                }
-                            }
-                        });
+        return CacheBuilder.newBuilder().maximumSize(CACHE_SIZE).build(new CacheLoader<String, PhenoCube<?>>() {
+            public PhenoCube<?> load(String key) throws Exception {
+                try (
+                    RandomAccessFile allObservationsStore = new RandomAccessFile(hpdsDataDirectory + "allObservationsStore.javabin", "r");
+                ) {
+                    ColumnMeta columnMeta = phenotypeMetaStore.getColumnMeta(key);
+                    if (columnMeta != null) {
+                        allObservationsStore.seek(columnMeta.getAllObservationsOffset());
+                        int length = (int) (columnMeta.getAllObservationsLength() - columnMeta.getAllObservationsOffset());
+                        byte[] buffer = new byte[length];
+                        allObservationsStore.read(buffer);
+                        allObservationsStore.close();
+                        try (ObjectInputStream inStream = new ObjectInputStream(new ByteArrayInputStream(Crypto.decryptData(buffer)))) {
+                            return (PhenoCube<?>) inStream.readObject();
+                        }
+                    } else {
+                        log.warn("ColumnMeta not found for : [{}]", key);
+                        return null;
+                    }
+                }
+            }
+        });
     }
 
-    public TreeMap<String, ColumnMeta> getMetaStore() {
+    public Map<String, ColumnMeta> getMetaStore() {
         return phenotypeMetaStore.getMetaStore();
     }
 

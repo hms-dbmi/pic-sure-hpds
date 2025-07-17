@@ -7,12 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public record Query(
-        List<String> select,
-        List<AuthorizationFilter> authorizationFilters,
-        PhenotypicClause phenotypicClause,
-        List<GenomicFilter> genomicFilters,
-        ResultType expectedResultType,
-        String picsureId, String id) {
+    List<String> select, List<AuthorizationFilter> authorizationFilters, PhenotypicClause phenotypicClause,
+    List<GenomicFilter> genomicFilters, ResultType expectedResultType, String picsureId, String id
+) {
 
     @Override
     @NonNull
@@ -37,18 +34,17 @@ public record Query(
     }
 
     private List<PhenotypicFilter> flatten(PhenotypicClause phenotypicClause) {
+        if (phenotypicClause == null) {
+            return List.of();
+        }
         return switch (phenotypicClause) {
-            case PhenotypicSubquery phenotypicSubquery -> phenotypicSubquery.phenotypicClauses().parallelStream()
-                    .map(this::flatten)
-                    .reduce((list1, list2) -> {
-                        List<PhenotypicFilter> copy = new ArrayList<>(list1);
-                        copy.addAll(list2);
-                        return copy;
-                    })
-                    .orElseGet(List::of);
+            case PhenotypicSubquery phenotypicSubquery -> phenotypicSubquery.phenotypicClauses().parallelStream().map(this::flatten)
+                .reduce((list1, list2) -> {
+                    List<PhenotypicFilter> copy = new ArrayList<>(list1);
+                    copy.addAll(list2);
+                    return copy;
+                }).orElseGet(List::of);
             case PhenotypicFilter phenotypicFilter -> List.of(phenotypicFilter);
         };
     }
-
-
 }
