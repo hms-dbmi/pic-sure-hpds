@@ -14,6 +14,7 @@ public class QueryV3Decorator {
     private static final Logger LOG = LoggerFactory.getLogger(QueryV3Decorator.class);
 
     public void setId(Query query) {
+        throw new RuntimeException("Not yet implemented");
         /*
          * query.setId(""); // the id is included in the toString // I clear it here to keep the ID setting stable for any query // of
          * identical structure and content
@@ -29,6 +30,7 @@ public class QueryV3Decorator {
     }
 
     public void mergeFilterFieldsIntoSelectedFields(Query query) {
+        throw new RuntimeException("Not yet implemented");
         /*
          * LinkedHashSet<String> fields = new LinkedHashSet<>(query.getFields());
          * 

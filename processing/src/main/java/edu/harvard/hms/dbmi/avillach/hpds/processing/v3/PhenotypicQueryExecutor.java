@@ -12,6 +12,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.processing.PhenotypeMetaStore;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.util.SetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -33,10 +34,11 @@ public class PhenotypicQueryExecutor {
 
     private final String hpdsDataDirectory;
 
-    private LoadingCache<String, PhenoCube<?>> store;
+    private final LoadingCache<String, PhenoCube<?>> store;
 
     private final PhenotypeMetaStore phenotypeMetaStore;
 
+    @Autowired
     public PhenotypicQueryExecutor(
         PhenotypeMetaStore phenotypeMetaStore, @Value("${HPDS_DATA_DIRECTORY:/opt/local/hpds/}") String hpdsDataDirectory
     ) {
@@ -48,7 +50,7 @@ public class PhenotypicQueryExecutor {
         store = initializeCache();
 
         if (Crypto.hasKey(Crypto.DEFAULT_KEY_NAME)) {
-            List<String> cubes = new ArrayList<String>(phenotypeMetaStore.getColumnNames());
+            List<String> cubes = new ArrayList<>(phenotypeMetaStore.getColumnNames());
             int conceptsToCache = Math.min(cubes.size(), CACHE_SIZE);
             for (int x = 0; x < conceptsToCache; x++) {
                 try {
@@ -68,6 +70,13 @@ public class PhenotypicQueryExecutor {
 
             }
         }
+    }
+
+    public PhenotypicQueryExecutor(PhenotypeMetaStore phenotypeMetaStore, LoadingCache<String, PhenoCube<?>> phenoCubeCache) {
+        this.store = phenoCubeCache;
+        this.phenotypeMetaStore = phenotypeMetaStore;
+        CACHE_SIZE = 0;
+        hpdsDataDirectory = "";
     }
 
     public Set<Integer> getPatientSet(Query query) {
@@ -113,25 +122,37 @@ public class PhenotypicQueryExecutor {
     }
 
     private Set<Integer> evaluateAnyRecordOfFilter(PhenotypicFilter phenotypicFilter) {
-        throw new RuntimeException("Not yet implemented");
+        // todo: improve this performance. maybe cache these or build a mapping of all parent concept paths
+        Set<String> matchingConcepts = phenotypeMetaStore.getColumnNames().stream()
+            .filter(column -> column.startsWith(phenotypicFilter.conceptPath())).collect(Collectors.toSet());
+
+        Set<Integer> ids = new TreeSet<>();
+        for (String concept : matchingConcepts) {
+            Set<Integer> idsForConcept = new HashSet<>(((List<Integer>) getCube(concept).keyBasedIndex()));
+            ids.addAll(idsForConcept);
+        }
+        return ids;
     }
 
     private Set<Integer> evaluateFilterFilter(PhenotypicFilter phenotypicFilter) {
         if (phenotypicFilter.values() != null) {
             Set<Integer> ids = new TreeSet<>();
             for (String category : phenotypicFilter.values()) {
-                ids.addAll(getCube(phenotypicFilter.conceptPath()).getKeysForValue(category));
+                nullableGetCube(phenotypicFilter.conceptPath())
+                    .ifPresent(cube -> ids.addAll(((PhenoCube<String>) cube).getKeysForValue(category)));
             }
             return ids;
         } else if (phenotypicFilter.max() != null || phenotypicFilter.min() != null) {
-            return getCube(phenotypicFilter.conceptPath()).getKeysForRange(phenotypicFilter.min(), phenotypicFilter.max());
+            return nullableGetCube(phenotypicFilter.conceptPath())
+                .map(cube -> ((PhenoCube<Double>) cube).getKeysForRange(phenotypicFilter.min(), phenotypicFilter.max())).orElseGet(Set::of);
         } else {
             throw new IllegalArgumentException("Either values or one of min/max must be set for a filter");
         }
     }
 
     private Set<Integer> evaluateRequiredFilter(PhenotypicFilter phenotypicFilter) {
-        Stream<Integer> stream = getCube(phenotypicFilter.conceptPath()).keyBasedIndex().stream();
+        Optional<PhenoCube<?>> optionalPhenoCube = nullableGetCube(phenotypicFilter.conceptPath());
+        Stream<Integer> stream = optionalPhenoCube.map(cube -> cube.keyBasedIndex().stream()).orElseGet(() -> Stream.empty());
         return stream.collect(Collectors.toSet());
     }
 
