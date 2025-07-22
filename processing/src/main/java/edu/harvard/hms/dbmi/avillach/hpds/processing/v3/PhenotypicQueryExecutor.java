@@ -28,13 +28,21 @@ import java.util.stream.Stream;
 @Component
 public class PhenotypicQueryExecutor {
 
+    private static final int CHILD_CONCEPT_CACHE_SIZE = 500;
     private static Logger log = LoggerFactory.getLogger(PhenotypicQueryExecutor.class);
 
     private final int CACHE_SIZE;
 
     private final String hpdsDataDirectory;
 
-    private final LoadingCache<String, PhenoCube<?>> store;
+    private final LoadingCache<String, PhenoCube<?>> phenoCubeCache;
+    private final LoadingCache<String, Set<String>> childConceptCache =
+        CacheBuilder.newBuilder().maximumSize(CHILD_CONCEPT_CACHE_SIZE).build(new CacheLoader<>() {
+            @Override
+            public Set<String> load(String key) {
+                return getChildConceptPaths(key);
+            }
+        });
 
     private final PhenotypeMetaStore phenotypeMetaStore;
 
@@ -47,7 +55,7 @@ public class PhenotypicQueryExecutor {
 
         CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
 
-        store = initializeCache();
+        phenoCubeCache = initializeCache();
 
         if (Crypto.hasKey(Crypto.DEFAULT_KEY_NAME)) {
             List<String> cubes = new ArrayList<>(phenotypeMetaStore.getColumnNames());
@@ -57,7 +65,7 @@ public class PhenotypicQueryExecutor {
                     if (phenotypeMetaStore.getColumnMeta(cubes.get(x)).getObservationCount() == 0) {
                         log.info("Rejecting : " + cubes.get(x) + " because it has no entries.");
                     } else {
-                        store.get(cubes.get(x));
+                        phenoCubeCache.get(cubes.get(x));
                         log.debug("loaded: " + cubes.get(x));
                         // +1 offset when logging to print _after_ each 10%
                         if ((x + 1) % (conceptsToCache * .1) == 0) {
@@ -73,7 +81,7 @@ public class PhenotypicQueryExecutor {
     }
 
     public PhenotypicQueryExecutor(PhenotypeMetaStore phenotypeMetaStore, LoadingCache<String, PhenoCube<?>> phenoCubeCache) {
-        this.store = phenoCubeCache;
+        this.phenoCubeCache = phenoCubeCache;
         this.phenotypeMetaStore = phenotypeMetaStore;
         CACHE_SIZE = 0;
         hpdsDataDirectory = "";
@@ -122,9 +130,12 @@ public class PhenotypicQueryExecutor {
     }
 
     private Set<Integer> evaluateAnyRecordOfFilter(PhenotypicFilter phenotypicFilter) {
-        // todo: improve this performance. maybe cache these or build a mapping of all parent concept paths
-        Set<String> matchingConcepts = phenotypeMetaStore.getColumnNames().stream()
-            .filter(column -> column.startsWith(phenotypicFilter.conceptPath())).collect(Collectors.toSet());
+        Set<String> matchingConcepts;
+        try {
+            matchingConcepts = childConceptCache.get(phenotypicFilter.conceptPath());
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
 
         Set<Integer> ids = new TreeSet<>();
         for (String concept : matchingConcepts) {
@@ -132,6 +143,10 @@ public class PhenotypicQueryExecutor {
             ids.addAll(idsForConcept);
         }
         return ids;
+    }
+
+    public Set<String> getChildConceptPaths(String conceptPath) {
+        return phenotypeMetaStore.getColumnNames().stream().filter(column -> column.startsWith(conceptPath)).collect(Collectors.toSet());
     }
 
     private Set<Integer> evaluateFilterFilter(PhenotypicFilter phenotypicFilter) {
@@ -181,7 +196,7 @@ public class PhenotypicQueryExecutor {
     public ArrayList<Integer> useResidentCubesFirst(List<String> paths, int columnCount) {
         int x;
         TreeSet<String> pathSet = new TreeSet<String>(paths);
-        Set<String> residentKeys = Sets.intersection(pathSet, store.asMap().keySet());
+        Set<String> residentKeys = Sets.intersection(pathSet, phenoCubeCache.asMap().keySet());
 
         ArrayList<Integer> columnIndex = new ArrayList<Integer>();
 
@@ -201,7 +216,7 @@ public class PhenotypicQueryExecutor {
 
     public PhenoCube getCube(String path) {
         try {
-            return store.get(path);
+            return phenoCubeCache.get(path);
         } catch (ExecutionException e) {
             throw new RuntimeException(e);
         }
@@ -213,7 +228,7 @@ public class PhenotypicQueryExecutor {
      */
     public Optional<PhenoCube<?>> nullableGetCube(String path) {
         try {
-            return Optional.ofNullable(store.get(path));
+            return Optional.ofNullable(phenoCubeCache.get(path));
         } catch (CacheLoader.InvalidCacheLoadException | ExecutionException e) {
             return Optional.empty();
         }
@@ -225,7 +240,7 @@ public class PhenotypicQueryExecutor {
      * @return
      */
     protected LoadingCache<String, PhenoCube<?>> initializeCache() {
-        return CacheBuilder.newBuilder().maximumSize(CACHE_SIZE).build(new CacheLoader<String, PhenoCube<?>>() {
+        return CacheBuilder.newBuilder().maximumSize(CACHE_SIZE).build(new CacheLoader<>() {
             public PhenoCube<?> load(String key) throws Exception {
                 try (
                     RandomAccessFile allObservationsStore = new RandomAccessFile(hpdsDataDirectory + "allObservationsStore.javabin", "r");

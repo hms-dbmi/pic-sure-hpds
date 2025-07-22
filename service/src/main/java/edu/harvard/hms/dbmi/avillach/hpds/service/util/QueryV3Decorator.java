@@ -15,31 +15,9 @@ public class QueryV3Decorator {
 
     public void setId(Query query) {
         throw new RuntimeException("Not yet implemented");
-        /*
-         * query.setId(""); // the id is included in the toString // I clear it here to keep the ID setting stable for any query // of
-         * identical structure and content
-         * 
-         * // Some places where we call toString, we call mergeFilterFieldsIntoSelectedFields // first. This can mutate the query, resulting
-         * in shifting UUIDs // To stabilize things, we're always going to call that, and shift the logic here
-         * mergeFilterFieldsIntoSelectedFields(query);
-         * 
-         * // we also sort things sometimes List<String> fields = query.select(); Collections.sort(fields); query.setFields(fields);
-         * 
-         * String id = UUIDv5.UUIDFromString(query.toString()).toString(); query.setId(id);
-         */
     }
 
     public void mergeFilterFieldsIntoSelectedFields(Query query) {
         throw new RuntimeException("Not yet implemented");
-        /*
-         * LinkedHashSet<String> fields = new LinkedHashSet<>(query.getFields());
-         * 
-         * if(!query.getCategoryFilters().isEmpty()) { Set<String> categoryFilters = new TreeSet<>(query.getCategoryFilters().keySet());
-         * Set<String> toBeRemoved = new TreeSet<>(); for(String categoryFilter : categoryFilters) { LOG.debug("In : {}", categoryFilter);
-         * if(VariantUtils.pathIsVariantSpec(categoryFilter)) { toBeRemoved.add(categoryFilter); } } categoryFilters.removeAll(toBeRemoved);
-         * for(String categoryFilter : categoryFilters) { LOG.debug("Out : {}", categoryFilter); } fields.addAll(categoryFilters); }
-         * fields.addAll(query.getAnyRecordOf()); fields.addAll(query.getRequiredFields());
-         * fields.addAll(query.getNumericFilters().keySet()); query.setFields(fields);
-         */
     }
 }
