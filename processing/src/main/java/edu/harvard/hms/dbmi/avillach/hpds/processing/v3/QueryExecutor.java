@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 
 @Component
@@ -158,6 +159,13 @@ public class QueryExecutor {
     // todo: handle this locally, we do not want this in the genomic processor
     protected VariantMask createMaskForPatientSet(Set<Integer> patientSubset) {
         return genomicProcessor.createMaskForPatientSet(patientSubset);
+    }
+
+    public List<String> getAllConceptPaths(Query query) {
+        return query.allFilters().stream().flatMap(phenotypicFilter -> (switch (phenotypicFilter.phenotypicFilterType()) {
+            case FILTER, REQUIRED -> List.of(phenotypicFilter.conceptPath());
+            case ANY_RECORD_OF -> phenotypicQueryExecutor.getChildConceptPaths(phenotypicFilter.conceptPath());
+        }).stream()).collect(Collectors.toList());
     }
 
 }
