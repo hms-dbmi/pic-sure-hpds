@@ -18,9 +18,12 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 
+/**
+ * Note: This class was copied from {@link edu.harvard.hms.dbmi.avillach.hpds.processing.AsyncResult} and updated to use new Query entity
+ */
 public class AsyncResult implements Runnable, Comparable<AsyncResult> {
 
-    private static Logger log = LoggerFactory.getLogger(AsyncResult.class);
+    private static final Logger log = LoggerFactory.getLogger(AsyncResult.class);
 
     public byte[] readAllBytes() {
         try {
@@ -34,7 +37,7 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult> {
         stream.closeWriter();
     }
 
-    private MediaType responseType;
+    private final MediaType responseType;
 
     public MediaType getResponseType() {
         return responseType;
@@ -79,7 +82,7 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult> {
         public abstract PicSureStatus toPicSureStatus();
     }
 
-    private Query query;
+    private final Query query;
 
     public Query getQuery() {
         return query;
@@ -112,8 +115,6 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult> {
     public long getCompletedTime() {
         return completedTime;
     }
-
-    private int retryCount;
 
     private int queueDepth;
 

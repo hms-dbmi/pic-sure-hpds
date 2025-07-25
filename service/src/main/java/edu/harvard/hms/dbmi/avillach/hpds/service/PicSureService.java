@@ -45,9 +45,9 @@ public class PicSureService {
 
     @Autowired
     public PicSureService(
-        QueryService queryService, CountProcessor countProcessor,
-        VariantListProcessor variantListProcessor, AbstractProcessor abstractProcessor, Paginator paginator, SignUrlService signUrlService,
-        FileSharingService fileSystemService, QueryDecorator queryDecorator, TestDataService testDataService
+        QueryService queryService, CountProcessor countProcessor, VariantListProcessor variantListProcessor,
+        AbstractProcessor abstractProcessor, Paginator paginator, SignUrlService signUrlService, FileSharingService fileSystemService,
+        QueryDecorator queryDecorator, TestDataService testDataService
     ) {
         this.queryService = queryService;
         this.countProcessor = countProcessor;
@@ -273,9 +273,7 @@ public class PicSureService {
             return ResponseEntity.status(400).body("The query pic-sure ID is not a UUID");
         }
         if (!List.of(ResultType.DATAFRAME_TIMESERIES, ResultType.PATIENTS).contains(query.getExpectedResultType())) {
-            return ResponseEntity
-                    .status(400)
-					.body("The write endpoint only writes time series dataframes. Fix result type.");
+            return ResponseEntity.status(400).body("The write endpoint only writes time series dataframes. Fix result type.");
         }
         String hpdsQueryID;
         try {
@@ -450,13 +448,6 @@ public class PicSureService {
                 // no valid type
                 return ResponseEntity.status(500).build();
         }
-    }
-
-    private ResponseEntity queryOkResponse(Object obj, Query incomingQuery) {
-        queryDecorator.setId(incomingQuery);
-        HttpHeaders responseHeaders = new HttpHeaders();
-        responseHeaders.set(QUERY_METADATA_FIELD, UUIDv5.UUIDFromString(incomingQuery.toString()).toString());
-        return new ResponseEntity<>(obj, responseHeaders, HttpStatus.OK);
     }
 
     private ResponseEntity queryOkResponse(Object obj, Query incomingQuery, MediaType mediaType) {

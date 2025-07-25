@@ -18,10 +18,11 @@ import java.util.*;
  * 
  * This returns data in no meaningful order; it is exported by field parameters. Concepts which are present multiple times in a query will
  * only be exported once.
- * 
- * 
- * 
+ *
  * @author nchu
+ *
+ *         Note: This class was copied from {@link edu.harvard.hms.dbmi.avillach.hpds.processing.timeseries.TimeseriesProcessor} and updated
+ *         to use new Query entity
  *
  */
 @Component
@@ -82,8 +83,9 @@ public class TimeseriesV3Processor implements HpdsV3Processor {
         addDataForConcepts(pathList, exportedConceptPaths, idList, result);
     }
 
-    private void addDataForConcepts(Collection<String> pathList, Set<String> exportedConceptPaths, Set<Integer> idList, AsyncResult result)
-        throws IOException {
+    private void addDataForConcepts(
+        Collection<String> pathList, Set<String> exportedConceptPaths, Set<Integer> idList, AsyncResult result
+    ) {
         for (String conceptPath : pathList) {
             // skip concepts we may already have encountered
             if (exportedConceptPaths.contains(conceptPath)) {

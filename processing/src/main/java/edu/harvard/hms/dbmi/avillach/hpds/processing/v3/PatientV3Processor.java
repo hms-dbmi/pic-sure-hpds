@@ -8,6 +8,10 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+/**
+ * Note: This class was copied from {@link edu.harvard.hms.dbmi.avillach.hpds.processing.patient.PatientProcessor} and updated to use new
+ * Query entity
+ */
 @Component
 public class PatientV3Processor implements HpdsV3Processor {
 
