@@ -1,6 +1,7 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing.v3;
 
 import com.google.common.cache.CacheLoader;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.InfoColumnMeta;
@@ -161,11 +162,15 @@ public class QueryExecutor {
         return genomicProcessor.createMaskForPatientSet(patientSubset);
     }
 
-    public List<String> getAllConceptPaths(Query query) {
-        return query.allFilters().stream().flatMap(phenotypicFilter -> (switch (phenotypicFilter.phenotypicFilterType()) {
-            case FILTER, REQUIRED -> List.of(phenotypicFilter.conceptPath());
-            case ANY_RECORD_OF -> phenotypicQueryExecutor.getChildConceptPaths(phenotypicFilter.conceptPath());
-        }).stream()).collect(Collectors.toList());
+    public SequencedSet<String> getAllConceptPaths(Query query) {
+        SequencedSet<String> allConceptPaths = new LinkedHashSet<>(query.select());
+        List<String> allFilterPaths =
+            query.allFilters().stream().flatMap(phenotypicFilter -> (switch (phenotypicFilter.phenotypicFilterType()) {
+                case FILTER, REQUIRED -> List.of(phenotypicFilter.conceptPath());
+                case ANY_RECORD_OF -> phenotypicQueryExecutor.getChildConceptPaths(phenotypicFilter.conceptPath());
+            }).stream()).toList();
+        allConceptPaths.addAll(allFilterPaths);
+        return allConceptPaths;
     }
 
 }

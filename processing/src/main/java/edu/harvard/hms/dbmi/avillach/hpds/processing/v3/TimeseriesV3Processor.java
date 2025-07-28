@@ -78,8 +78,7 @@ public class TimeseriesV3Processor implements HpdsV3Processor {
     private void exportTimeData(Query query, AsyncResult result, Set<Integer> idList) throws IOException {
         log.info("Starting export for time series data of query {} (HPDS ID {})", query.picsureId(), query.id());
         Set<String> exportedConceptPaths = new HashSet<>();
-        List<String> pathList = query.select();
-        pathList.addAll(queryExecutor.getAllConceptPaths(query));
+        Collection<String> pathList = queryExecutor.getAllConceptPaths(query);
 
         addDataForConcepts(pathList, exportedConceptPaths, idList, result);
     }

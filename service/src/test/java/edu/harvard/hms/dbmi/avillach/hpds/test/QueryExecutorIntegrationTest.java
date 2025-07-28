@@ -16,8 +16,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(SpringExtension.class)
 @EnableAutoConfiguration
@@ -476,6 +475,46 @@ public class QueryExecutorIntegrationTest {
 
         Set<Integer> idList = queryExecutor.getPatientSubsetForQuery(query);
         assertEquals(0, idList.size());
+    }
+
+    @Test
+    public void getAllConceptPaths_validQuery_returnPaths() {
+        AuthorizationFilter authorizationFilter =
+            new AuthorizationFilter("\\open_access-1000Genomes\\data\\AUTH_CONCEPT\\", List.of("ABC"));
+
+        PhenotypicFilter anyRecordOfFilter =
+            new PhenotypicFilter(PhenotypicFilterType.ANY_RECORD_OF, "\\open_access-1000Genomes\\data\\POPULATION", null, null, null, null);
+        PhenotypicFilter filterFilter =
+            new PhenotypicFilter(PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\AGE\\", null, null, null, null);
+        PhenotypicFilter requiredFilter =
+            new PhenotypicFilter(PhenotypicFilterType.REQUIRED, "\\open_access-1000Genomes\\data\\HEIGHT\\", null, null, null, null);
+        PhenotypicSubquery phenotypicClause =
+            new PhenotypicSubquery(null, List.of(anyRecordOfFilter, filterFilter, requiredFilter), Operator.AND);
+        Query query = new Query(
+            List.of("\\open_access-1000Genomes\\data\\SEX\\"), List.of(authorizationFilter), phenotypicClause, null, ResultType.COUNT, null,
+            null
+        );
+
+        SequencedSet<String> allConceptPaths = queryExecutor.getAllConceptPaths(query);
+        assertTrue(
+            allConceptPaths.containsAll(
+                Set.of(
+                    "\\open_access-1000Genomes\\data\\SEX\\", "\\open_access-1000Genomes\\data\\AGE\\",
+                    "\\open_access-1000Genomes\\data\\HEIGHT\\", "\\open_access-1000Genomes\\data\\POPULATION CODE\\",
+                    "\\open_access-1000Genomes\\data\\POPULATION NAME\\", "\\open_access-1000Genomes\\data\\POPULATION ELASTIC ID\\"
+                )
+            )
+        );
+        assertFalse(allConceptPaths.contains("\\open_access-1000Genomes\\data\\AUTH_CONCEPT\\"));
+        assertEquals(6, allConceptPaths.size());
+    }
+
+    @Test
+    public void getAllConceptPaths_emptyQuery_returnEmpty() {
+        Query query = new Query(List.of(), List.of(), null, null, ResultType.COUNT, null, null);
+
+        SequencedSet<String> allConceptPaths = queryExecutor.getAllConceptPaths(query);
+        assertEquals(0, allConceptPaths.size());
     }
 
 }
