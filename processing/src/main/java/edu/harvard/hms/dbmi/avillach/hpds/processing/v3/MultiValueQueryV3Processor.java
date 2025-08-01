@@ -26,13 +26,18 @@ public class MultiValueQueryV3Processor implements HpdsV3Processor {
     private final int idBatchSize;
     private final QueryExecutor queryExecutor;
 
-    private Logger log = LoggerFactory.getLogger(MultiValueQueryV3Processor.class);
+    private final PhenotypicObservationStore phenotypicObservationStore;
+
+    private static final Logger log = LoggerFactory.getLogger(MultiValueQueryV3Processor.class);
 
 
     @Autowired
-    public MultiValueQueryV3Processor(QueryExecutor queryExecutor, @Value("${ID_BATCH_SIZE:0}") int idBatchSize) {
+    public MultiValueQueryV3Processor(
+        QueryExecutor queryExecutor, PhenotypicObservationStore phenotypicObservationStore, @Value("${ID_BATCH_SIZE:0}") int idBatchSize
+    ) {
         this.queryExecutor = queryExecutor;
         this.idBatchSize = idBatchSize;
+        this.phenotypicObservationStore = phenotypicObservationStore;
     }
 
     @Override
@@ -86,26 +91,28 @@ public class MultiValueQueryV3Processor implements HpdsV3Processor {
     private Map<Integer, List<String>> processColumn(TreeSet<Integer> patientIds, String path) {
 
         Map<Integer, List<String>> patientIdToValueMap = new HashMap<>();
-        PhenoCube<?> cube = queryExecutor.getCube(path);
+        Optional<PhenoCube<?>> cubeOptional = phenotypicObservationStore.getCube(path);
 
-        KeyAndValue<?>[] cubeValues = cube.sortedByKey();
+        return cubeOptional.map(cube -> {
+            KeyAndValue<?>[] cubeValues = cube.sortedByKey();
 
-        int idPointer = 0;
-        for (int patientId : patientIds) {
-            while (idPointer < cubeValues.length) {
-                int key = cubeValues[idPointer].getKey();
-                if (key < patientId) {
-                    idPointer++;
-                } else if (key == patientId) {
-                    String value = getResultField(cube, cubeValues, idPointer);
-                    patientIdToValueMap.computeIfAbsent(patientId, k -> new ArrayList<>()).add(value);
-                    idPointer++;
-                } else {
-                    break;
+            int idPointer = 0;
+            for (int patientId : patientIds) {
+                while (idPointer < cubeValues.length) {
+                    int key = cubeValues[idPointer].getKey();
+                    if (key < patientId) {
+                        idPointer++;
+                    } else if (key == patientId) {
+                        String value = getResultField(cube, cubeValues, idPointer);
+                        patientIdToValueMap.computeIfAbsent(patientId, k -> new ArrayList<>()).add(value);
+                        idPointer++;
+                    } else {
+                        break;
+                    }
                 }
             }
-        }
-        return patientIdToValueMap;
+            return patientIdToValueMap;
+        }).orElseGet(Map::of);
     }
 
     private String getResultField(PhenoCube<?> cube, KeyAndValue<?>[] cubeValues, int idPointer) {

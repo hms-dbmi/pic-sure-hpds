@@ -33,12 +33,17 @@ public class TimeseriesV3Processor implements HpdsV3Processor {
     private final QueryExecutor queryExecutor;
     private final TimeSeriesConversionService conversionService;
 
+    private final PhenotypicObservationStore phenotypicObservationStore;
+
     private final int ID_BATCH_SIZE;
 
     @Autowired
-    public TimeseriesV3Processor(QueryExecutor queryExecutor, TimeSeriesConversionService conversionService) {
+    public TimeseriesV3Processor(
+        QueryExecutor queryExecutor, TimeSeriesConversionService conversionService, PhenotypicObservationStore phenotypicObservationStore
+    ) {
         this.queryExecutor = queryExecutor;
         this.conversionService = conversionService;
+        this.phenotypicObservationStore = phenotypicObservationStore;
         // todo: handle these via spring annotations
         ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
     }
@@ -92,7 +97,7 @@ public class TimeseriesV3Processor implements HpdsV3Processor {
                 continue;
             }
             ArrayList<String[]> dataEntries = new ArrayList<String[]>();
-            Optional<PhenoCube<?>> maybeCube = queryExecutor.nullableGetCube(conceptPath);
+            Optional<PhenoCube<?>> maybeCube = phenotypicObservationStore.getCube(conceptPath);
             if (maybeCube.isEmpty()) {
                 log.warn("Attempting export of non-existant concept: {}", conceptPath);
                 continue;

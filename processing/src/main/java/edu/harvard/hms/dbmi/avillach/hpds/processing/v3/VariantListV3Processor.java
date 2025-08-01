@@ -36,18 +36,21 @@ public class VariantListV3Processor implements HpdsV3Processor {
     private final Boolean VARIANT_LIST_ENABLED;
     private final String ID_CUBE_NAME;
 
-    private final QueryExecutor abstractProcessor;
+    private final QueryExecutor queryExecutor;
     private final ColumnSorter columnSorter;
+
+    private final PhenotypicObservationStore phenotypicObservationStore;
 
 
     @Autowired
     public VariantListV3Processor(
-        QueryExecutor abstractProcessor, GenomicProcessor genomicProcessor, ColumnSorter columnSorter,
-        @Value("${VCF_EXCERPT_ENABLED:false}") boolean vcfExcerptEnabled
+        QueryExecutor queryExecutor, GenomicProcessor genomicProcessor, ColumnSorter columnSorter,
+        PhenotypicObservationStore phenotypicObservationStore, @Value("${VCF_EXCERPT_ENABLED:false}") boolean vcfExcerptEnabled
     ) {
-        this.abstractProcessor = abstractProcessor;
+        this.queryExecutor = queryExecutor;
         this.genomicProcessor = genomicProcessor;
         this.columnSorter = columnSorter;
+        this.phenotypicObservationStore = phenotypicObservationStore;
 
         VCF_EXCERPT_ENABLED = vcfExcerptEnabled;
         // always enable aggregate queries if full queries are permitted.
@@ -56,23 +59,6 @@ public class VariantListV3Processor implements HpdsV3Processor {
         VARIANT_LIST_ENABLED = VCF_EXCERPT_ENABLED || AGGREGATE_VCF_EXCERPT_ENABLED;
         ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
 
-    }
-
-    public VariantListV3Processor(boolean isOnlyForTests, QueryExecutor abstractProcessor) {
-        this.abstractProcessor = abstractProcessor;
-        this.genomicProcessor = null;
-        this.columnSorter = new ColumnSorter("");
-
-        VCF_EXCERPT_ENABLED = "TRUE".equalsIgnoreCase(System.getProperty("VCF_EXCERPT_ENABLED", "FALSE"));
-        // always enable aggregate queries if full queries are permitted.
-        AGGREGATE_VCF_EXCERPT_ENABLED =
-            VCF_EXCERPT_ENABLED || "TRUE".equalsIgnoreCase(System.getProperty("AGGREGATE_VCF_EXCERPT_ENABLED", "FALSE"));
-        VARIANT_LIST_ENABLED = VCF_EXCERPT_ENABLED || AGGREGATE_VCF_EXCERPT_ENABLED;
-        ID_CUBE_NAME = System.getProperty("ID_CUBE_NAME", "NONE");
-
-        if (!isOnlyForTests) {
-            throw new IllegalArgumentException("This constructor should never be used outside tests");
-        }
     }
 
     @Override
@@ -97,7 +83,7 @@ public class VariantListV3Processor implements HpdsV3Processor {
             return "VARIANT_LIST query type not allowed";
         }
 
-        return Arrays.toString(abstractProcessor.getVariantList(query).toArray());
+        return Arrays.toString(queryExecutor.getVariantList(query).toArray());
     }
 
     /**
@@ -109,7 +95,7 @@ public class VariantListV3Processor implements HpdsV3Processor {
      */
     public int runVariantCount(Query query) {
         if (!query.genomicFilters().isEmpty()) {
-            return abstractProcessor.getVariantList(query).size();
+            return queryExecutor.getVariantList(query).size();
         }
         return 0;
     }
@@ -143,7 +129,7 @@ public class VariantListV3Processor implements HpdsV3Processor {
 
         log.info("Running VCF Extract query");
 
-        Collection<String> variantList = abstractProcessor.getVariantList(query);
+        Collection<String> variantList = queryExecutor.getVariantList(query);
 
         log.debug("variantList Size " + variantList.size());
 
@@ -164,9 +150,9 @@ public class VariantListV3Processor implements HpdsV3Processor {
             log.debug("Found " + metadata.size() + " varaints");
         }
 
-        PhenoCube<String> idCube = null;
+        Optional<PhenoCube<?>> idCube = null;
         if (!ID_CUBE_NAME.contentEquals("NONE")) {
-            idCube = (PhenoCube<String>) abstractProcessor.getCube(ID_CUBE_NAME);
+            idCube = phenotypicObservationStore.getCube(ID_CUBE_NAME);
         }
 
         //
@@ -177,7 +163,7 @@ public class VariantListV3Processor implements HpdsV3Processor {
         // 5 columns for gene info
         builder.append("CHROM\tPOSITION\tREF\tALT");
 
-        List<String> infoStoreColumns = columnSorter.sortInfoColumns(abstractProcessor.getInfoStoreColumns());
+        List<String> infoStoreColumns = columnSorter.sortInfoColumns(queryExecutor.getInfoStoreColumns());
         // now add the variant metadata column headers
         for (String key : infoStoreColumns) {
             builder.append("\t" + key);
@@ -188,28 +174,26 @@ public class VariantListV3Processor implements HpdsV3Processor {
 
         // then one column per patient. We also need to identify the patient ID and
         // map it to the right index in the bit mask fields.
-        Set<Integer> patientSubset = abstractProcessor.getPatientSubsetForQuery(query);
+        Set<Integer> patientSubset = queryExecutor.getPatientSubsetForQuery(query);
         log.debug("identified " + patientSubset.size() + " patients from query");
         Map<String, Integer> patientIndexMap = new LinkedHashMap<String, Integer>(); // keep a map for quick index lookups
-        VariantMask patientMasks = abstractProcessor.createMaskForPatientSet(patientSubset);
+        VariantMask patientMasks = queryExecutor.createMaskForPatientSet(patientSubset);
         int index = 0;
 
 
-        for (String patientId : abstractProcessor.getPatientIds()) {
+        for (String patientId : queryExecutor.getPatientIds()) {
             Integer idInt = Integer.parseInt(patientId);
             if (patientSubset.contains(idInt)) {
                 patientIndexMap.put(patientId, index);
                 if (includePatientData) {
-                    if (idCube == null) {
-                        builder.append("\t" + patientId);
-                    } else {
-                        String value = idCube.getValueForKey(idInt);
+                    idCube.ifPresentOrElse(phenoCube -> {
+                        String value = (String) phenoCube.getValueForKey(idInt);
                         if (value == null) {
                             builder.append("\t" + patientId);
                         } else {
-                            builder.append("\t" + idCube.getValueForKey(idInt));
+                            builder.append("\t" + phenoCube.getValueForKey(idInt));
                         }
-                    }
+                    }, () -> builder.append("\t" + patientId));
                 }
             }
             index++;
@@ -267,7 +251,7 @@ public class VariantListV3Processor implements HpdsV3Processor {
                 }
             }
 
-            VariableVariantMasks masks = abstractProcessor.getMasks(variantSpec, variantMaskBucketHolder).get();
+            VariableVariantMasks masks = queryExecutor.getMasks(variantSpec, variantMaskBucketHolder).get();
 
             // make strings of 000100 so we can just check 'char at'
             // so heterozygous no calls we want, homozygous no calls we don't

@@ -407,11 +407,6 @@ public class PicSureV3Service {
             case CONTINUOUS_CROSS_COUNT:
                 return queryOkResponse(countProcessor.runContinuousCrossCounts(incomingQuery), incomingQuery, MediaType.APPLICATION_JSON);
 
-            case OBSERVATION_COUNT:
-                return queryOkResponse(
-                    String.valueOf(countProcessor.runObservationCount(incomingQuery)), incomingQuery, MediaType.TEXT_PLAIN
-                );
-
             case OBSERVATION_CROSS_COUNT:
                 return queryOkResponse(countProcessor.runObservationCrossCounts(incomingQuery), incomingQuery, MediaType.APPLICATION_JSON);
 
