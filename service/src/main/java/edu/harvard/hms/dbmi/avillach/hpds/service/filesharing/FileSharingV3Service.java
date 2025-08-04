@@ -8,8 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-
 /**
  * Used for sharing data. Given a query, this service will write phenotypic and genomic data into a directory
  *

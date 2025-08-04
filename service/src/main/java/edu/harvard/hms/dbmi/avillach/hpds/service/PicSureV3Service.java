@@ -231,8 +231,7 @@ public class PicSureV3Service {
     }
 
     @PostMapping(value = "/query/{resourceQueryId}/result")
-    public ResponseEntity queryResult(@PathVariable("resourceQueryId") UUID queryId, @RequestBody QueryRequest resultRequest)
-        throws IOException {
+    public ResponseEntity queryResult(@PathVariable("resourceQueryId") UUID queryId, @RequestBody QueryRequest resultRequest) {
         AsyncResult result = queryService.getResultFor(queryId);
         if (result == null) {
             return ResponseEntity.status(404).build();

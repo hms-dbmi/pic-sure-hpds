@@ -48,7 +48,7 @@ public class QueryV3Processor implements HpdsV3Processor {
     public String[] getHeaderRow(Query query) {
         String[] header = new String[query.select().size() + 1];
         header[0] = "Patient ID";
-        System.arraycopy(query.select().toArray(), 0, header, 1, query.select().size());
+        System.arraycopy(query.select().toArray(new String[0]), 0, header, 1, query.select().size());
         return header;
     }
 
