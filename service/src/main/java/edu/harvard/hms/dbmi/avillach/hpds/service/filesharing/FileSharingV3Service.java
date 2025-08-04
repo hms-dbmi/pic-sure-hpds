@@ -40,13 +40,8 @@ public class FileSharingV3Service {
     }
 
     public boolean createGenomicData(Query query) {
-        try {
-            String vcf = variantListProcessor.runVcfExcerptQuery(query, true);
-            return fileWriter.writeResultToFile("genomic_data.tsv", vcf, query.picsureId());
-        } catch (IOException e) {
-            LOG.error("Error running genomic query", e);
-            return false;
-        }
+        String vcf = variantListProcessor.runVcfExcerptQuery(query, true);
+        return fileWriter.writeResultToFile("genomic_data.tsv", vcf, query.picsureId());
     }
 
     private boolean createAndWriteData(Query query, String fileName) {

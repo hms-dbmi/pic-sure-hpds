@@ -77,28 +77,28 @@ class PhenotypicQueryExecutorTest {
     }
 
     @Test
-    public void getPatientSet_nonExistentCategoricalFilter_returnNoPatients() throws ExecutionException {
+    public void getPatientSet_nonExistentCategoricalFilter_returnNoPatients() {
         String conceptPath = "\\open_access-1000Genomes\\data\\NOT_A_CONCEPT_PATH\\";
         Query query = new Query(
             List.of(), List.of(), new PhenotypicFilter(PhenotypicFilterType.FILTER, conceptPath, List.of("Finnish"), null, null, null),
             null, ResultType.COUNT, null, null
         );
 
-        when(phenotypicObservationStore.getKeysForValues(conceptPath, List.of("Finnish"))).thenThrow(ExecutionException.class);
+        when(phenotypicObservationStore.getKeysForValues(conceptPath, List.of("Finnish"))).thenReturn(Set.of());
 
         Set<Integer> patientSet = phenotypicQueryExecutor.getPatientSet(query);
         assertEquals(Set.of(), patientSet);
     }
 
     @Test
-    public void getPatientSet_nonExistentNumericFilter_returnNoPatients() throws ExecutionException {
+    public void getPatientSet_nonExistentNumericFilter_returnNoPatients() {
         String conceptPath = "\\open_access-1000Genomes\\data\\NOT_A_CONCEPT_PATH\\";
         Query query = new Query(
             List.of(), List.of(), new PhenotypicFilter(PhenotypicFilterType.FILTER, conceptPath, null, 42.0, null, null), null,
             ResultType.COUNT, null, null
         );
 
-        when(phenotypicObservationStore.getKeysForRange(conceptPath, 42.0, null)).thenThrow(ExecutionException.class);
+        when(phenotypicObservationStore.getKeysForRange(conceptPath, 42.0, null)).thenReturn(Set.of());
 
         Set<Integer> patientSet = phenotypicQueryExecutor.getPatientSet(query);
         assertEquals(Set.of(), patientSet);
@@ -167,8 +167,8 @@ class PhenotypicQueryExecutorTest {
             ResultType.COUNT, null, null
         );
 
-        when(phenotypeMetaStore.getColumnNames()).thenReturn(Set.of(categoricalConceptPath, numericConceptPath, nonMatchingConceptPath));
-
+        when(phenotypeMetaStore.getChildConceptPaths("\\open_access-1000Genomes\\"))
+            .thenReturn(Set.of(categoricalConceptPath, numericConceptPath));
         List<Integer> numericPatientIds = List.of(2, 3, 5);
         List<Integer> categoricalPatientIds = List.of(10, 100, 1000, 100000);
 
@@ -193,7 +193,7 @@ class PhenotypicQueryExecutorTest {
             ResultType.COUNT, null, null
         );
 
-        when(phenotypeMetaStore.getColumnNames()).thenReturn(Set.of(nonMatchingConceptPath));
+        when(phenotypeMetaStore.getChildConceptPaths("\\open_access-1000Genomes\\")).thenReturn(Set.of());
 
         Set<Integer> patientSet = phenotypicQueryExecutor.getPatientSet(query);
         assertEquals(Set.of(), patientSet);
