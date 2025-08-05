@@ -54,6 +54,7 @@ public class MultiValueQueryV3Processor implements HpdsV3Processor {
         log.info("Processing " + idList.size() + " rows for result " + result.getId());
         Lists.partition(new ArrayList<>(idList), idBatchSize).forEach(patientIds -> {
             Map<String, Map<Integer, List<String>>> pathToPatientToValueMap = buildResult(query, new TreeSet<>(patientIds));
+            // A list of values per concept path, per patient
             List<List<List<String>>> fieldValuesPerPatient =
                 patientIds.stream().map(patientId -> Arrays.stream(getHeaderRow(query)).map(field -> {
                     if (PATIENT_ID_FIELD_NAME.equals(field)) {

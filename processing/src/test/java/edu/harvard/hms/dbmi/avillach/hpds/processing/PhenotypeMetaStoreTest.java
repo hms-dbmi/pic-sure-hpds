@@ -27,7 +27,7 @@ class PhenotypeMetaStoreTest {
         metaStore.put("\\study2\\demographics\\sex\\", new ColumnMeta().setName("sex"));
 
         patientIds = new TreeSet<>();
-        phenotypeMetaStore = new PhenotypeMetaStore(metaStore, patientIds);
+        phenotypeMetaStore = new PhenotypeMetaStore(metaStore, patientIds, 500);
     }
 
     @Test
@@ -51,7 +51,7 @@ class PhenotypeMetaStoreTest {
                 "\\study2\\demographics\\sex\\"
             )
         );
-        phenotypeMetaStore = new PhenotypeMetaStore(metaStore, patientIds);
+        phenotypeMetaStore = new PhenotypeMetaStore(metaStore, patientIds, 500);
 
         for (int k = 0; k < 5; k++) {
             Set<String> childConceptPaths = phenotypeMetaStore.getChildConceptPaths("\\study1\\demographics\\");
