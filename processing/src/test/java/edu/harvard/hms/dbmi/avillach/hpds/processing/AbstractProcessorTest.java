@@ -6,7 +6,10 @@ import com.google.common.cache.LoadingCache;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.FileBackedByteIndexedInfoStore;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariantMaskBitmaskImpl;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
+import edu.harvard.hms.dbmi.avillach.hpds.data.query.InclusionRule;
+import edu.harvard.hms.dbmi.avillach.hpds.data.query.PatientIDQuery;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,27 +44,20 @@ public class AbstractProcessorTest {
     @BeforeEach
     public void setup() {
         abstractProcessor = new AbstractProcessor(
-                new PhenotypeMetaStore(
-                        new TreeMap<>(),
-                        new TreeSet<>()
-                ),
-                mockLoadingCache,
-                infoStores,
-                null,
-                genomicProcessor,
-                ""
+            new PhenotypeMetaStore(new TreeMap<>(), new TreeSet<>()), mockLoadingCache, infoStores, null, genomicProcessor, ""
         );
     }
 
     @Test
     public void getPatientSubsetForQuery_oneVariantCategoryFilter_indexFound() {
-        Map<String, String[]> categoryVariantInfoFilters =
-                Map.of(GENE_WITH_VARIANT_KEY, new String[] {EXAMPLE_GENES_WITH_VARIANT.get(0)});
+        Map<String, String[]> categoryVariantInfoFilters = Map.of(GENE_WITH_VARIANT_KEY, new String[] {EXAMPLE_GENES_WITH_VARIANT.get(0)});
         Query.VariantInfoFilter variantInfoFilter = new Query.VariantInfoFilter();
         variantInfoFilter.categoryVariantInfoFilters = categoryVariantInfoFilters;
 
-        when(genomicProcessor.getPatientMask(isA(DistributableQuery.class))).thenReturn(Mono.just(new VariantMaskBitmaskImpl(new BigInteger("1100110011"))));
-        when(genomicProcessor.patientMaskToPatientIdSet(eq(new VariantMaskBitmaskImpl(new BigInteger("1100110011"))))).thenReturn(Set.of(42, 99));
+        when(genomicProcessor.getPatientMask(isA(DistributableQuery.class)))
+            .thenReturn(Mono.just(new VariantMaskBitmaskImpl(new BigInteger("1100110011"))));
+        when(genomicProcessor.patientMaskToPatientIdSet(eq(new VariantMaskBitmaskImpl(new BigInteger("1100110011")))))
+            .thenReturn(Set.of(42, 99));
 
         List<Query.VariantInfoFilter> variantInfoFilters = List.of(variantInfoFilter);
 
@@ -97,5 +93,53 @@ public class AbstractProcessorTest {
 
         Set<Integer> patientSubsetForQuery = abstractProcessor.getPatientSubsetForQuery(query);
         assertTrue(patientSubsetForQuery.isEmpty());
+    }
+
+    @Test
+    public void getPatientSubsetForQuery_includePatients() throws ExecutionException {
+        PhenoCube mockPhenoCube = mock(PhenoCube.class);
+        when(mockPhenoCube.keyBasedIndex()).thenReturn(List.of(42, 101));
+        when(mockLoadingCache.get("good concept")).thenReturn(mockPhenoCube);
+
+        Query query = new Query();
+        query.setAnyRecordOf(List.of("good concept"));
+        query.setPatientIDQuery(new PatientIDQuery(InclusionRule.Include, Set.of(1, 2, 3)));
+
+        Set<Integer> actual = abstractProcessor.getPatientSubsetForQuery(query);
+
+        Set<Integer> expected = Set.of(42, 101, 1, 2, 3);
+        Assertions.assertEquals(expected, actual);
+    }
+
+    @Test
+    public void getPatientSubsetForQuery_excludePatients() throws ExecutionException {
+        PhenoCube mockPhenoCube = mock(PhenoCube.class);
+        when(mockPhenoCube.keyBasedIndex()).thenReturn(List.of(42, 101));
+        when(mockLoadingCache.get("good concept")).thenReturn(mockPhenoCube);
+
+        Query query = new Query();
+        query.setAnyRecordOf(List.of("good concept"));
+        query.setPatientIDQuery(new PatientIDQuery(InclusionRule.Exclude, Set.of(1, 2, 42)));
+
+        Set<Integer> actual = abstractProcessor.getPatientSubsetForQuery(query);
+
+        Set<Integer> expected = Set.of(101);
+        Assertions.assertEquals(expected, actual);
+    }
+
+    @Test
+    public void getPatientSubsetForQuery_onlyPatients() throws ExecutionException {
+        PhenoCube mockPhenoCube = mock(PhenoCube.class);
+        when(mockPhenoCube.keyBasedIndex()).thenReturn(List.of(42, 101));
+        when(mockLoadingCache.get("good concept")).thenReturn(mockPhenoCube);
+
+        Query query = new Query();
+        query.setAnyRecordOf(List.of("good concept"));
+        query.setPatientIDQuery(new PatientIDQuery(InclusionRule.Only, Set.of(1, 2, 3)));
+
+        Set<Integer> actual = abstractProcessor.getPatientSubsetForQuery(query);
+
+        Set<Integer> expected = Set.of(1, 2, 3);
+        Assertions.assertEquals(expected, actual);
     }
 }
