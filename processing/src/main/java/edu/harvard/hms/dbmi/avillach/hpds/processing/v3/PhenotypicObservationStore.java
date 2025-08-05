@@ -17,10 +17,13 @@ import java.io.*;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 
+/**
+ * Class representing a store for phenotypic observations. The store manages caching of PhenoCube objects.
+ */
 @Component
 public class PhenotypicObservationStore {
 
-    private static Logger log = LoggerFactory.getLogger(PhenotypicObservationStore.class);
+    private static final Logger log = LoggerFactory.getLogger(PhenotypicObservationStore.class);
     private final int CACHE_SIZE;
 
     private final LoadingCache<String, PhenoCube<?>> phenoCubeCache;
@@ -53,6 +56,12 @@ public class PhenotypicObservationStore {
         this.hpdsDataDirectory = "";
     }
 
+    /**
+     * For a given key (concept path), loads a PhenoCube from allObservationsStore.javabin in the configured hpdsDataDirectory. Throws an
+     * exception if not found
+     * @param key concept path to load a PhenoCube for
+     * @return the PhenoCube for this key
+     */
     public PhenoCube<?> loadPhenoCube(String key) {
         try (RandomAccessFile allObservationsStore = new RandomAccessFile(hpdsDataDirectory + "allObservationsStore.javabin", "r");) {
             ColumnMeta columnMeta = phenotypeMetaStore.getColumnMeta(key);
@@ -74,10 +83,16 @@ public class PhenotypicObservationStore {
         }
     }
 
+    /**
+     * Gets all keys (patient ids) with at least one value inside the specified range for a given concept path.
+     */
     public Set<Integer> getKeysForRange(String conceptPath, Double min, Double max) {
         return getCube(conceptPath).map(cube -> ((PhenoCube<Double>) cube).getKeysForRange(min, max)).orElseGet(Set::of);
     }
 
+    /**
+     * Gets all keys (patient ids) with at least one matching value for a given concept path.
+     */
     public Set<Integer> getKeysForValues(String conceptPath, Collection<String> values) {
         return getCube(conceptPath).map(cube -> {
             return values.stream().map(value -> ((PhenoCube<String>) cube).getKeysForValue(value)).reduce((set1, set2) -> {
@@ -88,6 +103,10 @@ public class PhenotypicObservationStore {
         }).orElseGet(Set::of);
     }
 
+
+    /**
+     * Gets all keys (patient ids) for a given concept path. This returns any patient with at least one value for this concept path
+     */
     public List<Integer> getAllKeys(String conceptPath) {
         return getCube(conceptPath).map(PhenoCube::keyBasedIndex).orElseGet(List::of);
     }
@@ -98,12 +117,15 @@ public class PhenotypicObservationStore {
      */
     public Optional<PhenoCube<?>> getCube(String path) {
         try {
-            return Optional.ofNullable(phenoCubeCache.get(path));
+            return Optional.of(phenoCubeCache.get(path));
         } catch (CacheLoader.InvalidCacheLoadException | ExecutionException e) {
             return Optional.empty();
         }
     }
 
+    /**
+     * Gets currently cached keys. This can be useful for ordering a large number of lookups and avoiding cache churn
+     */
     public Set<String> getCachedKeys() {
         return phenoCubeCache.asMap().keySet();
     }
