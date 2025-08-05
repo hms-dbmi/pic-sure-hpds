@@ -37,7 +37,7 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
-@RequestMapping(value = "PIC-SURE/V3", produces = "application/json")
+@RequestMapping(value = "PIC-SURE/v3", produces = "application/json")
 @RestController
 public class PicSureV3Service {
 
