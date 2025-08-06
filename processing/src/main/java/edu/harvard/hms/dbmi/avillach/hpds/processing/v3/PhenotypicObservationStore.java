@@ -24,7 +24,7 @@ import java.util.concurrent.ExecutionException;
 public class PhenotypicObservationStore {
 
     private static final Logger log = LoggerFactory.getLogger(PhenotypicObservationStore.class);
-    private final int CACHE_SIZE;
+
 
     private final LoadingCache<String, PhenoCube<?>> phenoCubeCache;
 
@@ -34,12 +34,12 @@ public class PhenotypicObservationStore {
 
     @Autowired
     public PhenotypicObservationStore(
-        PhenotypeMetaStore phenotypeMetaStore, @Value("${HPDS_DATA_DIRECTORY:/opt/local/hpds/}") String hpdsDataDirectory
+        PhenotypeMetaStore phenotypeMetaStore, @Value("${HPDS_DATA_DIRECTORY:/opt/local/hpds/}") String hpdsDataDirectory,
+        @Value("${CACHE_SIZE:100}") int cacheSize
     ) {
         this.phenotypeMetaStore = phenotypeMetaStore;
         this.hpdsDataDirectory = hpdsDataDirectory;
-        CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
-        phenoCubeCache = CacheBuilder.newBuilder().maximumSize(CACHE_SIZE).build(new CacheLoader<>() {
+        phenoCubeCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build(new CacheLoader<>() {
             public PhenoCube<?> load(String key) {
                 return loadPhenoCube(key);
             }
@@ -52,7 +52,6 @@ public class PhenotypicObservationStore {
     ) {
         this.phenotypeMetaStore = phenotypeMetaStore;
         this.phenoCubeCache = phenoCubeCache;
-        this.CACHE_SIZE = cacheSize;
         this.hpdsDataDirectory = "";
     }
 
