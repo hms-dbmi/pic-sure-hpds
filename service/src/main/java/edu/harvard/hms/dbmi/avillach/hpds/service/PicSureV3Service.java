@@ -244,14 +244,6 @@ public class PicSureV3Service {
         }
     }
 
-    private Optional<String> roundTripUUID(String uuid) {
-        try {
-            return Optional.ofNullable(UUID.fromString(uuid).toString());
-        } catch (IllegalArgumentException ignored) {
-            return Optional.empty();
-        }
-    }
-
     @PostMapping("/write/{dataType}")
     public ResponseEntity<String> writeQueryResult(@RequestBody() Query query, @PathVariable("dataType") String datatype) {
         if ("test_upload".equals(datatype)) {
