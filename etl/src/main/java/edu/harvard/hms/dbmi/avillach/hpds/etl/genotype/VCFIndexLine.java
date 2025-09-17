@@ -1,5 +1,7 @@
 package edu.harvard.hms.dbmi.avillach.hpds.etl.genotype;
 
+import java.util.Objects;
+
 public class VCFIndexLine implements Comparable<VCFIndexLine> {
     private String vcfPath;
     private String contig;
@@ -69,5 +71,18 @@ public class VCFIndexLine implements Comparable<VCFIndexLine> {
             return vcfPath.compareTo(o.vcfPath);
         }
         return chomosomeComparison;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        VCFIndexLine that = (VCFIndexLine) o;
+        return Objects.equals(vcfPath, that.vcfPath) && Objects.equals(contig, that.contig);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(vcfPath, contig);
     }
 }

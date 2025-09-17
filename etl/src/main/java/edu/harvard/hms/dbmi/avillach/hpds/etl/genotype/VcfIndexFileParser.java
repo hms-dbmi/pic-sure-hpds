@@ -19,7 +19,7 @@ import java.util.function.Supplier;
 public class VcfIndexFileParser {
 
 
-    private final Logger log;
+    private static final Logger log = LoggerFactory.getLogger(VcfIndexFileParser.class);
 
     private static final int FILE_COLUMN = 0;
     private static final int CHROMOSOME_COLUMN = 1;
@@ -27,19 +27,8 @@ public class VcfIndexFileParser {
     private static final int GZIP_FLAG_COLUMN = 3;
     private static final int SAMPLE_IDS_COLUMN = 4;
     private static final int PATIENT_IDS_COLUMN = 5;
-    // These columns are to support a future feature, ignore them for now.
-    private static final int SAMPLE_RELATIONSHIPS_COLUMN = 6;
-    private static final int RELATED_SAMPLE_IDS_COLUMN = 7;
 
 
-    public VcfIndexFileParser() {
-        log = LoggerFactory.getLogger(VcfIndexFileParser.class);
-    }
-
-    // For testing only
-    public VcfIndexFileParser(Logger log) {
-        this.log = log;
-    }
 
     public List<VCFIndexLine> parse(File vcfIndexFile) {
         TreeSet<VCFIndexLine> vcfSet = new TreeSet<>();

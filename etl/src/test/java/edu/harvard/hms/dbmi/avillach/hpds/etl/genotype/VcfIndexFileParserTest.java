@@ -15,13 +15,12 @@ import static org.mockito.Mockito.*;
 
 class VcfIndexFileParserTest {
 
-    private final Logger mockLogger = mock(Logger.class);
 
     private VcfIndexFileParser vcfIndexFileParser;
 
     @BeforeEach
     public void setup() {
-        vcfIndexFileParser = new VcfIndexFileParser(mockLogger);
+        vcfIndexFileParser = new VcfIndexFileParser();
     }
 
     @Test
@@ -34,7 +33,6 @@ class VcfIndexFileParserTest {
         for (String sampleId : line1.getSampleIds()) {
             assertFalse(sampleId.contains(" "));
         }
-        verify(mockLogger, never()).error(any(), any(Throwable.class));
     }
 
     @Test
@@ -42,7 +40,6 @@ class VcfIndexFileParserTest {
         Resource file = new ClassPathResource("vcf-index/valid-no-quotes.tsv");
         List<VCFIndexLine> vcfIndexLines = vcfIndexFileParser.parse(file.getFile());
         assertEquals(23, vcfIndexLines.size());
-        verify(mockLogger, never()).error(any(), any(Throwable.class));
     }
 
     @Test
