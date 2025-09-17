@@ -30,7 +30,8 @@ class VcfIndexFileParserTest {
         List<VCFIndexLine> vcfIndexLines = vcfIndexFileParser.parse(file.getFile());
         assertEquals(23, vcfIndexLines.size());
         VCFIndexLine line1 = vcfIndexLines.get(0);
-        for (String sampleId : line1.sampleIds) {
+        // verify we are trimming whitespace
+        for (String sampleId : line1.getSampleIds()) {
             assertFalse(sampleId.contains(" "));
         }
         verify(mockLogger, never()).error(any(), any(Throwable.class));

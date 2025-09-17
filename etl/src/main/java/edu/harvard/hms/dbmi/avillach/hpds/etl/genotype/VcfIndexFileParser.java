@@ -60,21 +60,28 @@ public class VcfIndexFileParser {
             }
             VCFIndexLine line = new VCFIndexLine();
 
-            line.vcfPath = runWithLogging(() -> r.get(FILE_COLUMN).trim(), r, FILE_COLUMN);
-            line.contig = runWithLogging(
-                () -> r.get(CHROMOSOME_COLUMN).trim().contentEquals("ALL") ? null : r.get(CHROMOSOME_COLUMN).trim(), r, CHROMOSOME_COLUMN
+            line.setVcfPath(runWithLogging(() -> r.get(FILE_COLUMN).trim(), r, FILE_COLUMN));
+            line.setContig(
+                runWithLogging(
+                    () -> r.get(CHROMOSOME_COLUMN).trim().contentEquals("ALL") ? null : r.get(CHROMOSOME_COLUMN).trim(), r,
+                    CHROMOSOME_COLUMN
+                )
             );
 
-            line.isAnnotated = runWithLogging(() -> Integer.parseInt(r.get(ANNOTATED_FLAG_COLUMN).trim()) == 1, r, ANNOTATED_FLAG_COLUMN);
-            line.isGzipped = runWithLogging(() -> Integer.parseInt(r.get(GZIP_FLAG_COLUMN).trim()) == 1, r, GZIP_FLAG_COLUMN);
-            line.sampleIds = runWithLogging(
-                () -> Arrays.stream(r.get(SAMPLE_IDS_COLUMN).split(",")).map(String::trim).toList().toArray(new String[0]), r,
-                SAMPLE_IDS_COLUMN
+            line.setAnnotated(runWithLogging(() -> Integer.parseInt(r.get(ANNOTATED_FLAG_COLUMN).trim()) == 1, r, ANNOTATED_FLAG_COLUMN));
+            line.setGzipped(runWithLogging(() -> Integer.parseInt(r.get(GZIP_FLAG_COLUMN).trim()) == 1, r, GZIP_FLAG_COLUMN));
+            line.setSampleIds(
+                runWithLogging(
+                    () -> Arrays.stream(r.get(SAMPLE_IDS_COLUMN).split(",")).map(String::trim).toList().toArray(new String[0]), r,
+                    SAMPLE_IDS_COLUMN
+                )
             );
-            line.patientIds = runWithLogging(
-                () -> Arrays.stream(r.get(PATIENT_IDS_COLUMN).split(",")).map(String::trim).map(Integer::parseInt).toList()
-                    .toArray(new Integer[0]),
-                r, PATIENT_IDS_COLUMN
+            line.setPatientIds(
+                runWithLogging(
+                    () -> Arrays.stream(r.get(PATIENT_IDS_COLUMN).split(",")).map(String::trim).map(Integer::parseInt).toList()
+                        .toArray(new Integer[0]),
+                    r, PATIENT_IDS_COLUMN
+                )
             );
             vcfSet.add(line);
             lineNumber++;

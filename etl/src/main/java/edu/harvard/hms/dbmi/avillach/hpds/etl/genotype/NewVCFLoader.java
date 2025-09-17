@@ -94,11 +94,11 @@ public class NewVCFLoader {
         // Pull the INFO columns out of the headers for each walker and add all patient ids
         walkers.stream().forEach(walker -> {
             try {
-                logger.info("Reading headers of VCF [" + walker.vcfIndexLine.vcfPath + "]");
+                logger.info("Reading headers of VCF [" + walker.vcfIndexLine.getVcfPath() + "]");
                 walker.readHeaders(infoStoreMap);
-                allPatientIds.addAll(Arrays.asList(walker.vcfIndexLine.patientIds));
+                allPatientIds.addAll(Arrays.asList(walker.vcfIndexLine.getPatientIds()));
             } catch (IOException e) {
-                logger.error("Error while reading headers of VCF [" + walker.vcfIndexLine.vcfPath + "]", e);
+                logger.error("Error while reading headers of VCF [" + walker.vcfIndexLine.getVcfPath() + "]", e);
                 System.exit(-1);
             }
         });
@@ -107,10 +107,11 @@ public class NewVCFLoader {
         String[] allSampleIds = new String[allPatientIds.size()];
 
         walkers.parallelStream().forEach(walker -> {
-            logger.info("Setting bitmask offsets for VCF [" + walker.vcfIndexLine.vcfPath + "]");
+            logger.info("Setting bitmask offsets for VCF [" + walker.vcfIndexLine.getVcfPath() + "]");
             walker.setBitmaskOffsets(patientIds);
-            for (int x = 0; x < walker.vcfIndexLine.sampleIds.length; x++) {
-                allSampleIds[Arrays.binarySearch(patientIds, walker.vcfIndexLine.patientIds[x])] = walker.vcfIndexLine.sampleIds[x];
+            for (int x = 0; x < walker.vcfIndexLine.getSampleIds().length; x++) {
+                allSampleIds[Arrays.binarySearch(patientIds, walker.vcfIndexLine.getPatientIds()[x])] =
+                    walker.vcfIndexLine.getSampleIds()[x];
             }
         });
 
@@ -421,8 +422,8 @@ public class NewVCFLoader {
 
         public VCFWalker(VCFIndexLine vcfIndexLine) {
             this.vcfIndexLine = vcfIndexLine;
-            this.vcfOffsets = new Integer[vcfIndexLine.patientIds.length];
-            this.bitmaskOffsets = new Integer[vcfIndexLine.patientIds.length];
+            this.vcfOffsets = new Integer[vcfIndexLine.getPatientIds().length];
+            this.bitmaskOffsets = new Integer[vcfIndexLine.getPatientIds().length];
             vcfIndexLookup = new HashMap<Integer, Integer>(vcfOffsets.length);
             indices = new ArrayList<>();
             for (int x = 0; x < vcfOffsets.length; x++) {
@@ -430,8 +431,8 @@ public class NewVCFLoader {
             }
             try {
                 InputStream in =
-                    this.vcfIndexLine.isGzipped ? new BlockCompressedInputStream(new FileInputStream(this.vcfIndexLine.vcfPath))
-                        : new FileInputStream(this.vcfIndexLine.vcfPath);
+                    this.vcfIndexLine.isGzipped() ? new BlockCompressedInputStream(new FileInputStream(this.vcfIndexLine.getVcfPath()))
+                        : new FileInputStream(this.vcfIndexLine.getVcfPath());
                 InputStreamReader reader = new InputStreamReader(in);
                 vcfReader = new BufferedReader(reader, 1024 * 1024 * 32);
             } catch (IOException e) {
@@ -515,7 +516,7 @@ public class NewVCFLoader {
             nextLine();
             // Parse VCF header extracting only INFO columns until we hit the header row for the TSV portion
             while (currentLine != null && currentLine.startsWith("##")) {
-                if (currentLine.startsWith("##INFO") && vcfIndexLine.isAnnotated) {
+                if (currentLine.startsWith("##INFO") && vcfIndexLine.isAnnotated()) {
                     String[] info = currentLine.replaceAll("##INFO=<", "").replaceAll(">", "").split(",");
                     info[3] = String.join(",", Arrays.copyOfRange(info, 3, info.length));
                     String columnKey = info[0].split("=")[1];
@@ -531,7 +532,7 @@ public class NewVCFLoader {
             // Make sure all expected columns are included and in the right order, stop the presses otherwise
             if (!currentLine.startsWith("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t")) {
                 logger.error(
-                    "Invalid VCF format [" + this.vcfIndexLine.vcfPath
+                    "Invalid VCF format [" + this.vcfIndexLine.getVcfPath()
                         + "], please ensure all expected columns are included per VCF 4.1 specification : #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t"
                 );
                 System.exit(-1);
@@ -540,11 +541,11 @@ public class NewVCFLoader {
             String[] vcfHeaderSamples = Arrays.copyOfRange(currentLineSplit, 9, currentLineSplit.length - 1);
 
             // Set vcf offsets by sampleIds
-            for (int x = 0; x < vcfIndexLine.sampleIds.length; x++) {
+            for (int x = 0; x < vcfIndexLine.getSampleIds().length; x++) {
                 // y is index into vcf samples
                 // x is index into patient IDs
                 int y;
-                for (y = 0; y < vcfHeaderSamples.length && !vcfHeaderSamples[y].contentEquals(vcfIndexLine.sampleIds[x]); y++);
+                for (y = 0; y < vcfHeaderSamples.length && !vcfHeaderSamples[y].contentEquals(vcfIndexLine.getSampleIds()[x]); y++);
                 vcfOffsets[x] = y * 4;
                 vcfIndexLookup.put(y, x);
             }
@@ -555,8 +556,8 @@ public class NewVCFLoader {
         }
 
         public void setBitmaskOffsets(Integer[] allPatientIdsSorted) {
-            for (int x = 0; x < vcfIndexLine.patientIds.length; x++) {
-                bitmaskOffsets[x] = Arrays.binarySearch(allPatientIdsSorted, vcfIndexLine.patientIds[x]);
+            for (int x = 0; x < vcfIndexLine.getPatientIds().length; x++) {
+                bitmaskOffsets[x] = Arrays.binarySearch(allPatientIdsSorted, vcfIndexLine.getPatientIds()[x]);
             }
 
         }
