@@ -88,7 +88,7 @@ public class SequentialLoader {
 
         // Remove the config.json file from the inputFiles list if it exists.
         // We are only expecting to load CSV and SQL files.
-        inputFiles.removeIf(file -> file.contains("config.json"));
+        inputFiles.removeIf(file -> file.contains(".json"));
 
         if (inputFiles.stream().allMatch(f -> f.endsWith(".csv"))) {
             LowRAMMultiCSVLoader.main(args);
