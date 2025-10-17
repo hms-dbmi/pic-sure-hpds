@@ -113,17 +113,41 @@ public class LoadingStore {
 	public TreeSet<Integer> allIds = new TreeSet<Integer>();
 	
 	public void saveStore(String hpdsDirectory) throws IOException {
+		long startTime = System.currentTimeMillis();
 		System.out.println("Invalidating store");
 		store.invalidateAll();
+		log.info("Store invalidated in {}ms", System.currentTimeMillis() - startTime);
+		
+		startTime = System.currentTimeMillis();
 		store.cleanUp();
+		log.info("Store cleaned up in {}ms", System.currentTimeMillis() - startTime);
+		
+		startTime = System.currentTimeMillis();
 		System.out.println("Writing metadata");
 		ObjectOutputStream metaOut = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(hpdsDirectory + "columnMeta.javabin")));
 		metaOut.writeObject(metadataMap);
 		metaOut.writeObject(allIds);
 		metaOut.flush();
 		metaOut.close();
+		log.info("Metadata written in {}ms", System.currentTimeMillis() - startTime);
+		
+		startTime = System.currentTimeMillis();
 		System.out.println("Closing Store");
+		log.info("allObservationsStore file pointer at: {}, length: {}", 
+			allObservationsStore.getFilePointer(), allObservationsStore.length());
+		
+		// Force sync to disk before closing
+		try {
+			allObservationsStore.getFD().sync();
+			log.info("File synced in {}ms", System.currentTimeMillis() - startTime);
+		} catch (IOException e) {
+			log.warn("Failed to sync allObservationsStore", e);
+		}
+		
+		startTime = System.currentTimeMillis();
 		allObservationsStore.close();
+		log.info("allObservationsStore closed in {}ms", System.currentTimeMillis() - startTime);
+		
 		dumpStatsAndColumnMeta(hpdsDirectory);
 	}
 
