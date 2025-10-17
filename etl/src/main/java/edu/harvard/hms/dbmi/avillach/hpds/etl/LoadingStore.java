@@ -148,7 +148,7 @@ public class LoadingStore {
 		allObservationsStore.close();
 		log.info("allObservationsStore closed in {}ms", System.currentTimeMillis() - startTime);
 		
-		dumpStatsAndColumnMeta(hpdsDirectory);
+		//dumpStatsAndColumnMeta(hpdsDirectory);
 	}
 
 	public void dumpStats() {
