@@ -4,9 +4,6 @@ RUN yum update -y && yum install -y git && yum clean all
 
 WORKDIR /app
 
-# Optional: if you really want to seed the cache from the build context
-# (careful: this can bloat the context; a BuildKit cache mount is usually better)
-COPY .m2 /root/.m2
 
 COPY . .
 
