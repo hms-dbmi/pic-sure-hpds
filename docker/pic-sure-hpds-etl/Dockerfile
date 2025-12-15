@@ -4,11 +4,22 @@ RUN yum update -y && yum install -y git && yum clean all
 
 WORKDIR /app
 
-# COPY .m2 /root/.m2
+# Optional: if you really want to seed the cache from the build context
+# (careful: this can bloat the context; a BuildKit cache mount is usually better)
+COPY .m2 /root/.m2
 
 COPY . .
 
-RUN mvn clean install -DskipTests
+# Sanity: ensure the root pom.xml is in the build context
+RUN test -f /app/pom.xml && echo "Found /app/pom.xml"
+
+# Build only ETL + its reactor deps; assembly runs in package phase
+RUN mvn -f /app/pom.xml -B -pl etl -am clean package -DskipTests
+
+# Sanity: ensure the jars exist where the next stage expects them
+RUN ls -la /app/docker/pic-sure-hpds-etl && \
+    find /app/docker/pic-sure-hpds-etl -maxdepth 1 -type f -name "*-jar-with-dependencies.jar" -print
+
 
 FROM amazoncorretto:24-alpine
 
@@ -16,6 +27,7 @@ RUN apk add --no-cache --purge -uU bash curl wget unzip gnupg openssl && \
     rm -rf /var/cache/apk/* /tmp/*
 
 WORKDIR /app
+
 COPY --from=build /app/docker/pic-sure-hpds-etl/SQLLoader-jar-with-dependencies.jar .
 COPY --from=build /app/docker/pic-sure-hpds-etl/CSVLoader-jar-with-dependencies.jar .
 COPY --from=build /app/docker/pic-sure-hpds-etl/CSVLoaderNewSearch-jar-with-dependencies.jar .
