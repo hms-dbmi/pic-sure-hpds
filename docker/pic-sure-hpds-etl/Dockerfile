@@ -7,14 +7,13 @@ WORKDIR /app
 # Seed container-local Maven repo from build context (staged by Jenkins script)
 COPY .m2 /root/.m2
 
-# Copy full repo (must be repo-root build context)
+# Repo root must be the build context
 COPY . .
 
-# Build ETL (and dependencies) using local Maven repo only
-# -o = offline (guarantees no GitHub Packages calls)
-RUN mvn -o -f /app/pom.xml -B -pl etl -am clean package -DskipTests
+# Build only ETL + its reactor deps; force offline so it never tries GitHub Packages
+RUN mvn -o -nsu -f /app/pom.xml -B -pl etl -am clean package -DskipTests
 
-# sanity: jars must exist
+# Sanity check expected jars
 RUN ls -la /app/docker/pic-sure-hpds-etl && \
     find /app/docker/pic-sure-hpds-etl -maxdepth 1 -type f -name "*-jar-with-dependencies.jar" -print
 
@@ -25,7 +24,6 @@ RUN apk add --no-cache --purge -uU bash curl wget unzip gnupg openssl && \
     rm -rf /var/cache/apk/* /tmp/*
 
 WORKDIR /app
-
 COPY --from=build /app/docker/pic-sure-hpds-etl/SQLLoader-jar-with-dependencies.jar .
 COPY --from=build /app/docker/pic-sure-hpds-etl/CSVLoader-jar-with-dependencies.jar .
 COPY --from=build /app/docker/pic-sure-hpds-etl/CSVLoaderNewSearch-jar-with-dependencies.jar .
