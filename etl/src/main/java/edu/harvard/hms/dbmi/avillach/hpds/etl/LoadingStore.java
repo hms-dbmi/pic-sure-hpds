@@ -41,33 +41,74 @@ public class LoadingStore {
 						complete(arg0.getValue());
 					}
 					try {
-						ColumnMeta columnMeta = new ColumnMeta().setName(arg0.getKey()).setWidthInBytes(arg0.getValue().getColumnWidth()).setCategorical(arg0.getValue().isStringType());
+						PhenoCube<?> cube = arg0.getValue();
+						ColumnMeta columnMeta = new ColumnMeta()
+								.setName(arg0.getKey())
+								.setWidthInBytes(cube.getColumnWidth())
+								.setCategorical(cube.isStringType());
 
-						columnMeta.setAllObservationsOffset(allObservationsStore.getFilePointer());
-						columnMeta.setObservationCount(arg0.getValue().sortedByKey().length);
-						columnMeta.setPatientCount(Arrays.stream(arg0.getValue().sortedByKey()).map((kv)->{return kv.getKey();}).collect(Collectors.toSet()).size());
+						long startOffset = allObservationsStore.getFilePointer();
+						columnMeta.setAllObservationsOffset(startOffset);
+
+						KeyAndValue<?>[] sortedByKey = cube.sortedByKey();
+						columnMeta.setObservationCount(sortedByKey.length);
+
+						// Optimized patient count: single pass over sorted-by-key array
+						// Relies on sortedByKey being sorted by patient ID
+						int patientCount = 0;
+						if (sortedByKey.length > 0) {
+							patientCount = 1;
+							int prevKey = sortedByKey[0].getKey();
+							for (int i = 1; i < sortedByKey.length; i++) {
+								int currentKey = sortedByKey[i].getKey();
+								if (currentKey != prevKey) {
+									patientCount++;
+									prevKey = currentKey;
+								}
+							}
+						}
+						columnMeta.setPatientCount(patientCount);
+
 						if(columnMeta.isCategorical()) {
-							columnMeta.setCategoryValues(new ArrayList<String>(new TreeSet<String>(arg0.getValue().keyBasedArray())));
+							// Optimized: reduced allocations for category values
+							List<?> keyBasedArray = cube.keyBasedArray();
+							TreeSet<String> uniqueCategories = new TreeSet<>();
+							for (Object val : keyBasedArray) {
+								uniqueCategories.add((String) val);
+							}
+							columnMeta.setCategoryValues(new ArrayList<>(uniqueCategories));
 						} else {
-							List<Double> map = (List<Double>) arg0.getValue().keyBasedArray().stream().map((value)->{return (Double) value;}).collect(Collectors.toList());
+							// Optimized: single-pass min/max without intermediate list
+							Object[] values = cube.keyBasedArray().toArray();
 							double min = Double.MAX_VALUE;
 							double max = Double.MIN_VALUE;
-							for(double f : map) {
-								min = Double.min(min, f);
-								max = Double.max(max, f);
+							for (Object val : values) {
+								double d = (Double) val;
+								if (d < min) min = d;
+								if (d > max) max = d;
 							}
 							columnMeta.setMin(min);
 							columnMeta.setMax(max);
 						}
-						ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
 
-						ObjectOutputStream out = new ObjectOutputStream(byteStream);
-						out.writeObject(arg0.getValue());
-						out.flush();
-						out.close();
+						// Optimized: pre-sized ByteArrayOutputStream + try-with-resources
+						// Estimate: typical cube serialization is 1KB-10KB, cap at 64KB initial size
+						int estimatedSize = Math.min(sortedByKey.length * 20, 65536);
+						byte[] encryptedData;
+						try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream(estimatedSize);
+						     ObjectOutputStream out = new ObjectOutputStream(byteStream)) {
+							out.writeObject(cube);
+							out.flush();
+							encryptedData = Crypto.encryptData(byteStream.toByteArray());
+						}
 
-						allObservationsStore.write(Crypto.encryptData(byteStream.toByteArray()));
-						columnMeta.setAllObservationsLength(allObservationsStore.getFilePointer());
+						allObservationsStore.write(encryptedData);
+						long endOffset = allObservationsStore.getFilePointer();
+
+						// NOTE: Despite the name, setAllObservationsLength stores the END OFFSET, not length.
+						// All readers compute length as: getAllObservationsLength() - getAllObservationsOffset()
+						// This is kept for backward compatibility with existing data files and readers.
+						columnMeta.setAllObservationsLength(endOffset);
 						metadataMap.put(columnMeta.getName(), columnMeta);
 					} catch (IOException e) {
 						throw new UncheckedIOException(e);
@@ -113,35 +154,59 @@ public class LoadingStore {
 	public TreeSet<Integer> allIds = new TreeSet<Integer>();
 	
 	public void saveStore(String hpdsDirectory) throws IOException {
-		System.out.println("Invalidating store");
+		log.info("Invalidating store");
 		store.invalidateAll();
 		store.cleanUp();
-		System.out.println("Writing metadata");
-		ObjectOutputStream metaOut = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(hpdsDirectory + "columnMeta.javabin")));
-		metaOut.writeObject(metadataMap);
-		metaOut.writeObject(allIds);
-		metaOut.flush();
-		metaOut.close();
-		System.out.println("Closing Store");
-		allObservationsStore.close();
+
+		try {
+			log.info("Writing metadata");
+			try (FileOutputStream fos = new FileOutputStream(hpdsDirectory + "columnMeta.javabin");
+			     GZIPOutputStream gzos = new GZIPOutputStream(fos);
+			     ObjectOutputStream metaOut = new ObjectOutputStream(gzos)) {
+				metaOut.writeObject(metadataMap);
+				metaOut.writeObject(allIds);
+				metaOut.flush();
+			}
+			log.info("Metadata written successfully");
+		} finally {
+			// Ensure allObservationsStore is always closed even if metadata write fails
+			log.info("Closing allObservationsStore");
+			if (allObservationsStore != null) {
+				allObservationsStore.close();
+			}
+		}
+
 		dumpStatsAndColumnMeta(hpdsDirectory);
 	}
 
+	/**
+	 * Dumps statistics using the default HPDS directory path.
+	 * Calls dumpStats(String) with "/opt/local/hpds/".
+	 */
 	public void dumpStats() {
-		System.out.println("Dumping Stats");
-		try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream("/opt/local/hpds/columnMeta.javabin")));){
+		dumpStats("/opt/local/hpds/");
+	}
+
+	/**
+	 * Dumps statistics from the specified HPDS directory.
+	 * @param hpdsDirectory Path to HPDS directory (must end with /)
+	 */
+	public void dumpStats(String hpdsDirectory) {
+		log.info("Dumping Stats from: {}", hpdsDirectory);
+		try (ObjectInputStream objectInputStream = new ObjectInputStream(
+				new GZIPInputStream(new FileInputStream(hpdsDirectory + "columnMeta.javabin")))) {
 			TreeMap<String, ColumnMeta> metastore = (TreeMap<String, ColumnMeta>) objectInputStream.readObject();
 			Set<Integer> allIds = (TreeSet<Integer>) objectInputStream.readObject();
 
 			long totalNumberOfObservations = 0;
-			
+
 			System.out.println("\n\nConceptPath\tObservationCount\tMinNumValue\tMaxNumValue\tCategoryValues");
 			for(String key : metastore.keySet()) {
 				ColumnMeta columnMeta = metastore.get(key);
-				System.out.println(String.join("\t", key.toString(), columnMeta.getObservationCount()+"", 
-						columnMeta.getMin()==null ? "NaN" : columnMeta.getMin().toString(), 
-								columnMeta.getMax()==null ? "NaN" : columnMeta.getMax().toString(), 
-										columnMeta.getCategoryValues() == null ? "NUMERIC CONCEPT" : String.join(",", 
+				System.out.println(String.join("\t", key.toString(), columnMeta.getObservationCount()+"",
+						columnMeta.getMin()==null ? "NaN" : columnMeta.getMin().toString(),
+								columnMeta.getMax()==null ? "NaN" : columnMeta.getMax().toString(),
+										columnMeta.getCategoryValues() == null ? "NUMERIC CONCEPT" : String.join(",",
 												columnMeta.getCategoryValues()
 												.stream().map((value)->{return value==null ? "NULL_VALUE" : "\""+value+"\"";}).collect(Collectors.toList()))));
 				totalNumberOfObservations += columnMeta.getObservationCount();
@@ -150,9 +215,9 @@ public class LoadingStore {
 			System.out.println("Total Number of Concepts : " + metastore.size());
 			System.out.println("Total Number of Patients : " + allIds.size());
 			System.out.println("Total Number of Observations : " + totalNumberOfObservations);
-			
+
 		} catch (IOException | ClassNotFoundException e) {
-			throw new RuntimeException("Could not load metastore");
+			throw new RuntimeException("Could not load metastore from " + hpdsDirectory, e);
 		}
 	}
 
