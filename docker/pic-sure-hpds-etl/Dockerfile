@@ -4,16 +4,17 @@ RUN yum update -y && yum install -y git && yum clean all
 
 WORKDIR /app
 
+# Seed container-local Maven repo from build context (staged by Jenkins script)
+COPY .m2 /root/.m2
 
+# Copy full repo (must be repo-root build context)
 COPY . .
 
-# Sanity: ensure the root pom.xml is in the build context
-RUN test -f /app/pom.xml && echo "Found /app/pom.xml"
+# Build ETL (and dependencies) using local Maven repo only
+# -o = offline (guarantees no GitHub Packages calls)
+RUN mvn -o -f /app/pom.xml -B -pl etl -am clean package -DskipTests
 
-# Build only ETL + its reactor deps; assembly runs in package phase
-RUN mvn -f /app/pom.xml -B -pl etl -am clean package -DskipTests
-
-# Sanity: ensure the jars exist where the next stage expects them
+# sanity: jars must exist
 RUN ls -la /app/docker/pic-sure-hpds-etl && \
     find /app/docker/pic-sure-hpds-etl -maxdepth 1 -type f -name "*-jar-with-dependencies.jar" -print
 
