@@ -107,8 +107,6 @@ public class CSVLoader {
                 Date date = null;
                 if (record.size() > 4 && record.get(DATETIME) != null && !record.get(DATETIME).isEmpty()) {
                     date = new Date(Long.parseLong(record.get(DATETIME)));
-                } else {
-                    System.out.println("no date");
                 }
                 currentConcept[0].add(patientId, isAlpha ? value : Double.parseDouble(value), date);
                 store.allIds.add(patientId);
