@@ -1,0 +1,108 @@
+23:34:18,950 |-INFO in ch.qos.logback.classic.LoggerContext[default] - This is logback-classic version 1.5.18
+23:34:18,951 |-INFO in ch.qos.logback.classic.util.ContextInitializer@20ce78ec - Here is a list of configurators discovered as a service, by rank: 
+23:34:18,951 |-INFO in ch.qos.logback.classic.util.ContextInitializer@20ce78ec -   org.springframework.boot.logging.logback.RootLogLevelConfigurator
+23:34:18,951 |-INFO in ch.qos.logback.classic.util.ContextInitializer@20ce78ec - They will be invoked in order until ExecutionStatus.DO_NOT_INVOKE_NEXT_IF_ANY is returned.
+23:34:18,951 |-INFO in ch.qos.logback.classic.util.ContextInitializer@20ce78ec - Constructed configurator of type class org.springframework.boot.logging.logback.RootLogLevelConfigurator
+23:34:18,953 |-INFO in ch.qos.logback.classic.util.ContextInitializer@20ce78ec - org.springframework.boot.logging.logback.RootLogLevelConfigurator.configure() call lasted 0 milliseconds. ExecutionStatus=INVOKE_NEXT_IF_ANY
+23:34:18,953 |-INFO in ch.qos.logback.classic.util.ContextInitializer@20ce78ec - Trying to configure with ch.qos.logback.classic.joran.SerializedModelConfigurator
+23:34:18,953 |-INFO in ch.qos.logback.classic.util.ContextInitializer@20ce78ec - Constructed configurator of type class ch.qos.logback.classic.joran.SerializedModelConfigurator
+23:34:18,954 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.scmo]
+23:34:18,954 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback.scmo]
+23:34:18,954 |-INFO in ch.qos.logback.classic.util.ContextInitializer@20ce78ec - ch.qos.logback.classic.joran.SerializedModelConfigurator.configure() call lasted 1 milliseconds. ExecutionStatus=INVOKE_NEXT_IF_ANY
+23:34:18,954 |-INFO in ch.qos.logback.classic.util.ContextInitializer@20ce78ec - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+23:34:18,955 |-INFO in ch.qos.logback.classic.util.ContextInitializer@20ce78ec - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+23:34:18,955 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+23:34:18,956 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:nested:/Users/thomas/IdeaProjects/local-parquet-poc-dhdr/_recover-dhdr-poc/pic-sure-hpds/ingest-service/target/ingest-service-3.0.0-SNAPSHOT.jar/!BOOT-INF/classes/!/logback.xml]
+23:34:18,956 |-WARN in ch.qos.logback.classic.util.DefaultJoranConfigurator@393671df - Resource [logback.xml] occurs multiple times on the classpath.
+23:34:18,956 |-WARN in ch.qos.logback.classic.util.DefaultJoranConfigurator@393671df - Resource [logback.xml] occurs at [jar:nested:/Users/thomas/IdeaProjects/local-parquet-poc-dhdr/_recover-dhdr-poc/pic-sure-hpds/ingest-service/target/ingest-service-3.0.0-SNAPSHOT.jar/!BOOT-INF/lib/etl-3.0.0-SNAPSHOT.jar!/logback.xml]
+23:34:18,956 |-WARN in ch.qos.logback.classic.util.DefaultJoranConfigurator@393671df - Resource [logback.xml] occurs at [jar:nested:/Users/thomas/IdeaProjects/local-parquet-poc-dhdr/_recover-dhdr-poc/pic-sure-hpds/ingest-service/target/ingest-service-3.0.0-SNAPSHOT.jar/!BOOT-INF/classes/!/logback.xml]
+23:34:18,960 |-INFO in ConfigurationWatchList(mainURL=jar:nested:/Users/thomas/IdeaProjects/local-parquet-poc-dhdr/_recover-dhdr-poc/pic-sure-hpds/ingest-service/target/ingest-service-3.0.0-SNAPSHOT.jar/!BOOT-INF/classes/!/logback.xml, fileWatchList={}, urlWatchList=[}) - URL [jar:nested:/Users/thomas/IdeaProjects/local-parquet-poc-dhdr/_recover-dhdr-poc/pic-sure-hpds/ingest-service/target/ingest-service-3.0.0-SNAPSHOT.jar/!BOOT-INF/classes/!/logback.xml] is not of type file
+23:34:19,010 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [CONSOLE]
+23:34:19,010 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+23:34:19,013 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+23:34:19,033 |-INFO in ch.qos.logback.core.ConsoleAppender[CONSOLE] - BEWARE: Writing to the console can be very slow. Avoid logging to the 
+23:34:19,033 |-INFO in ch.qos.logback.core.ConsoleAppender[CONSOLE] - console in production environments, especially in high volume systems.
+23:34:19,033 |-INFO in ch.qos.logback.core.ConsoleAppender[CONSOLE] - See also https://logback.qos.ch/codes.html#slowConsole
+23:34:19,033 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [FILE]
+23:34:19,033 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.FileAppender]
+23:34:19,036 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+23:34:19,036 |-INFO in ch.qos.logback.core.FileAppender[FILE] - File property is set to [/opt/local/hpds/ingest.log]
+23:34:19,036 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+23:34:19,036 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [CONSOLE] to Logger[ROOT]
+23:34:19,036 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [FILE] to Logger[ROOT]
+23:34:19,037 |-INFO in ch.qos.logback.classic.model.processor.LoggerModelHandler - Setting level of logger [edu.harvard.hms.dbmi.avillach.hpds] to DEBUG
+23:34:19,037 |-INFO in ch.qos.logback.classic.model.processor.LoggerModelHandler - Setting level of logger [org.apache.parquet] to WARN
+23:34:19,037 |-INFO in ch.qos.logback.classic.model.processor.LoggerModelHandler - Setting level of logger [org.apache.hadoop] to WARN
+23:34:19,037 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@192d43ce - End of configuration.
+23:34:19,037 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@72057ecf - Registering current configuration as safe fallback point
+23:34:19,037 |-INFO in ch.qos.logback.classic.util.ContextInitializer@20ce78ec - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 82 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
+2025-12-23 23:34:19 [main] INFO  e.h.h.d.a.h.i.IngestServiceApplication - Starting IngestServiceApplication v3.0.0-SNAPSHOT using Java 25.0.1 with PID 36374 (/Users/thomas/IdeaProjects/local-parquet-poc-dhdr/_recover-dhdr-poc/pic-sure-hpds/ingest-service/target/ingest-service-3.0.0-SNAPSHOT.jar started by thomas in /Users/thomas/IdeaProjects/local-parquet-poc-dhdr/_recover-dhdr-poc/pic-sure-hpds)
+2025-12-23 23:34:19 [main] INFO  e.h.h.d.a.h.i.IngestServiceApplication - The following 1 profile is active: "ingest"
+2025-12-23 23:34:19 [main] INFO  e.h.h.d.a.h.i.config.IngestConfig - === VALIDATING CONFIGURATION ===
+2025-12-23 23:34:19 [main] ERROR e.h.h.d.a.h.i.config.IngestConfig - Missing required configuration properties:
+  - ingest.parquet.base-dir is required
+  - ingest.parquet.config-path is required
+  - ingest.mapping.dbgap-file is required
+  - ingest.mapping.patient-file is required
+  - ingest.output.dir is required
+2025-12-23 23:34:19 [main] WARN  o.s.c.a.AnnotationConfigApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'ingestServiceApplication': Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'ingest-edu.harvard.hms.dbmi.avillach.hpds.ingest.config.IngestConfig': Invocation of init method failed
+2025-12-23 23:34:19 [main] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2025-12-23 23:34:19 [main] ERROR o.s.boot.SpringApplication - Application run failed
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'ingestServiceApplication': Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'ingest-edu.harvard.hms.dbmi.avillach.hpds.ingest.config.IngestConfig': Invocation of init method failed
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804)
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1395)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1232)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:569)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:529)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:339)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:373)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:337)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:202)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.instantiateSingleton(DefaultListableBeanFactory.java:1222)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingleton(DefaultListableBeanFactory.java:1188)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:1123)
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:987)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:627)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:752)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:439)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:318)
+	at edu.harvard.hms.dbmi.avillach.hpds.ingest.IngestServiceApplication.main(IngestServiceApplication.java:70)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:102)
+	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:64)
+	at org.springframework.boot.loader.launch.JarLauncher.main(JarLauncher.java:40)
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ingest-edu.harvard.hms.dbmi.avillach.hpds.ingest.config.IngestConfig': Invocation of init method failed
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor.postProcessBeforeInitialization(InitDestroyAnnotationBeanPostProcessor.java:222)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.applyBeanPostProcessorsBeforeInitialization(AbstractAutowireCapableBeanFactory.java:429)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1818)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:607)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:529)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:339)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:373)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:337)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:202)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1745)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1628)
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:913)
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791)
+	... 23 common frames omitted
+Caused by: java.lang.IllegalStateException: Missing required configuration properties:
+  - ingest.parquet.base-dir is required
+  - ingest.parquet.config-path is required
+  - ingest.mapping.dbgap-file is required
+  - ingest.mapping.patient-file is required
+  - ingest.output.dir is required
+	at edu.harvard.hms.dbmi.avillach.hpds.ingest.config.IngestConfig.validateAndLog(IngestConfig.java:68)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor$LifecycleMethod.invoke(InitDestroyAnnotationBeanPostProcessor.java:457)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor$LifecycleMetadata.invokeInitMethods(InitDestroyAnnotationBeanPostProcessor.java:401)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor.postProcessBeforeInitialization(InitDestroyAnnotationBeanPostProcessor.java:219)
+	... 36 common frames omitted
