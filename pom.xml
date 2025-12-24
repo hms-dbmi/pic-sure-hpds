@@ -24,6 +24,8 @@
 		<module>genomic-processor</module>
 		<module>docker</module>
 		<module>war</module>
+		<module>hpds-writer-adapter</module>
+		<module>ingest-service</module>
     </modules>
 	<properties>
 		<maven.compiler.release>24</maven.compiler.release>

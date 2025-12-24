@@ -1,0 +1,354 @@
+package edu.harvard.hms.dbmi.avillach.hpds.writer;
+
+import com.google.common.cache.*;
+import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
+import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
+import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.KeyAndValue;
+import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+
+import static edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto.DEFAULT_KEY_NAME;
+
+/**
+ * Enhanced LoadingStore with spool-and-finalize semantics.
+ *
+ * Key improvement over standard LoadingStore:
+ * - Allows multiple partial batches for the same conceptPath during ingestion
+ * - Spools partial data to disk instead of writing directly to allObservationsStore
+ * - At finalize time, merges all partials per concept and writes exactly once
+ *
+ * This removes the need for global concept ordering and enables safe interleaving of sources.
+ *
+ * Invariant: Each conceptPath is written exactly ONCE to allObservationsStore, but observations
+ * for that concept may arrive in multiple batches from different sources.
+ */
+public class SpoolingLoadingStore {
+    private static final Logger log = LoggerFactory.getLogger(SpoolingLoadingStore.class);
+
+    private final Path spoolDirectory;
+    private final String outputDirectory;
+    private final String encryptionKeyName;
+    private final int cacheSize;
+
+    // Track metadata for each concept (may be updated across batches)
+    private final ConcurrentHashMap<String, ConceptMetadata> conceptMetadata = new ConcurrentHashMap<>();
+
+    // Track all patient IDs encountered
+    private final Set<Integer> allIds = Collections.synchronizedSet(new TreeSet<>());
+
+    // In-memory cache for active concepts
+    private final LoadingCache<String, PhenoCube> cache;
+
+    // Track spool files for cleanup
+    private final ConcurrentHashMap<String, List<Path>> spoolFiles = new ConcurrentHashMap<>();
+
+    /**
+     * Metadata tracked per concept during ingestion.
+     */
+    private static class ConceptMetadata {
+        boolean isCategorical;
+        int columnWidth;
+        int totalPartialCount = 0; // Track number of spooled partials
+
+        ConceptMetadata(boolean isCategorical, int columnWidth) {
+            this.isCategorical = isCategorical;
+            this.columnWidth = columnWidth;
+        }
+    }
+
+    public SpoolingLoadingStore(Path spoolDirectory, String outputDirectory, String encryptionKeyName, int cacheSize) {
+        this.spoolDirectory = spoolDirectory;
+        // Ensure outputDirectory ends with /
+        this.outputDirectory = outputDirectory.endsWith("/") ? outputDirectory : outputDirectory + "/";
+        this.encryptionKeyName = encryptionKeyName;
+        this.cacheSize = cacheSize;
+
+        try {
+            Files.createDirectories(spoolDirectory);
+            Files.createDirectories(Path.of(this.outputDirectory));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to create spool/output directories", e);
+        }
+
+        this.cache = CacheBuilder.newBuilder()
+            .maximumSize(cacheSize)
+            .removalListener(new RemovalListener<String, PhenoCube>() {
+                @Override
+                public void onRemoval(RemovalNotification<String, PhenoCube> notification) {
+                    if (notification.getCause() == RemovalCause.SIZE || notification.getCause() == RemovalCause.EXPLICIT) {
+                        String conceptPath = notification.getKey();
+                        PhenoCube cube = notification.getValue();
+                        if (cube != null && cube.getLoadingMap() != null && !cube.getLoadingMap().isEmpty()) {
+                            log.debug("Spooling concept: {} ({} observations)", conceptPath, cube.getLoadingMap().size());
+                            spoolPartial(conceptPath, cube);
+                        }
+                    }
+                }
+            })
+            .build(new CacheLoader<String, PhenoCube>() {
+                @Override
+                public PhenoCube load(String key) {
+                    ConceptMetadata meta = conceptMetadata.get(key);
+                    if (meta == null) {
+                        throw new IllegalStateException("No metadata for concept: " + key);
+                    }
+                    Class<?> valueType = meta.isCategorical ? String.class : Double.class;
+                    PhenoCube cube = new PhenoCube(key, valueType);
+                    cube.setColumnWidth(meta.columnWidth);
+                    return cube;
+                }
+            });
+    }
+
+    /**
+     * Default constructor with standard paths.
+     */
+    public SpoolingLoadingStore() {
+        this(
+            Path.of("/opt/local/hpds/spool"),
+            "/opt/local/hpds/",
+            DEFAULT_KEY_NAME,
+            16
+        );
+    }
+
+    /**
+     * Accepts an observation and adds it to the appropriate concept's cube.
+     * The cube may be spooled to disk if cache eviction occurs.
+     */
+    public synchronized void addObservation(int patientNum, String conceptPath, Comparable<?> value, Date timestamp) {
+        allIds.add(patientNum);
+
+        // Ensure metadata exists for this concept
+        conceptMetadata.computeIfAbsent(conceptPath, k -> {
+            boolean isCategorical = value instanceof String;
+            int width = isCategorical ? 80 : 8; // Default widths
+            return new ConceptMetadata(isCategorical, width);
+        });
+
+        try {
+            PhenoCube cube = cache.get(conceptPath);
+            cube.add(patientNum, value, timestamp);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to add observation for concept: " + conceptPath, e);
+        }
+    }
+
+    /**
+     * Spools a partial cube to disk (compressed).
+     * Multiple partials for the same concept are allowed.
+     */
+    private void spoolPartial(String conceptPath, PhenoCube cube) {
+        try {
+            ConceptMetadata meta = conceptMetadata.get(conceptPath);
+            if (meta == null) {
+                throw new IllegalStateException("No metadata for concept: " + conceptPath);
+            }
+
+            // Create spool file (one per partial)
+            int partialNum = meta.totalPartialCount++;
+            Path spoolFile = spoolDirectory.resolve(sanitizeFilename(conceptPath) + ".partial." + partialNum + ".gz");
+
+            spoolFiles.computeIfAbsent(conceptPath, k -> Collections.synchronizedList(new ArrayList<>())).add(spoolFile);
+
+            // Write the loading map (raw KeyAndValue list) to spool
+            try (OutputStream fos = Files.newOutputStream(spoolFile);
+                 GZIPOutputStream gzos = new GZIPOutputStream(fos);
+                 ObjectOutputStream oos = new ObjectOutputStream(gzos)) {
+                oos.writeObject(cube.getLoadingMap());
+            }
+
+            log.debug("Spooled partial for concept {} to {} ({} observations)",
+                conceptPath, spoolFile, cube.getLoadingMap().size());
+
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to spool partial for concept: " + conceptPath, e);
+        }
+    }
+
+    /**
+     * Finalizes all concepts and writes to allObservationsStore.
+     * This is where each concept is written exactly once.
+     */
+    public void saveStore() throws IOException {
+        log.info("Finalizing store: flushing cache and merging spooled partials");
+
+        // Flush cache (spools remaining concepts)
+        cache.invalidateAll();
+        cache.cleanUp();
+
+        // Now merge and finalize each concept in deterministic order
+        TreeMap<String, ColumnMeta> metadataMap = new TreeMap<>();
+
+        try (RandomAccessFile allObservationsStore = new RandomAccessFile(outputDirectory + "allObservationsStore.javabin", "rw")) {
+
+            for (String conceptPath : new TreeSet<>(conceptMetadata.keySet())) {
+                log.info("Finalizing concept: {}", conceptPath);
+
+                ConceptMetadata meta = conceptMetadata.get(conceptPath);
+                PhenoCube finalCube = mergePartials(conceptPath, meta);
+
+                // Complete the cube (sort, build category maps, compute stats)
+                complete(finalCube);
+
+                // Write to allObservationsStore (exactly once)
+                ColumnMeta columnMeta = writeToStore(allObservationsStore, conceptPath, finalCube, meta);
+                metadataMap.put(conceptPath, columnMeta);
+            }
+        }
+
+        // Write columnMeta.javabin
+        log.info("Writing columnMeta.javabin");
+        try (ObjectOutputStream metaOut = new ObjectOutputStream(
+            new GZIPOutputStream(new FileOutputStream(outputDirectory + "columnMeta.javabin")))) {
+            metaOut.writeObject(metadataMap);
+            metaOut.writeObject(allIds);
+        }
+
+        // Cleanup spool files
+        cleanupSpool();
+
+        log.info("Store finalized: {} concepts, {} patients", metadataMap.size(), allIds.size());
+    }
+
+    /**
+     * Merges all spooled partials for a concept into a single PhenoCube.
+     * Uses external merge if needed (currently in-memory for simplicity).
+     */
+    @SuppressWarnings("unchecked")
+    private PhenoCube mergePartials(String conceptPath, ConceptMetadata meta) throws IOException {
+        List<Path> partials = spoolFiles.getOrDefault(conceptPath, Collections.emptyList());
+
+        Class<?> valueType = meta.isCategorical ? String.class : Double.class;
+        PhenoCube merged = new PhenoCube(conceptPath, valueType);
+        merged.setColumnWidth(meta.columnWidth);
+
+        List<KeyAndValue> allEntries = new ArrayList<>();
+
+        // Read all partials
+        for (Path partial : partials) {
+            try (InputStream fis = Files.newInputStream(partial);
+                 GZIPInputStream gzis = new GZIPInputStream(fis);
+                 ObjectInputStream ois = new ObjectInputStream(gzis)) {
+                List<KeyAndValue> entries = (List<KeyAndValue>) ois.readObject();
+                allEntries.addAll(entries);
+            } catch (ClassNotFoundException e) {
+                throw new IOException("Failed to deserialize partial: " + partial, e);
+            }
+        }
+
+        merged.setLoadingMap(allEntries);
+        log.debug("Merged {} partials for concept {} ({} total observations)",
+            partials.size(), conceptPath, allEntries.size());
+
+        return merged;
+    }
+
+    /**
+     * Completes a cube: sorts by key, builds category maps, computes min/max.
+     * This logic is extracted from the original LoadingStore.
+     */
+    @SuppressWarnings("unchecked")
+    private <V extends Comparable<V>> void complete(PhenoCube<V> cube) {
+        List<KeyAndValue<V>> loadingMap = cube.getLoadingMap();
+        if (loadingMap == null || loadingMap.isEmpty()) {
+            log.warn("Empty loading map for concept: {}", cube.name);
+            cube.setSortedByKey(new KeyAndValue[0]);
+            return;
+        }
+
+        // Sort by key
+        List<KeyAndValue<V>> sortedByKey = loadingMap.stream()
+            .sorted(Comparator.comparing(KeyAndValue<V>::getKey))
+            .collect(Collectors.toList());
+        cube.setSortedByKey(sortedByKey.toArray(new KeyAndValue[0]));
+
+        // Build category map for categorical concepts
+        if (cube.isStringType()) {
+            TreeMap<V, TreeSet<Integer>> categoryMap = new TreeMap<>();
+            for (KeyAndValue<V> entry : cube.sortedByValue()) {
+                categoryMap.computeIfAbsent(entry.getValue(), k -> new TreeSet<>()).add(entry.getKey());
+            }
+            cube.setCategoryMap(categoryMap);
+        }
+    }
+
+    /**
+     * Writes a finalized cube to allObservationsStore and returns ColumnMeta.
+     */
+    private ColumnMeta writeToStore(RandomAccessFile store, String conceptPath, PhenoCube cube, ConceptMetadata meta) throws IOException {
+        ColumnMeta columnMeta = new ColumnMeta()
+            .setName(conceptPath)
+            .setWidthInBytes(meta.columnWidth)
+            .setCategorical(meta.isCategorical);
+
+        columnMeta.setAllObservationsOffset(store.getFilePointer());
+        columnMeta.setObservationCount(cube.sortedByKey().length);
+        columnMeta.setPatientCount(
+            Arrays.stream(cube.sortedByKey())
+                .map(KeyAndValue::getKey)
+                .collect(Collectors.toSet())
+                .size()
+        );
+
+        // Set category values or min/max
+        if (meta.isCategorical) {
+            columnMeta.setCategoryValues(
+                new ArrayList<>(new TreeSet<>((List<String>) cube.keyBasedArray()))
+            );
+        } else {
+            List<Double> values = (List<Double>) cube.keyBasedArray().stream()
+                .map(v -> (Double) v)
+                .collect(Collectors.toList());
+            double min = values.stream().mapToDouble(Double::doubleValue).min().orElse(Double.NaN);
+            double max = values.stream().mapToDouble(Double::doubleValue).max().orElse(Double.NaN);
+            columnMeta.setMin(min);
+            columnMeta.setMax(max);
+        }
+
+        // Serialize and encrypt
+        try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+             ObjectOutputStream out = new ObjectOutputStream(byteStream)) {
+            out.writeObject(cube);
+            out.flush();
+            store.write(Crypto.encryptData(encryptionKeyName, byteStream.toByteArray()));
+        }
+
+        columnMeta.setAllObservationsLength(store.getFilePointer());
+        return columnMeta;
+    }
+
+    /**
+     * Cleans up all spool files on success.
+     */
+    private void cleanupSpool() throws IOException {
+        log.info("Cleaning up spool directory: {}", spoolDirectory);
+        for (List<Path> files : spoolFiles.values()) {
+            for (Path file : files) {
+                Files.deleteIfExists(file);
+            }
+        }
+        spoolFiles.clear();
+    }
+
+    /**
+     * Sanitizes concept path for use as filename.
+     */
+    private String sanitizeFilename(String conceptPath) {
+        return conceptPath.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    public Set<Integer> getAllIds() {
+        return Collections.unmodifiableSet(allIds);
+    }
+}
