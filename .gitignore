@@ -31,3 +31,5 @@ war-exec.manifest
 .idea/
 
 .java-version
+/input/
+/configs/

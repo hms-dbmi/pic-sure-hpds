@@ -42,6 +42,10 @@
             <artifactId>guava</artifactId>
             <version>33.4.0-jre</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-csv</artifactId>
+        </dependency>
 
         <!-- Testing -->
         <dependency>

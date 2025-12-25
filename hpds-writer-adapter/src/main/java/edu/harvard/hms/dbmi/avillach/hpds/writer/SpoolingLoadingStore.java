@@ -5,6 +5,8 @@ import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.KeyAndValue;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,10 +14,13 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -194,9 +199,10 @@ public class SpoolingLoadingStore {
         TreeMap<String, ColumnMeta> metadataMap = new TreeMap<>();
 
         try (RandomAccessFile allObservationsStore = new RandomAccessFile(outputDirectory + "allObservationsStore.javabin", "rw")) {
+            log.info("=====Finalizing concepts=====");
 
             for (String conceptPath : new TreeSet<>(conceptMetadata.keySet())) {
-                log.info("Finalizing concept: {}", conceptPath);
+                log.debug("Finalizing concept: {}", conceptPath);
 
                 ConceptMetadata meta = conceptMetadata.get(conceptPath);
                 PhenoCube finalCube = mergePartials(conceptPath, meta);
@@ -217,6 +223,9 @@ public class SpoolingLoadingStore {
             metaOut.writeObject(metadataMap);
             metaOut.writeObject(allIds);
         }
+
+        // Write columnMeta.csv for data dictionary
+        dumpColumnMetaCSV();
 
         // Cleanup spool files
         cleanupSpool();
@@ -382,5 +391,80 @@ public class SpoolingLoadingStore {
 
     public Set<Integer> getAllIds() {
         return Collections.unmodifiableSet(allIds);
+    }
+
+    /**
+     * Exports columnMeta.javabin to CSV format for data dictionary importer.
+     * This method mirrors the logic from LoadingStore.dumpStatsAndColumnMeta().
+     *
+     * CSV format (11 columns, no header):
+     * 0. Concept path
+     * 1. Width in bytes
+     * 2. Column offset (deprecated, always 0)
+     * 3. Is categorical
+     * 4. Category values (µ-delimited for categorical, empty for numeric)
+     * 5. Min value
+     * 6. Max value
+     * 7. All observations offset
+     * 8. All observations length
+     * 9. Observation count
+     * 10. Patient count
+     */
+    @SuppressWarnings("unchecked")
+    public void dumpColumnMetaCSV() throws IOException {
+        String columnMetaFile = outputDirectory + "columnMeta.javabin";
+        String csvFile = outputDirectory + "columnMeta.csv";
+
+        try (ObjectInputStream objectInputStream =
+                new ObjectInputStream(new GZIPInputStream(new FileInputStream(columnMetaFile)));
+             BufferedWriter writer = Files.newBufferedWriter(
+                Paths.get(csvFile),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING)) {
+
+            TreeMap<String, ColumnMeta> metastore = (TreeMap<String, ColumnMeta>) objectInputStream.readObject();
+            CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT);
+
+            for (String key : metastore.keySet()) {
+                ColumnMeta columnMeta = metastore.get(key);
+                Object[] columnMetaOut = new Object[11];
+
+                // Build category values string (µ-delimited)
+                StringBuilder listQuoted = new StringBuilder();
+                AtomicInteger x = new AtomicInteger(1);
+
+                if (columnMeta.getCategoryValues() != null) {
+                    if (!columnMeta.getCategoryValues().isEmpty()) {
+                        columnMeta.getCategoryValues().forEach(string -> {
+                            listQuoted.append(string);
+                            if (x.get() != columnMeta.getCategoryValues().size()) {
+                                listQuoted.append("µ");
+                            }
+                            x.incrementAndGet();
+                        });
+                    }
+                }
+
+                columnMetaOut[0] = columnMeta.getName();
+                columnMetaOut[1] = String.valueOf(columnMeta.getWidthInBytes());
+                columnMetaOut[2] = String.valueOf(columnMeta.getColumnOffset());
+                columnMetaOut[3] = String.valueOf(columnMeta.isCategorical());
+                columnMetaOut[4] = listQuoted.toString();
+                columnMetaOut[5] = String.valueOf(columnMeta.getMin());
+                columnMetaOut[6] = String.valueOf(columnMeta.getMax());
+                columnMetaOut[7] = String.valueOf(columnMeta.getAllObservationsOffset());
+                columnMetaOut[8] = String.valueOf(columnMeta.getAllObservationsLength());
+                columnMetaOut[9] = String.valueOf(columnMeta.getObservationCount());
+                columnMetaOut[10] = String.valueOf(columnMeta.getPatientCount());
+
+                printer.printRecord(columnMetaOut);
+            }
+
+            writer.flush();
+            log.info("Exported columnMeta.csv: {} concepts", metastore.size());
+
+        } catch (ClassNotFoundException e) {
+            throw new IOException("Failed to deserialize columnMeta.javabin", e);
+        }
     }
 }
