@@ -25,8 +25,8 @@ public class IngestConfig {
     // Required properties
     private String parquetBaseDir;
     private String parquetConfigPath;
-    private String mappingDbgapFile;
-    private String mappingPatientFile;
+    private String mappingTelemetryReportFile;
+    private String mappingPatientMappingFile;
     private String outputDir;
 
     // Optional properties with defaults
@@ -51,11 +51,11 @@ public class IngestConfig {
         if (parquetConfigPath == null || parquetConfigPath.isBlank()) {
             errors.add("ingest.parquet.config-path is required");
         }
-        if (mappingDbgapFile == null || mappingDbgapFile.isBlank()) {
-            errors.add("ingest.mapping.dbgap-file is required");
+        if (mappingTelemetryReportFile == null || mappingTelemetryReportFile.isBlank()) {
+            errors.add("ingest.mapping-telemetry-report-file is required");
         }
-        if (mappingPatientFile == null || mappingPatientFile.isBlank()) {
-            errors.add("ingest.mapping.patient-file is required");
+        if (mappingPatientMappingFile == null || mappingPatientMappingFile.isBlank()) {
+            errors.add("ingest.mapping-patient-mapping-file is required");
         }
         if (outputDir == null || outputDir.isBlank()) {
             errors.add("ingest.output.dir is required");
@@ -83,14 +83,14 @@ public class IngestConfig {
             errors.add("Config path not found: " + parquetConfigPath);
         }
 
-        Path dbgapPath = Path.of(mappingDbgapFile);
-        if (!Files.exists(dbgapPath)) {
-            errors.add("dbGaP mapping file not found: " + mappingDbgapFile);
+        Path telemetryReportPath = Path.of(mappingTelemetryReportFile);
+        if (!Files.exists(telemetryReportPath)) {
+            errors.add("Telemetry report file not found: " + mappingTelemetryReportFile);
         }
 
-        Path patientPath = Path.of(mappingPatientFile);
-        if (!Files.exists(patientPath)) {
-            errors.add("Patient mapping file not found: " + mappingPatientFile);
+        Path patientMappingPath = Path.of(mappingPatientMappingFile);
+        if (!Files.exists(patientMappingPath)) {
+            errors.add("Patient mapping file not found: " + mappingPatientMappingFile);
         }
 
         // Check output directory is writable (create if needed)
@@ -126,7 +126,7 @@ public class IngestConfig {
         log.info("Output dir: {}", outputDir);
         log.info("Spool dir: {}", spoolDir);
         log.info("Failure file: {}", failureFile);
-        log.info("Mapping files: dbgap={}, patient={}", mappingDbgapFile, mappingPatientFile);
+        log.info("Mapping files: telemetryReport={}, patientMapping={}", mappingTelemetryReportFile, mappingPatientMappingFile);
         log.info("CSV dir: {}", csvDir != null ? csvDir : "(none - CSV processing disabled)");
         log.info("Encryption key name: {}", encryptionKeyName);
         log.info("Mapping inspect only: {}", mappingInspectOnly);
@@ -152,20 +152,20 @@ public class IngestConfig {
         this.parquetConfigPath = parquetConfigPath;
     }
 
-    public String getMappingDbgapFile() {
-        return mappingDbgapFile;
+    public String getMappingTelemetryReportFile() {
+        return mappingTelemetryReportFile;
     }
 
-    public void setMappingDbgapFile(String mappingDbgapFile) {
-        this.mappingDbgapFile = mappingDbgapFile;
+    public void setMappingTelemetryReportFile(String mappingTelemetryReportFile) {
+        this.mappingTelemetryReportFile = mappingTelemetryReportFile;
     }
 
-    public String getMappingPatientFile() {
-        return mappingPatientFile;
+    public String getMappingPatientMappingFile() {
+        return mappingPatientMappingFile;
     }
 
-    public void setMappingPatientFile(String mappingPatientFile) {
-        this.mappingPatientFile = mappingPatientFile;
+    public void setMappingPatientMappingFile(String mappingPatientMappingFile) {
+        this.mappingPatientMappingFile = mappingPatientMappingFile;
     }
 
     public String getOutputDir() {

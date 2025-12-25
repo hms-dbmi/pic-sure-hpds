@@ -44,12 +44,12 @@ import java.util.stream.Stream;
  * java -jar ingest-service.jar \
  *   --ingest.parquet.base-dir=/path/to/DHDR \
  *   --ingest.parquet.config-path=/path/to/datasets.jsonl \
- *   --ingest.mapping.dbgap-file=/path/to/dbgap.txt \
- *   --ingest.mapping.patient-file=/path/to/PatientMapping.csv \
+ *   --ingest.mapping.telemetry-report-file=/path/to/telemetry_report.txt \
+ *   --ingest.mapping.patient-mapping-file=/path/to/patient_mapping.csv \
  *   --ingest.output.dir=/opt/local/hpds/
  *
  * Legacy CLI args (deprecated but supported):
- *   --parquet.dir, --parquet.config, --mapping.dbgapFile, --mapping.patientMappingFile, etc.
+ *   --parquet.dir, --parquet.config, --mapping.telemetryReportFile, --mapping.patientMappingFile, etc.
  */
 @SpringBootApplication(exclude = {
     org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration.class,
@@ -83,8 +83,8 @@ public class IngestServiceApplication implements CommandLineRunner {
 
         // Initialize patient ID resolver
         PatientIdResolver patientIdResolver = initializePatientIdResolver(
-            config.getMappingDbgapFile(),
-            config.getMappingPatientFile(),
+            config.getMappingTelemetryReportFile(),
+            config.getMappingPatientMappingFile(),
             config.isMappingInspectOnly()
         );
 
@@ -193,18 +193,18 @@ public class IngestServiceApplication implements CommandLineRunner {
     /**
      * Initialize patient ID resolver and optionally inspect mapping files.
      */
-    private PatientIdResolver initializePatientIdResolver(String dbgapFile, String patientMappingFile, boolean inspectOnly) throws IOException {
-        Path dbgapPath = Path.of(dbgapFile);
-        Path patientPath = Path.of(patientMappingFile);
+    private PatientIdResolver initializePatientIdResolver(String telemetryReportFile, String patientMappingFile, boolean inspectOnly) throws IOException {
+        Path telemetryReportPath = Path.of(telemetryReportFile);
+        Path patientMappingPath = Path.of(patientMappingFile);
 
         // Inspect mapping files if requested
         if (inspectOnly) {
             log.info("=== MAPPING FILE INSPECTION MODE ===");
 
-            MappingFileInspector.InspectionResult dbgapInspection = MappingFileInspector.inspect(dbgapPath);
-            MappingFileInspector.printInspection(dbgapInspection);
+            MappingFileInspector.InspectionResult telemetryInspection = MappingFileInspector.inspect(telemetryReportPath);
+            MappingFileInspector.printInspection(telemetryInspection);
 
-            MappingFileInspector.InspectionResult patientInspection = MappingFileInspector.inspect(patientPath);
+            MappingFileInspector.InspectionResult patientInspection = MappingFileInspector.inspect(patientMappingPath);
             MappingFileInspector.printInspection(patientInspection);
 
             return null; // Exit after inspection
@@ -216,7 +216,7 @@ public class IngestServiceApplication implements CommandLineRunner {
         // Step 1 config: SUBJECT_ID -> dbgap_subject_id (TSV with header)
         DelimitedFileMappingLoader.LoaderConfig step1Config =
             DelimitedFileMappingLoader.LoaderConfig.withHeader(
-                dbgapPath,
+                telemetryReportPath,
                 '\t',
                 "SUBJECT_ID",
                 "dbgap_subject_id"
@@ -225,7 +225,7 @@ public class IngestServiceApplication implements CommandLineRunner {
         // Step 2 config: dbgap_subject_id -> patient_num (CSV without header, columns 0 and 2)
         DelimitedFileMappingLoader.LoaderConfig step2Config =
             DelimitedFileMappingLoader.LoaderConfig.withoutHeader(
-                patientPath,
+                patientMappingPath,
                 ',',
                 0,  // dbgap_subject_id in column 0
                 2   // patient_num in column 2

@@ -73,7 +73,9 @@ public class PhenotypeMetaStore {
                 metastoreScrubbed.put(entry.getKey().replaceAll("\\ufffd", ""), entry.getValue());
             }
             metaStore = metastoreScrubbed;
-            patientIds = (TreeSet<Integer>) objectInputStream.readObject();
+            java.util.Set<Integer> loaded = (java.util.Set<Integer>) objectInputStream.readObject();
+            patientIds = new java.util.TreeSet<>(loaded);
+
         } catch (IOException | ClassNotFoundException e) {
             log.warn("************************************************");
             log.warn("Could not load metastore", e);

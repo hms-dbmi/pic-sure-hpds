@@ -9,8 +9,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -342,10 +345,39 @@ public class SpoolingLoadingStore {
     }
 
     /**
-     * Sanitizes concept path for use as filename.
+     * Sanitizes concept path for use as filename with length limit.
+     *
+     * Uses a hybrid approach: human-readable prefix (80 chars) + stable hash (32 chars)
+     * to ensure filenames stay under filesystem limits while maintaining uniqueness.
+     *
+     * @param conceptPath The full concept path (may be very long)
+     * @return A safe filename ≤ 113 characters
      */
     private String sanitizeFilename(String conceptPath) {
-        return conceptPath.replaceAll("[^a-zA-Z0-9._-]", "_");
+        // Extract readable prefix (first 80 chars, sanitized)
+        String prefix = conceptPath
+            .substring(0, Math.min(conceptPath.length(), 80))
+            .replaceAll("[^a-zA-Z0-9._-]", "_");
+
+        // Generate stable hash for uniqueness
+        String hash;
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(conceptPath.getBytes(StandardCharsets.UTF_8));
+            // Use URL-safe Base64 (no /, + chars that cause filesystem issues)
+            hash = Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(hashBytes)
+                .substring(0, 32); // First 32 chars = 192 bits of hash (collision-resistant)
+        } catch (NoSuchAlgorithmException e) {
+            // Fallback: use Java's hashCode (less collision-resistant but sufficient)
+            log.warn("SHA-256 not available, using fallback hash for: {}", conceptPath);
+            hash = Integer.toHexString(conceptPath.hashCode());
+        }
+
+        // Combine: prefix_hash
+        // Max length: 80 + 1 + 32 = 113 chars (+ ".partial.0.gz" = ~130 total)
+        return prefix + "_" + hash;
     }
 
     public Set<Integer> getAllIds() {
