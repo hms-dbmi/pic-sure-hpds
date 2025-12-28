@@ -67,7 +67,6 @@ public class IngestServiceApplication implements CommandLineRunner {
 
     public static void main(String[] args) {
         SpringApplication app = new SpringApplication(IngestServiceApplication.class);
-        app.setAdditionalProfiles("ingest");  // Activate ingest profile to load application-ingest.properties
         app.run(args);
     }
 
