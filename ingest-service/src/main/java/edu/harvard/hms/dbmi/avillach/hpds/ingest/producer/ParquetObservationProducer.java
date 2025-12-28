@@ -65,7 +65,7 @@ public class ParquetObservationProducer {
      * @param batchSize number of rows per batch
      */
     public void processFile(java.nio.file.Path filePath, Consumer<List<ObservationRow>> consumer, int batchSize) throws IOException {
-        log.info("Processing Parquet file: {}", filePath);
+        log.debug("Processing Parquet file: {}", filePath);
 
         String fileUri = filePath.toUri().toString();
 
@@ -116,7 +116,7 @@ public class ParquetObservationProducer {
                 consumer.accept(batch);
             }
 
-            log.info("Completed processing file: {} ({} rows)", filePath, rowCount);
+            log.debug("Completed processing file: {} ({} rows)", filePath, rowCount);
         } catch (Exception e) {
             throw new IOException("Failed to process Parquet file: " + filePath, e);
         }
@@ -215,6 +215,7 @@ public class ParquetObservationProducer {
 
     /**
      * Parses timestamp from configured column.
+     * Returns null if timestamp cannot be parsed (timestamps are optional in HPDS).
      */
     private Instant parseTimestamp(VectorSchemaRoot root, int rowIndex, java.nio.file.Path filePath, String participantId) {
         if ("none".equalsIgnoreCase(config.timestampColumn())) {
@@ -223,17 +224,22 @@ public class ParquetObservationProducer {
 
         FieldVector timestampVector = root.getVector(config.timestampColumn());
         if (timestampVector == null || timestampVector.isNull(rowIndex)) {
-            recordFailure(filePath.toString(), participantId, null, FailureReason.INVALID_TIMESTAMP, "Timestamp is null or empty");
+            // Timestamp column missing or null - this is OK, timestamps are optional
             return null;
         }
 
         String timestampRaw = timestampVector.getObject(rowIndex).toString();
 
+        // Treat common "null-like" values as null timestamp
+        if (timestampRaw.isBlank() || "None".equalsIgnoreCase(timestampRaw) || "null".equalsIgnoreCase(timestampRaw)) {
+            return null;
+        }
+
         // Deterministic timestamp parsing with strict fallback chain:
         // 1. Try Instant.parse() - accepts ISO-8601 with zone (Z or offset like +00:00)
         // 2. Try LocalDateTime.parse() - accepts ISO-8601 local date-time, treat as UTC
         // 3. Try LocalDate.parse() - accepts yyyy-MM-dd, treat as midnight UTC
-        // 4. Fail with error
+        // 4. Return null (timestamps are optional, don't fail the row)
 
         try {
             // Attempt 1: Parse as Instant (requires Z or offset)
@@ -249,9 +255,8 @@ public class ParquetObservationProducer {
                     LocalDate date = LocalDate.parse(timestampRaw, DateTimeFormatter.ISO_LOCAL_DATE);
                     return date.atStartOfDay().toInstant(ZoneOffset.UTC);
                 } catch (DateTimeParseException e3) {
-                    // Attempt 4: All parsing failed
-                    recordFailure(filePath.toString(), participantId, null, FailureReason.INVALID_TIMESTAMP,
-                        "Cannot parse timestamp (tried Instant, LocalDateTime, LocalDate): " + timestampRaw);
+                    // Attempt 4: All parsing failed - log warning but continue (timestamps are optional)
+                    log.debug("Cannot parse timestamp for participant {}, using null: {}", participantId, timestampRaw);
                     return null;
                 }
             }

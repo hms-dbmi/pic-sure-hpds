@@ -137,16 +137,50 @@ public class SpoolingLoadingStore {
     public synchronized void addObservation(int patientNum, String conceptPath, Comparable<?> value, Date timestamp) {
         allIds.add(patientNum);
 
-        // Ensure metadata exists for this concept
-        conceptMetadata.computeIfAbsent(conceptPath, k -> {
+        // Ensure metadata exists for this concept (determined by first observation's type)
+        ConceptMetadata meta = conceptMetadata.computeIfAbsent(conceptPath, k -> {
             boolean isCategorical = value instanceof String;
             int width = isCategorical ? 80 : 8; // Default widths
             return new ConceptMetadata(isCategorical, width);
         });
 
+        // Handle type mismatch: coerce value to match concept's established type
+        // This handles cases where Parquet auto-detection produces mixed types for same column
+        Comparable<?> coercedValue = value;
+
+        if (meta.isCategorical && value instanceof Double) {
+            // Concept is categorical but received numeric value - convert to string
+            coercedValue = value.toString();
+        } else if (!meta.isCategorical && value instanceof String) {
+            // Concept is numeric but received string value
+            // Try to parse as Double, otherwise promote concept to categorical
+            try {
+                coercedValue = Double.parseDouble((String) value);
+            } catch (NumberFormatException e) {
+                // Cannot parse as numeric - must promote concept to categorical
+                log.warn("Concept '{}' was initially numeric but received non-numeric String '{}' - promoting to categorical",
+                    conceptPath, value);
+
+                // Promote to categorical and convert all future values
+                ConceptMetadata newMeta = new ConceptMetadata(true, 80);
+                conceptMetadata.put(conceptPath, newMeta);
+
+                // Spool existing numeric cube before type change
+                // This ensures we don't have mixed types in same cube
+                PhenoCube existingCube = cache.getIfPresent(conceptPath);
+                if (existingCube != null && existingCube.getLoadingMap() != null && !existingCube.getLoadingMap().isEmpty()) {
+                    spoolPartial(conceptPath, existingCube);
+                }
+                cache.invalidate(conceptPath);
+
+                // Use string value as-is
+                coercedValue = value;
+            }
+        }
+
         try {
             PhenoCube cube = cache.get(conceptPath);
-            cube.add(patientNum, value, timestamp);
+            cube.add(patientNum, coercedValue, timestamp);
         } catch (Exception e) {
             throw new RuntimeException("Failed to add observation for concept: " + conceptPath, e);
         }
@@ -253,6 +287,18 @@ public class SpoolingLoadingStore {
                  GZIPInputStream gzis = new GZIPInputStream(fis);
                  ObjectInputStream ois = new ObjectInputStream(gzis)) {
                 List<KeyAndValue> entries = (List<KeyAndValue>) ois.readObject();
+
+                // Handle type coercion: if concept was promoted to categorical but partials contain Doubles,
+                // convert them to Strings to ensure consistent typing
+                if (meta.isCategorical) {
+                    for (KeyAndValue entry : entries) {
+                        if (entry.getValue() instanceof Double) {
+                            // Convert Double to String for categorical concept
+                            entry.setValue(entry.getValue().toString());
+                        }
+                    }
+                }
+
                 allEntries.addAll(entries);
             } catch (ClassNotFoundException e) {
                 throw new IOException("Failed to deserialize partial: " + partial, e);

@@ -3,6 +3,7 @@ package edu.harvard.hms.dbmi.avillach.hpds.ingest.config;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
@@ -36,6 +37,7 @@ public class IngestConfig {
     private String encryptionKeyName = "encryption_key";
     private boolean mappingInspectOnly = false;
     private int batchSize = 10000;
+    private int storeCacheSize = 16;
 
     @PostConstruct
     public void validateAndLog() {
@@ -134,8 +136,6 @@ public class IngestConfig {
         log.info("================================");
     }
 
-    // Getters and setters
-
     public String getParquetBaseDir() {
         return parquetBaseDir;
     }
@@ -222,5 +222,13 @@ public class IngestConfig {
 
     public void setBatchSize(int batchSize) {
         this.batchSize = batchSize;
+    }
+
+    public int getStoreCacheSize() {
+        return storeCacheSize;
+    }
+
+    public void setStoreCacheSize(int storeCacheSize) {
+        this.storeCacheSize = storeCacheSize;
     }
 }

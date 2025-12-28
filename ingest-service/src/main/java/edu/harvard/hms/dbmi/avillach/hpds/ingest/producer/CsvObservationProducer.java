@@ -63,7 +63,7 @@ public class CsvObservationProducer {
      * @param batchSize rows per batch
      */
     public void processFile(Path filePath, Consumer<List<ObservationRow>> consumer, int batchSize) throws IOException {
-        log.info("Processing CSV file: {}", filePath);
+        log.debug("Processing CSV file: {}", filePath);
 
         try (BufferedReader reader = Files.newBufferedReader(filePath)) {
             // Read first line to detect headers

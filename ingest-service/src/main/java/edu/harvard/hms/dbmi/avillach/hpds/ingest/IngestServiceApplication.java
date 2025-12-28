@@ -115,7 +115,7 @@ public class IngestServiceApplication implements CommandLineRunner {
                  Path.of(config.getSpoolDir()),
                  config.getOutputDir(),
                  encryptionKeyName,
-                 16)) {
+                 config.getStoreCacheSize())) {
 
             // Process Parquet datasets
             log.info("Processing Parquet datasets from config: {}", config.getParquetConfigPath());
@@ -267,6 +267,7 @@ public class IngestServiceApplication implements CommandLineRunner {
         log.info("Loaded {} Parquet dataset configs", configs.size());
 
         for (ParquetDatasetConfig config : configs) {
+            log.info("Processing dataset: {}", config.datasetName());
             if ("none".equalsIgnoreCase(config.timestampColumn())) {
                 log.warn("Skipping dataset (no timestamp configured): {}", config.datasetName());
                 continue;
@@ -285,7 +286,7 @@ public class IngestServiceApplication implements CommandLineRunner {
                 files.filter(p -> p.toString().endsWith(".parquet"))
                     .forEach(file -> {
                         try {
-                            log.info("Processing: {}", file);
+                            log.debug("Processing: {}", file);
                             producer.processFile(file, batch -> {
                                 int accepted = writer.acceptBatch(batch);
                                 totalObservations.addAndGet(accepted);
