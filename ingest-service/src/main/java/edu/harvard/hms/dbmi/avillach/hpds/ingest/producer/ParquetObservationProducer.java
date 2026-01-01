@@ -234,7 +234,15 @@ public class ParquetObservationProducer {
         if (timestampRaw.isBlank() || "None".equalsIgnoreCase(timestampRaw) || "null".equalsIgnoreCase(timestampRaw)) {
             return null;
         }
-
+        // Numeric string epoch: seconds/millis/micros/nanos
+        if (timestampRaw.chars().allMatch(Character::isDigit)) {
+            try {
+                long v = Long.parseLong(timestampRaw);
+                return instantFromEpochNumber(v, participantId);
+            } catch (NumberFormatException ignored) {
+                // fall through
+            }
+        }
         // Deterministic timestamp parsing with strict fallback chain:
         // 1. Try Instant.parse() - accepts ISO-8601 with zone (Z or offset like +00:00)
         // 2. Try LocalDateTime.parse() - accepts ISO-8601 local date-time, treat as UTC
@@ -263,6 +271,28 @@ public class ParquetObservationProducer {
         }
     }
 
+    private Instant instantFromEpochNumber(long v, String participantId) {
+        // Heuristic by magnitude:
+        // seconds ~ 1e9-1e10, millis ~ 1e12-1e13, micros ~ 1e15-1e16, nanos ~ 1e18-1e19
+        try {
+            if (v >= 1_000_000_000_000_000_000L) {           // nanos
+                long secs = v / 1_000_000_000L;
+                long nanos = v % 1_000_000_000L;
+                return Instant.ofEpochSecond(secs, nanos);
+            } else if (v >= 1_000_000_000_000_000L) {        // micros
+                long secs = v / 1_000_000L;
+                long micros = v % 1_000_000L;
+                return Instant.ofEpochSecond(secs, micros * 1_000L);
+            } else if (v >= 1_000_000_000_000L) {            // millis
+                return Instant.ofEpochMilli(v);
+            } else {                                         // seconds (or small)
+                return Instant.ofEpochSecond(v);
+            }
+        } catch (Exception e) {
+            log.warn("Cannot parse numeric epoch timestamp for participant {}, using null: {}", participantId, v);
+            return null;
+        }
+    }
     /**
      * Attempts to parse a string as Double.
      */
