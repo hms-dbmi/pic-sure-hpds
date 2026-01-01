@@ -256,7 +256,7 @@ public class ParquetObservationProducer {
                     return date.atStartOfDay().toInstant(ZoneOffset.UTC);
                 } catch (DateTimeParseException e3) {
                     // Attempt 4: All parsing failed - log warning but continue (timestamps are optional)
-                    log.debug("Cannot parse timestamp for participant {}, using null: {}", participantId, timestampRaw);
+                    log.warn("Cannot parse timestamp for participant {}, using null: {}", participantId, timestampRaw);
                     return null;
                 }
             }

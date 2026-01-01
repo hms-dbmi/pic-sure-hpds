@@ -268,8 +268,7 @@ public class IngestServiceApplication implements CommandLineRunner {
         for (ParquetDatasetConfig config : configs) {
             log.info("Processing dataset: {}", config.datasetName());
             if ("none".equalsIgnoreCase(config.timestampColumn())) {
-                log.warn("Skipping dataset (no timestamp configured): {}", config.datasetName());
-                continue;
+                log.info("Processing dataset without timestamps (relational/demographic data): {}", config.datasetName());
             }
 
             ParquetObservationProducer producer = new ParquetObservationProducer(runId, config, failureSink, patientIdResolver);
