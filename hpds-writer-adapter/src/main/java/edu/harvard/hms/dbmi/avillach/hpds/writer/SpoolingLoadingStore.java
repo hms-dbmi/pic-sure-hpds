@@ -48,6 +48,9 @@ public class SpoolingLoadingStore {
     private final String encryptionKeyName;
     private final int cacheSize;
 
+    // Null sentinel detector for identifying string representations of missing data
+    private final NullSentinelDetector nullSentinelDetector;
+
     // Track metadata for each concept (may be updated across batches)
     private final ConcurrentHashMap<String, ConceptMetadata> conceptMetadata = new ConcurrentHashMap<>();
 
@@ -80,6 +83,9 @@ public class SpoolingLoadingStore {
         this.outputDirectory = outputDirectory.endsWith("/") ? outputDirectory : outputDirectory + "/";
         this.encryptionKeyName = encryptionKeyName;
         this.cacheSize = cacheSize;
+
+        // Initialize null sentinel detector with default sentinels
+        this.nullSentinelDetector = new NullSentinelDetector();
 
         try {
             Files.createDirectories(spoolDirectory);
@@ -153,11 +159,20 @@ public class SpoolingLoadingStore {
             coercedValue = value.toString();
         } else if (!meta.isCategorical && value instanceof String) {
             // Concept is numeric but received string value
-            // Try to parse as Double, otherwise promote concept to categorical
+
+            // Check if this is a null sentinel (e.g., "None", "nan", "null", etc.)
+            // Null sentinels should be skipped entirely, not treated as conversion errors
+            if (nullSentinelDetector.isNullSentinel(value)) {
+                // This is a recognized null sentinel - skip this observation entirely
+                log.debug("Skipping null sentinel '{}' for numeric concept '{}'", value, conceptPath);
+                return; // Don't add to cube, don't promote to categorical
+            }
+
+            // Not a null sentinel - try to parse as Double
             try {
                 coercedValue = Double.parseDouble((String) value);
             } catch (NumberFormatException e) {
-                // Cannot parse as numeric - must promote concept to categorical
+                // Cannot parse as numeric AND not a null sentinel - must promote concept to categorical
                 log.warn("Concept '{}' was initially numeric but received non-numeric String '{}' - promoting to categorical",
                     conceptPath, value);
 
