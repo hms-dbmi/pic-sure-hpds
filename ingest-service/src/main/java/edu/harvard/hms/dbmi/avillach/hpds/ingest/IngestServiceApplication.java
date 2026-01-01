@@ -25,10 +25,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -280,23 +281,107 @@ public class IngestServiceApplication implements CommandLineRunner {
                 continue;
             }
 
+            // Collect all Parquet files for parallel processing
+            List<Path> fileList;
             try (Stream<Path> files = Files.walk(datasetPath)) {
-                files.filter(p -> p.toString().endsWith(".parquet"))
-                    .forEach(file -> {
-                        try {
-                            log.debug("Processing: {}", file);
-                            producer.processFile(file, batch -> {
-                                int accepted = writer.acceptBatch(batch);
-                                totalObservations.addAndGet(accepted);
-                            }, IngestServiceApplication.this.config.getBatchSize());
-                        } catch (IOException e) {
-                            log.error("Failed to process file: {}", file, e);
-                        }
-                    });
+                fileList = files.filter(p -> p.toString().endsWith(".parquet"))
+                               .collect(Collectors.toList());
             }
+
+            if (fileList.isEmpty()) {
+                log.warn("No Parquet files found in dataset: {}", config.datasetName());
+                continue;
+            }
+
+            log.info("Found {} Parquet files for dataset: {}", fileList.size(), config.datasetName());
+
+            // Process files in parallel using ExecutorService
+            processFilesInParallel(fileList, producer, writer, totalObservations);
         }
 
         return configs;
+    }
+
+    /**
+     * Processes files in parallel using ExecutorService with progress reporting.
+     */
+    private void processFilesInParallel(List<Path> fileList, ParquetObservationProducer producer,
+                                       HPDSWriterAdapter writer, AtomicLong totalObservations) throws IOException {
+        int threadCount = config.getFileProcessingThreads();
+        ExecutorService fileProcessorPool = Executors.newFixedThreadPool(threadCount);
+
+        log.info("Processing {} files with {} threads", fileList.size(), threadCount);
+
+        List<Future<ProcessingResult>> futures = new ArrayList<>();
+        for (Path file : fileList) {
+            Future<ProcessingResult> future = fileProcessorPool.submit(() -> {
+                try {
+                    AtomicInteger batchAccepted = new AtomicInteger(0);
+                    producer.processFile(file, batch -> {
+                        int accepted = writer.acceptBatch(batch);
+                        batchAccepted.addAndGet(accepted);
+                    }, config.getBatchSize());
+                    return new ProcessingResult(file, batchAccepted.get(), null);
+                } catch (Exception e) {
+                    return new ProcessingResult(file, 0, e);
+                }
+            });
+            futures.add(future);
+        }
+
+        // Collect results with progress reporting
+        int completed = 0;
+        int failed = 0;
+        for (Future<ProcessingResult> future : futures) {
+            try {
+                ProcessingResult result = future.get();
+                completed++;
+
+                if (result.error != null) {
+                    failed++;
+                    log.error("File processing failed: {}", result.file, result.error);
+                } else {
+                    totalObservations.addAndGet(result.observationCount);
+                }
+
+                // Progress logging every 100 files
+                if (completed % 100 == 0) {
+                    log.info("Progress: {}/{} files completed ({} failed)", completed, fileList.size(), failed);
+                }
+            } catch (InterruptedException | ExecutionException e) {
+                log.error("Failed to retrieve file processing result", e);
+                failed++;
+            }
+        }
+
+        fileProcessorPool.shutdown();
+        try {
+            if (!fileProcessorPool.awaitTermination(1, TimeUnit.HOURS)) {
+                log.warn("File processor pool did not terminate within 1 hour, forcing shutdown");
+                fileProcessorPool.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            log.error("Interrupted while waiting for file processor pool to terminate", e);
+            fileProcessorPool.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+
+        log.info("Completed processing {} files ({} failed)", fileList.size(), failed);
+    }
+
+    /**
+     * Result of processing a single Parquet file.
+     */
+    private static class ProcessingResult {
+        final Path file;
+        final int observationCount;
+        final Exception error;
+
+        ProcessingResult(Path file, int observationCount, Exception error) {
+            this.file = file;
+            this.observationCount = observationCount;
+            this.error = error;
+        }
     }
 
     /**

@@ -21,6 +21,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -62,6 +63,9 @@ public class SpoolingLoadingStore {
 
     // Track spool files for cleanup
     private final ConcurrentHashMap<String, List<Path>> spoolFiles = new ConcurrentHashMap<>();
+
+    // Concept-level locks for parallel observation writes (replaces global synchronized)
+    private final ConcurrentHashMap<String, ReentrantLock> conceptLocks = new ConcurrentHashMap<>();
 
     /**
      * Metadata tracked per concept during ingestion.
@@ -139,9 +143,15 @@ public class SpoolingLoadingStore {
     /**
      * Accepts an observation and adds it to the appropriate concept's cube.
      * The cube may be spooled to disk if cache eviction occurs.
+     *
+     * Thread-safe: Uses concept-level locking to allow concurrent writes to different concepts.
      */
-    public synchronized void addObservation(int patientNum, String conceptPath, Comparable<?> value, Date timestamp) {
-        allIds.add(patientNum);
+    public void addObservation(int patientNum, String conceptPath, Comparable<?> value, Date timestamp) {
+        // Acquire lock for THIS concept only (allows concurrent writes to different concepts)
+        ReentrantLock lock = conceptLocks.computeIfAbsent(conceptPath, k -> new ReentrantLock());
+        lock.lock();
+        try {
+            allIds.add(patientNum);
 
         // Ensure metadata exists for this concept (determined by first observation's type)
         ConceptMetadata meta = conceptMetadata.computeIfAbsent(conceptPath, k -> {
@@ -193,11 +203,14 @@ public class SpoolingLoadingStore {
             }
         }
 
-        try {
-            PhenoCube cube = cache.get(conceptPath);
-            cube.add(patientNum, coercedValue, timestamp);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to add observation for concept: " + conceptPath, e);
+            try {
+                PhenoCube cube = cache.get(conceptPath);
+                cube.add(patientNum, coercedValue, timestamp);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to add observation for concept: " + conceptPath, e);
+            }
+        } finally {
+            lock.unlock();
         }
     }
 

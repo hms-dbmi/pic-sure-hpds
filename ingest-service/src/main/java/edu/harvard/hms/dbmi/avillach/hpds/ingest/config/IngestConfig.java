@@ -38,6 +38,7 @@ public class IngestConfig {
     private boolean mappingInspectOnly = false;
     private int batchSize = 10000;
     private int storeCacheSize = 16;
+    private int fileProcessingThreads = 12; // Default for r7g.4xlarge (16 vCPU - 4 overhead)
 
     @PostConstruct
     public void validateAndLog() {
@@ -133,6 +134,7 @@ public class IngestConfig {
         log.info("Encryption key name: {}", encryptionKeyName);
         log.info("Mapping inspect only: {}", mappingInspectOnly);
         log.info("Batch size: {}", batchSize);
+        log.info("File processing threads: {}", fileProcessingThreads);
         log.info("================================");
     }
 
@@ -230,5 +232,13 @@ public class IngestConfig {
 
     public void setStoreCacheSize(int storeCacheSize) {
         this.storeCacheSize = storeCacheSize;
+    }
+
+    public int getFileProcessingThreads() {
+        return fileProcessingThreads;
+    }
+
+    public void setFileProcessingThreads(int fileProcessingThreads) {
+        this.fileProcessingThreads = fileProcessingThreads;
     }
 }
