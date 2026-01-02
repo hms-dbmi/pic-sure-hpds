@@ -39,6 +39,7 @@ public class IngestConfig {
     private int batchSize = 10000;
     private int storeCacheSize = 16;
     private int fileProcessingThreads = 12; // Default for r7g.4xlarge (16 vCPU - 4 overhead)
+    private int maxObservationsPerConcept = 5_000_000; // Default: 5M observations = ~190MB per concept
 
     @PostConstruct
     public void validateAndLog() {
@@ -134,7 +135,9 @@ public class IngestConfig {
         log.info("Encryption key name: {}", encryptionKeyName);
         log.info("Mapping inspect only: {}", mappingInspectOnly);
         log.info("Batch size: {}", batchSize);
+        log.info("Store cache size: {}", storeCacheSize);
         log.info("File processing threads: {}", fileProcessingThreads);
+        log.info("Max observations per concept: {}", maxObservationsPerConcept);
         log.info("================================");
     }
 
@@ -240,5 +243,13 @@ public class IngestConfig {
 
     public void setFileProcessingThreads(int fileProcessingThreads) {
         this.fileProcessingThreads = fileProcessingThreads;
+    }
+
+    public int getMaxObservationsPerConcept() {
+        return maxObservationsPerConcept;
+    }
+
+    public void setMaxObservationsPerConcept(int maxObservationsPerConcept) {
+        this.maxObservationsPerConcept = maxObservationsPerConcept;
     }
 }

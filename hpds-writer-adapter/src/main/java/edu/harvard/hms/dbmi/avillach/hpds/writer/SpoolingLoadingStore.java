@@ -48,6 +48,7 @@ public class SpoolingLoadingStore {
     private final String outputDirectory;
     private final String encryptionKeyName;
     private final int cacheSize;
+    private final int maxObservationsPerConcept;
 
     // Null sentinel detector for identifying string representations of missing data
     private final NullSentinelDetector nullSentinelDetector;
@@ -74,6 +75,7 @@ public class SpoolingLoadingStore {
         boolean isCategorical;
         int columnWidth;
         int totalPartialCount = 0; // Track number of spooled partials
+        AtomicInteger observationCount = new AtomicInteger(0); // Track observations in current cache entry
 
         ConceptMetadata(boolean isCategorical, int columnWidth) {
             this.isCategorical = isCategorical;
@@ -81,12 +83,13 @@ public class SpoolingLoadingStore {
         }
     }
 
-    public SpoolingLoadingStore(Path spoolDirectory, String outputDirectory, String encryptionKeyName, int cacheSize) {
+    public SpoolingLoadingStore(Path spoolDirectory, String outputDirectory, String encryptionKeyName, int cacheSize, int maxObservationsPerConcept) {
         this.spoolDirectory = spoolDirectory;
         // Ensure outputDirectory ends with /
         this.outputDirectory = outputDirectory.endsWith("/") ? outputDirectory : outputDirectory + "/";
         this.encryptionKeyName = encryptionKeyName;
         this.cacheSize = cacheSize;
+        this.maxObservationsPerConcept = maxObservationsPerConcept;
 
         // Initialize null sentinel detector with default sentinels
         this.nullSentinelDetector = new NullSentinelDetector();
@@ -136,7 +139,8 @@ public class SpoolingLoadingStore {
             Path.of("/opt/local/hpds/spool"),
             "/opt/local/hpds/",
             DEFAULT_KEY_NAME,
-            16
+            16,
+            5_000_000  // Default: 5M observations per concept (~190MB)
         );
     }
 
@@ -159,6 +163,19 @@ public class SpoolingLoadingStore {
             int width = isCategorical ? 80 : 8; // Default widths
             return new ConceptMetadata(isCategorical, width);
         });
+
+        // Check if concept has exceeded observation limit - force eviction if needed
+        if (meta.observationCount.get() >= maxObservationsPerConcept) {
+            // Force eviction by invalidating from cache
+            PhenoCube cube = cache.getIfPresent(conceptPath);
+            if (cube != null && cube.getLoadingMap() != null && !cube.getLoadingMap().isEmpty()) {
+                log.info("Concept '{}' reached limit ({} observations), spooling...",
+                        conceptPath, meta.observationCount.get());
+                spoolPartial(conceptPath, cube);
+                cache.invalidate(conceptPath);
+                meta.observationCount.set(0);  // Reset counter after spool
+            }
+        }
 
         // Handle type mismatch: coerce value to match concept's established type
         // This handles cases where Parquet auto-detection produces mixed types for same column
@@ -206,6 +223,7 @@ public class SpoolingLoadingStore {
             try {
                 PhenoCube cube = cache.get(conceptPath);
                 cube.add(patientNum, coercedValue, timestamp);
+                meta.observationCount.incrementAndGet();  // Track observation count
             } catch (Exception e) {
                 throw new RuntimeException("Failed to add observation for concept: " + conceptPath, e);
             }

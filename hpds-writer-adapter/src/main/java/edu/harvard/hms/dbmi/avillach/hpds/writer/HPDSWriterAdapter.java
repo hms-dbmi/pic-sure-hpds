@@ -24,9 +24,10 @@ public class HPDSWriterAdapter implements AutoCloseable {
     private final SpoolingLoadingStore store;
     private volatile boolean closed = false;
 
-    public HPDSWriterAdapter(Path spoolDirectory, String outputDirectory, String encryptionKeyName, int cacheSize) {
-        this.store = new SpoolingLoadingStore(spoolDirectory, outputDirectory, encryptionKeyName, cacheSize);
-        log.info("Initialized HPDS writer adapter: spool={}, output={}", spoolDirectory, outputDirectory);
+    public HPDSWriterAdapter(Path spoolDirectory, String outputDirectory, String encryptionKeyName, int cacheSize, int maxObservationsPerConcept) {
+        this.store = new SpoolingLoadingStore(spoolDirectory, outputDirectory, encryptionKeyName, cacheSize, maxObservationsPerConcept);
+        log.info("Initialized HPDS writer adapter: spool={}, output={}, cacheSize={}, maxObsPerConcept={}",
+                spoolDirectory, outputDirectory, cacheSize, maxObservationsPerConcept);
     }
 
     /**
@@ -37,7 +38,8 @@ public class HPDSWriterAdapter implements AutoCloseable {
             Path.of("/opt/local/hpds/spool"),
             "/opt/local/hpds/",
             "default",
-            16
+            16,
+            5_000_000  // Default: 5M observations per concept
         );
     }
 
