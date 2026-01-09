@@ -13,7 +13,7 @@ import java.util.Set;
  * Generic patient ID resolver using a configurable two-step mapping chain.
  *
  * Supports short-circuit resolution:
- * 1. If participantId parses as integer → use as patientNum directly
+ * 1. If participantId parses as integer → use as patientNum directly ( not very safe outside of controlled environment when we know this is true )
  * 2. Otherwise, run two-step mapping chain:
  *    - Step 1: participantId → intermediateId (e.g., dbgap_subject_id)
  *    - Step 2: intermediateId → patientNum

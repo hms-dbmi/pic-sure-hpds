@@ -83,6 +83,11 @@ public class SpoolingLoadingStore {
         }
     }
 
+    // Constants for adaptive degradation
+    private static final long TARGET_SIZE_BYTES = 1_700_000_000L;  // 1.7GB (safety margin)
+    private static final int SAMPLE_SIZE_FOR_ESTIMATION = 10_000;   // Sample for size estimation
+    private static final double SAFETY_FACTOR = 0.95;               // 95% of target (additional margin)
+
     public SpoolingLoadingStore(Path spoolDirectory, String outputDirectory, String encryptionKeyName, int cacheSize, int maxObservationsPerConcept) {
         this.spoolDirectory = spoolDirectory;
         // Ensure outputDirectory ends with /
@@ -389,17 +394,37 @@ public class SpoolingLoadingStore {
 
     /**
      * Writes a finalized cube to allObservationsStore and returns ColumnMeta.
+     * Includes adaptive degradation to prevent 2GB serialization failures.
      */
+    @SuppressWarnings("unchecked")
     private ColumnMeta writeToStore(RandomAccessFile store, String conceptPath, PhenoCube cube, ConceptMetadata meta) throws IOException {
+        // STEP 1: Attempt adaptive degradation if needed
+        PhenoCube finalCube = cube;
+        try {
+            finalCube = adaptiveDegradation(conceptPath, cube, meta);
+        } catch (OutOfMemoryError oom) {
+            log.error("✗ OutOfMemoryError during degradation for {}: {}", conceptPath, oom.getMessage());
+            log.error("  Attempting emergency fallback: keep 1 observation per patient only");
+
+            // Emergency fallback: minimal patient representation
+            try {
+                finalCube = emergencyDegradation(conceptPath, cube);
+            } catch (Exception e) {
+                log.error("✗✗ Emergency degradation also failed for {}", conceptPath, e);
+                throw new IOException("Concept too large to serialize even with minimal degradation: " + conceptPath, oom);
+            }
+        }
+
+        // STEP 2: Build ColumnMeta
         ColumnMeta columnMeta = new ColumnMeta()
             .setName(conceptPath)
             .setWidthInBytes(meta.columnWidth)
             .setCategorical(meta.isCategorical);
 
         columnMeta.setAllObservationsOffset(store.getFilePointer());
-        columnMeta.setObservationCount(cube.sortedByKey().length);
+        columnMeta.setObservationCount(finalCube.sortedByKey().length);
         columnMeta.setPatientCount(
-            Arrays.stream(cube.sortedByKey())
+            Arrays.stream(finalCube.sortedByKey())
                 .map(KeyAndValue::getKey)
                 .collect(Collectors.toSet())
                 .size()
@@ -408,10 +433,10 @@ public class SpoolingLoadingStore {
         // Set category values or min/max
         if (meta.isCategorical) {
             columnMeta.setCategoryValues(
-                new ArrayList<>(new TreeSet<>((List<String>) cube.keyBasedArray()))
+                new ArrayList<>(new TreeSet<>((List<String>) finalCube.keyBasedArray()))
             );
         } else {
-            List<Double> values = (List<Double>) cube.keyBasedArray().stream()
+            List<Double> values = (List<Double>) finalCube.keyBasedArray().stream()
                 .map(v -> (Double) v)
                 .collect(Collectors.toList());
             double min = values.stream().mapToDouble(Double::doubleValue).min().orElse(Double.NaN);
@@ -420,16 +445,71 @@ public class SpoolingLoadingStore {
             columnMeta.setMax(max);
         }
 
-        // Serialize and encrypt
+        // STEP 3: Serialize and encrypt with size validation
         try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
              ObjectOutputStream out = new ObjectOutputStream(byteStream)) {
-            out.writeObject(cube);
+            out.writeObject(finalCube);
             out.flush();
-            store.write(Crypto.encryptData(encryptionKeyName, byteStream.toByteArray()));
+
+            byte[] serialized = byteStream.toByteArray();
+            log.debug("Serialized {} to {} bytes", conceptPath, serialized.length);
+
+            if (serialized.length > TARGET_SIZE_BYTES) {
+                log.warn("⚠ Concept {} serialized to {} bytes (exceeds {} target) - encryption may fail",
+                        conceptPath, serialized.length, TARGET_SIZE_BYTES);
+            }
+
+            store.write(Crypto.encryptData(encryptionKeyName, serialized));
+        } catch (OutOfMemoryError oom) {
+            log.error("✗ OutOfMemoryError during serialization for {} even after degradation", conceptPath);
+            log.error("  Final cube size: {} observations, {} patients",
+                    finalCube.sortedByKey().length,
+                    columnMeta.getPatientCount());
+            throw new IOException("Concept exceeded 2GB limit during serialization: " + conceptPath, oom);
         }
 
         columnMeta.setAllObservationsLength(store.getFilePointer());
+
+        // Log success
+        if (finalCube != cube) {
+            log.warn("⚠ Concept {} written with degradation ({} obs → {} obs)",
+                    conceptPath, cube.sortedByKey().length, finalCube.sortedByKey().length);
+        } else {
+            log.info("✓ Concept {} written successfully ({} obs)", conceptPath, finalCube.sortedByKey().length);
+        }
+
         return columnMeta;
+    }
+
+    /**
+     * Emergency degradation: keep only 1 observation per patient (most recent).
+     * Used as last resort when adaptive degradation fails.
+     */
+    @SuppressWarnings("unchecked")
+    private <V extends Comparable<V>> PhenoCube<V> emergencyDegradation(String conceptPath, PhenoCube<V> cube) {
+        log.warn("→ Emergency degradation for {}: keeping 1 observation per patient", conceptPath);
+
+        Map<Integer, List<KeyAndValue<V>>> byPatient = groupByPatient(cube);
+        List<KeyAndValue<V>> minimal = new ArrayList<>(byPatient.size());
+
+        for (Map.Entry<Integer, List<KeyAndValue<V>>> entry : byPatient.entrySet()) {
+            List<KeyAndValue<V>> patientObs = entry.getValue();
+
+            // Sort by timestamp descending, take most recent
+            patientObs.sort((a, b) -> {
+                Long tsA = a.getTimestamp();
+                Long tsB = b.getTimestamp();
+                if (tsA == null || tsB == null) return 0;
+                return tsB.compareTo(tsA);
+            });
+
+            minimal.add(patientObs.get(0));
+        }
+
+        log.warn("✓ Emergency degradation complete: {} obs → {} obs (1 per patient)",
+                cube.sortedByKey().length, minimal.size());
+
+        return buildCubeFromSample(cube, minimal);
     }
 
     /**
@@ -558,5 +638,233 @@ public class SpoolingLoadingStore {
         } catch (ClassNotFoundException e) {
             throw new IOException("Failed to deserialize columnMeta.javabin", e);
         }
+    }
+
+    // ========================================================================
+    // ADAPTIVE DEGRADATION METHODS
+    // ========================================================================
+
+    /**
+     * Adaptively degrades a concept to fit within 2GB serialization limit.
+     * Calculates maximum observations that fit safely, then uses stratified temporal sampling.
+     */
+    @SuppressWarnings("unchecked")
+    private <V extends Comparable<V>> PhenoCube<V> adaptiveDegradation(String conceptPath,
+                                                                        PhenoCube<V> cube,
+                                                                        ConceptMetadata meta) throws IOException {
+        int totalObservations = cube.sortedByKey().length;
+
+        // STEP 1: Estimate serialized size
+        long estimatedSize = estimateSerializedSize(cube, SAMPLE_SIZE_FOR_ESTIMATION);
+
+        if (estimatedSize <= TARGET_SIZE_BYTES) {
+            log.info("Concept {} ({} obs) estimated at {} bytes - no degradation needed",
+                    conceptPath, totalObservations, estimatedSize);
+            return cube;
+        }
+
+        // STEP 2: Calculate target observation count
+        // Formula: targetObs = (TARGET_SIZE / estimatedSize) × totalObs × SAFETY_FACTOR
+        long targetObservations = (long) Math.floor(
+                (double) TARGET_SIZE_BYTES / estimatedSize
+                        * totalObservations
+                        * SAFETY_FACTOR
+        );
+
+        // Ensure minimum: at least 1 observation per patient
+        int patientCount = countUniquePatients(cube);
+        targetObservations = Math.max(targetObservations, patientCount);
+
+        log.warn("Concept {} requires degradation: {} obs → {} obs (estimated {} GB → {} GB)",
+                conceptPath,
+                totalObservations,
+                targetObservations,
+                estimatedSize / 1_000_000_000.0,
+                TARGET_SIZE_BYTES / 1_000_000_000.0);
+
+        // STEP 3: Sample observations using stratified temporal strategy
+        PhenoCube<V> degraded = stratifiedTemporalSample(cube, targetObservations, meta);
+
+        // STEP 4: Verify final size (fail-safe check)
+        long finalSize = estimateSerializedSize(degraded, degraded.sortedByKey().length);
+
+        if (finalSize > TARGET_SIZE_BYTES) {
+            log.error("Degradation failed: final size {} exceeds target {}", finalSize, TARGET_SIZE_BYTES);
+            throw new RuntimeException("Degradation size estimation error for: " + conceptPath);
+        }
+
+        log.warn("✓ Degradation successful: {} obs retained ({} GB estimated)",
+                degraded.sortedByKey().length, finalSize / 1_000_000_000.0);
+
+        return degraded;
+    }
+
+    /**
+     * Estimates serialized size of a PhenoCube by sampling observations.
+     */
+    @SuppressWarnings("unchecked")
+    private <V extends Comparable<V>> long estimateSerializedSize(PhenoCube<V> cube, int sampleSize) throws IOException {
+        int totalObservations = cube.sortedByKey().length;
+
+        if (totalObservations <= sampleSize) {
+            // Small enough to serialize fully
+            return measureSerializedSize(cube);
+        }
+
+        // Create sample cube
+        PhenoCube<V> sample = createSampleCube(cube, sampleSize);
+
+        // Measure sample size
+        long sampleBytes = measureSerializedSize(sample);
+
+        // Extrapolate to full size with overhead correction
+        double bytesPerObservation = (double) sampleBytes / sampleSize;
+        long linearEstimate = (long) (bytesPerObservation * totalObservations);
+        long fixedOverhead = estimateFixedOverhead(cube);
+        long correctedEstimate = linearEstimate + fixedOverhead;
+
+        log.debug("Size estimation: {} sample bytes, {} bytes/obs, {} total estimated",
+                sampleBytes, bytesPerObservation, correctedEstimate);
+
+        return correctedEstimate;
+    }
+
+    /**
+     * Creates a uniform sample of observations from a cube.
+     */
+    @SuppressWarnings("unchecked")
+    private <V extends Comparable<V>> PhenoCube<V> createSampleCube(PhenoCube<V> cube, int sampleSize) {
+        KeyAndValue<V>[] all = cube.sortedByKey();
+        List<KeyAndValue<V>> sample = new ArrayList<>(sampleSize);
+
+        // Uniform stride sampling
+        double stride = (double) all.length / sampleSize;
+        for (double i = 0; i < all.length && sample.size() < sampleSize; i += stride) {
+            sample.add(all[(int) i]);
+        }
+
+        return buildCubeFromSample(cube, sample);
+    }
+
+    /**
+     * Measures actual serialized size by serializing to ByteArrayOutputStream.
+     */
+    private <V extends Comparable<V>> long measureSerializedSize(PhenoCube<V> cube) {
+        try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+             ObjectOutputStream out = new ObjectOutputStream(byteStream)) {
+            out.writeObject(cube);
+            out.flush();
+            return byteStream.size();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to measure serialized size", e);
+        }
+    }
+
+    /**
+     * Estimates fixed overhead (Java serialization header, arrays, metadata).
+     */
+    private <V extends Comparable<V>> long estimateFixedOverhead(PhenoCube<V> cube) {
+        long overhead = 200;  // Base overhead
+
+        if (cube.isStringType() && cube.getCategoryMap() != null) {
+            int categoryCount = cube.getCategoryMap().size();
+            overhead += 100 + (categoryCount * 20);  // TreeMap overhead
+        }
+
+        return overhead;
+    }
+
+    /**
+     * Stratified temporal sampling: guarantee patient coverage + temporal spread.
+     */
+    @SuppressWarnings("unchecked")
+    private <V extends Comparable<V>> PhenoCube<V> stratifiedTemporalSample(PhenoCube<V> cube,
+                                                                             long targetObs,
+                                                                             ConceptMetadata meta) {
+        // PHASE 1: Guarantee patient coverage
+        Map<Integer, List<KeyAndValue<V>>> byPatient = groupByPatient(cube);
+        int patientCount = byPatient.size();
+
+        // Select one representative observation per patient (prefer most recent)
+        List<KeyAndValue<V>> guaranteedSample = new ArrayList<>(patientCount);
+        List<KeyAndValue<V>> remainingPool = new ArrayList<>();
+
+        for (Map.Entry<Integer, List<KeyAndValue<V>>> entry : byPatient.entrySet()) {
+            List<KeyAndValue<V>> patientObs = entry.getValue();
+
+            // Sort by timestamp descending (most recent first)
+            patientObs.sort((a, b) -> {
+                Long tsA = a.getTimestamp();
+                Long tsB = b.getTimestamp();
+                if (tsA == null || tsB == null) return 0;
+                return tsB.compareTo(tsA);  // Descending
+            });
+
+            // Take most recent observation as guaranteed
+            guaranteedSample.add(patientObs.get(0));
+
+            // Add rest to pool
+            if (patientObs.size() > 1) {
+                remainingPool.addAll(patientObs.subList(1, patientObs.size()));
+            }
+        }
+
+        // PHASE 2: Fill remaining quota with temporal sampling
+        long remainingQuota = targetObs - guaranteedSample.size();
+
+        if (remainingQuota > 0 && !remainingPool.isEmpty()) {
+            // Sort pool by timestamp
+            remainingPool.sort((a, b) -> {
+                Long tsA = a.getTimestamp();
+                Long tsB = b.getTimestamp();
+                if (tsA == null) return -1;
+                if (tsB == null) return 1;
+                return tsA.compareTo(tsB);
+            });
+
+            // Sample uniformly across time
+            double stride = (double) remainingPool.size() / remainingQuota;
+            for (double i = 0; i < remainingPool.size() && guaranteedSample.size() < targetObs; i += stride) {
+                guaranteedSample.add(remainingPool.get((int) i));
+            }
+        }
+
+        log.info("Stratified sampling: {} patients covered, {} observations selected", patientCount, guaranteedSample.size());
+
+        return buildCubeFromSample(cube, guaranteedSample);
+    }
+
+    /**
+     * Groups observations by patient ID.
+     */
+    private <V extends Comparable<V>> Map<Integer, List<KeyAndValue<V>>> groupByPatient(PhenoCube<V> cube) {
+        Map<Integer, List<KeyAndValue<V>>> byPatient = new HashMap<>();
+
+        for (KeyAndValue<V> kv : cube.sortedByKey()) {
+            byPatient.computeIfAbsent(kv.getKey(), k -> new ArrayList<>()).add(kv);
+        }
+
+        return byPatient;
+    }
+
+    /**
+     * Builds a new PhenoCube from sampled observations.
+     */
+    @SuppressWarnings("unchecked")
+    private <V extends Comparable<V>> PhenoCube<V> buildCubeFromSample(PhenoCube<V> original, List<KeyAndValue<V>> sampled) {
+        PhenoCube<V> degraded = new PhenoCube<>(original.name, original.vType);
+        degraded.setColumnWidth(original.getColumnWidth());
+        degraded.setLoadingMap(sampled);
+        return degraded;
+    }
+
+    /**
+     * Counts unique patient IDs in the cube.
+     */
+    private <V extends Comparable<V>> int countUniquePatients(PhenoCube<V> cube) {
+        return Arrays.stream(cube.sortedByKey())
+                .map(KeyAndValue::getKey)
+                .collect(Collectors.toSet())
+                .size();
     }
 }
