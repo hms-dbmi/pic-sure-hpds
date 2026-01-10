@@ -84,9 +84,12 @@ public class SpoolingLoadingStore {
     }
 
     // Constants for adaptive degradation
-    private static final long TARGET_SIZE_BYTES = 1_700_000_000L;  // 1.7GB (safety margin)
-    private static final int SAMPLE_SIZE_FOR_ESTIMATION = 10_000;   // Sample for size estimation
-    private static final double SAFETY_FACTOR = 0.95;               // 95% of target (additional margin)
+    private static final long TARGET_SIZE_BYTES = 1_500_000_000L;  // 1.5GB (safer margin for 2GB encryption limit)
+    private static final int MIN_SAMPLE_SIZE = 10_000;              // Minimum sample for size estimation
+    private static final int MAX_SAMPLE_SIZE = 100_000;             // Maximum sample for size estimation
+    private static final double SAMPLE_RATIO = 0.01;                // 1% sample for large concepts
+    private static final double INITIAL_SAFETY_FACTOR = 0.85;       // 85% of target (conservative initial estimate)
+    private static final int MAX_DEGRADATION_RETRIES = 3;           // Maximum verification retries
 
     public SpoolingLoadingStore(Path spoolDirectory, String outputDirectory, String encryptionKeyName, int cacheSize, int maxObservationsPerConcept) {
         this.spoolDirectory = spoolDirectory;
@@ -454,8 +457,19 @@ public class SpoolingLoadingStore {
             byte[] serialized = byteStream.toByteArray();
             log.debug("Serialized {} to {} bytes", conceptPath, serialized.length);
 
+            // Hard limit check: AES-GCM encryption fails at ~2.14GB (Integer.MAX_VALUE)
+            // Allow 100MB buffer for encryption overhead
+            if (serialized.length > Integer.MAX_VALUE - 100_000_000) {
+                log.error("✗ Concept {} serialized to {} bytes - EXCEEDS ENCRYPTION LIMIT ({})",
+                        conceptPath, serialized.length, Integer.MAX_VALUE);
+                throw new IOException(String.format(
+                        "Concept %s too large for encryption: %d bytes (limit: ~%d). " +
+                        "Adaptive degradation failed to reduce size sufficiently.",
+                        conceptPath, serialized.length, Integer.MAX_VALUE));
+            }
+
             if (serialized.length > TARGET_SIZE_BYTES) {
-                log.warn("⚠ Concept {} serialized to {} bytes (exceeds {} target) - encryption may fail",
+                log.warn("⚠ Concept {} serialized to {} bytes (exceeds {} target) - should not happen after verification",
                         conceptPath, serialized.length, TARGET_SIZE_BYTES);
             }
 
@@ -472,10 +486,10 @@ public class SpoolingLoadingStore {
 
         // Log success
         if (finalCube != cube) {
-            log.warn("⚠ Concept {} written with degradation ({} obs → {} obs)",
+            log.warn("Concept {} written with degradation ({} obs → {} obs)",
                     conceptPath, cube.sortedByKey().length, finalCube.sortedByKey().length);
         } else {
-            log.info("✓ Concept {} written successfully ({} obs)", conceptPath, finalCube.sortedByKey().length);
+            log.debug("Concept {} written successfully ({} obs)", conceptPath, finalCube.sortedByKey().length);
         }
 
         return columnMeta;
@@ -646,7 +660,8 @@ public class SpoolingLoadingStore {
 
     /**
      * Adaptively degrades a concept to fit within 2GB serialization limit.
-     * Calculates maximum observations that fit safely, then uses stratified temporal sampling.
+     * Uses adaptive sampling for better size estimation, then iteratively verifies
+     * actual serialized size to guarantee encryption success.
      */
     @SuppressWarnings("unchecked")
     private <V extends Comparable<V>> PhenoCube<V> adaptiveDegradation(String conceptPath,
@@ -654,49 +669,94 @@ public class SpoolingLoadingStore {
                                                                         ConceptMetadata meta) throws IOException {
         int totalObservations = cube.sortedByKey().length;
 
-        // STEP 1: Estimate serialized size
-        long estimatedSize = estimateSerializedSize(cube, SAMPLE_SIZE_FOR_ESTIMATION);
+        // STEP 1: Adaptive sample size for better estimation
+        // Use larger samples for larger concepts (up to 1% or 100K observations)
+        int sampleSize = Math.min(MAX_SAMPLE_SIZE,
+                                  Math.max(MIN_SAMPLE_SIZE,
+                                          (int)(totalObservations * SAMPLE_RATIO)));
+
+        long estimatedSize = estimateSerializedSize(cube, sampleSize);
 
         if (estimatedSize <= TARGET_SIZE_BYTES) {
-            log.info("Concept {} ({} obs) estimated at {} bytes - no degradation needed",
-                    conceptPath, totalObservations, estimatedSize);
+            log.debug("Concept {} ({} obs) estimated at {} bytes with {} sample - no degradation needed",
+                    conceptPath, totalObservations, estimatedSize, sampleSize);
             return cube;
         }
 
-        // STEP 2: Calculate target observation count
-        // Formula: targetObs = (TARGET_SIZE / estimatedSize) × totalObs × SAFETY_FACTOR
+        // STEP 2: Calculate initial target observation count
+        // Use conservative safety factor for initial estimate
         long targetObservations = (long) Math.floor(
                 (double) TARGET_SIZE_BYTES / estimatedSize
                         * totalObservations
-                        * SAFETY_FACTOR
+                        * INITIAL_SAFETY_FACTOR
         );
 
         // Ensure minimum: at least 1 observation per patient
         int patientCount = countUniquePatients(cube);
         targetObservations = Math.max(targetObservations, patientCount);
 
-        log.warn("Concept {} requires degradation: {} obs → {} obs (estimated {} GB → {} GB)",
+        log.warn("Concept {} requires degradation: {} obs → {} obs (estimated {} GB → {} GB target)",
                 conceptPath,
                 totalObservations,
                 targetObservations,
                 estimatedSize / 1_000_000_000.0,
                 TARGET_SIZE_BYTES / 1_000_000_000.0);
 
-        // STEP 3: Sample observations using stratified temporal strategy
+        // STEP 3: Iterative degradation with actual size verification
         PhenoCube<V> degraded = stratifiedTemporalSample(cube, targetObservations, meta);
 
-        // STEP 4: Verify final size (fail-safe check)
-        long finalSize = estimateSerializedSize(degraded, degraded.sortedByKey().length);
+        for (int retry = 0; retry < MAX_DEGRADATION_RETRIES; retry++) {
+            try {
+                // Verify actual serialized size
+                ByteArrayOutputStream testStream = new ByteArrayOutputStream();
+                try (ObjectOutputStream out = new ObjectOutputStream(testStream)) {
+                    out.writeObject(degraded);
+                    out.flush();
+                }
 
-        if (finalSize > TARGET_SIZE_BYTES) {
-            log.error("Degradation failed: final size {} exceeds target {}", finalSize, TARGET_SIZE_BYTES);
-            throw new RuntimeException("Degradation size estimation error for: " + conceptPath);
+                long actualSize = testStream.size();
+
+                if (actualSize <= TARGET_SIZE_BYTES) {
+                    log.info("✓ Degradation successful after {} attempt(s): {} obs retained, {} bytes (target: {} bytes)",
+                            retry + 1,
+                            degraded.sortedByKey().length,
+                            actualSize,
+                            TARGET_SIZE_BYTES);
+                    return degraded;
+                }
+
+                // Too large - reduce by 15% more and retry
+                long newTarget = (long)(degraded.sortedByKey().length * 0.85);
+                newTarget = Math.max(newTarget, patientCount);  // Maintain minimum
+
+                log.warn("Retry {}/{}: {} bytes still exceeds target ({}), reducing to {} obs",
+                        retry + 1,
+                        MAX_DEGRADATION_RETRIES,
+                        actualSize,
+                        TARGET_SIZE_BYTES,
+                        newTarget);
+
+                degraded = stratifiedTemporalSample(degraded, newTarget, meta);
+
+            } catch (OutOfMemoryError oom) {
+                // Aggressive reduction on OOM during verification
+                long emergencyTarget = degraded.sortedByKey().length / 2;
+                emergencyTarget = Math.max(emergencyTarget, patientCount);
+
+                log.error("OutOfMemoryError during verification (retry {}/{}), halving to {} obs",
+                        retry + 1,
+                        MAX_DEGRADATION_RETRIES,
+                        emergencyTarget);
+
+                degraded = stratifiedTemporalSample(degraded, emergencyTarget, meta);
+            }
         }
 
-        log.warn("✓ Degradation successful: {} obs retained ({} GB estimated)",
-                degraded.sortedByKey().length, finalSize / 1_000_000_000.0);
-
-        return degraded;
+        // Failed after all retries
+        throw new IOException(String.format(
+                "Failed to degrade concept %s below %d bytes after %d attempts. " +
+                "Final size still too large for 2GB encryption limit.",
+                conceptPath, TARGET_SIZE_BYTES, MAX_DEGRADATION_RETRIES));
     }
 
     /**

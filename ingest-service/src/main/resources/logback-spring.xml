@@ -40,7 +40,7 @@
 
     <!-- Root logger -->
     <root level="INFO">
-        <!-- appender-ref ref="CONSOLE"/ -->
+        <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE"/>
     </root>
 
@@ -50,7 +50,4 @@
     <logger name="org.apache.hadoop" level="WARN"/>
     <logger name="org.apache.arrow" level="WARN"/>
     <logger name="org.springframework" level="INFO"/>
-
-    <!-- Startup banner to confirm this config is loaded -->
-    <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener"/>
 </configuration>

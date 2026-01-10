@@ -386,27 +386,98 @@ public class IngestServiceApplication implements CommandLineRunner {
     }
 
     /**
-     * Processes all CSV files.
+     * Processes all CSV files in parallel.
      */
     private void processCsvFiles(String runId, String csvDir, FailureSink failureSink,
                                 HPDSWriterAdapter writer, AtomicLong totalObservations) throws IOException {
         CsvObservationProducer producer = new CsvObservationProducer(runId, failureSink);
 
+        // Collect all CSV files
+        List<Path> fileList;
         try (Stream<Path> files = Files.walk(Path.of(csvDir))) {
-            files.filter(p -> p.toString().endsWith(".csv"))
-                .sorted() // Deterministic order
-                .forEach(file -> {
-                    try {
-                        log.info("Processing: {}", file);
-                        producer.processFile(file, batch -> {
-                            int accepted = writer.acceptBatch(batch);
-                            totalObservations.addAndGet(accepted);
-                        }, config.getBatchSize());
-                    } catch (IOException e) {
-                        log.error("Failed to process file: {}", file, e);
-                    }
-                });
+            fileList = files.filter(p -> p.toString().endsWith(".csv"))
+                           .sorted() // Deterministic order
+                           .collect(Collectors.toList());
         }
+
+        if (fileList.isEmpty()) {
+            log.warn("No CSV files found in directory: {}", csvDir);
+            return;
+        }
+
+        log.info("Found {} CSV files", fileList.size());
+
+        // Process files in parallel using ExecutorService (same pattern as Parquet)
+        processCsvFilesInParallel(fileList, producer, writer, totalObservations);
+    }
+
+    /**
+     * Processes CSV files in parallel using ExecutorService with progress reporting.
+     */
+    private void processCsvFilesInParallel(List<Path> fileList, CsvObservationProducer producer,
+                                          HPDSWriterAdapter writer, AtomicLong totalObservations) throws IOException {
+        int threadCount = config.getFileProcessingThreads();
+        ExecutorService fileProcessorPool = Executors.newFixedThreadPool(threadCount);
+
+        log.info("Processing {} CSV files with {} threads", fileList.size(), threadCount);
+
+        List<Future<ProcessingResult>> futures = new ArrayList<>();
+        for (Path file : fileList) {
+            Future<ProcessingResult> future = fileProcessorPool.submit(() -> {
+                try {
+                    log.info("Processing CSV file: {} on thread: {}", file.getFileName(), Thread.currentThread().getName());
+                    AtomicInteger batchAccepted = new AtomicInteger(0);
+                    producer.processFile(file, batch -> {
+                        int accepted = writer.acceptBatch(batch);
+                        batchAccepted.addAndGet(accepted);
+                    }, config.getBatchSize());
+                    return new ProcessingResult(file, batchAccepted.get(), null);
+                } catch (Exception e) {
+                    return new ProcessingResult(file, 0, e);
+                }
+            });
+            futures.add(future);
+        }
+
+        // Collect results with progress reporting
+        int completed = 0;
+        int failed = 0;
+        for (Future<ProcessingResult> future : futures) {
+            try {
+                ProcessingResult result = future.get();
+                completed++;
+
+                if (result.error != null) {
+                    failed++;
+                    log.error("CSV file processing failed: {}", result.file, result.error);
+                } else {
+                    totalObservations.addAndGet(result.observationCount);
+                    log.info("CSV file completed: {} ({} observations)", result.file.getFileName(), result.observationCount);
+                }
+
+                // Progress logging every 10 files (CSV files are typically fewer and larger than Parquet)
+                if (completed % 10 == 0) {
+                    log.info("CSV Progress: {}/{} files completed ({} failed)", completed, fileList.size(), failed);
+                }
+            } catch (InterruptedException | ExecutionException e) {
+                log.error("Failed to retrieve CSV file processing result", e);
+                failed++;
+            }
+        }
+
+        fileProcessorPool.shutdown();
+        try {
+            if (!fileProcessorPool.awaitTermination(1, TimeUnit.HOURS)) {
+                log.warn("CSV file processor pool did not terminate within 1 hour, forcing shutdown");
+                fileProcessorPool.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            log.error("Interrupted while waiting for CSV file processor pool to terminate", e);
+            fileProcessorPool.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+
+        log.info("Completed processing {} CSV files ({} failed)", fileList.size(), failed);
     }
 
     /**

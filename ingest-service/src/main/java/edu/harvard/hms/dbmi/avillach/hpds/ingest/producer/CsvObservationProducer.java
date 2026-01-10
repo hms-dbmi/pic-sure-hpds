@@ -119,6 +119,8 @@ public class CsvObservationProducer {
         try (CSVParser parser = new CSVParser(reader, format)) {
             List<ObservationRow> batch = new ArrayList<>(batchSize);
 
+            log.debug("CSV processing thread: {} (file: {})", Thread.currentThread().getName(), filePath.getFileName());
+            
             for (CSVRecord record : parser) {
                 try {
                     ObservationRow row = parseRecord(record, filePath, useHeaders);
