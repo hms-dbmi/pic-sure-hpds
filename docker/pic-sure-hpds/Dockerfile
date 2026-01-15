@@ -6,7 +6,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN --mount=type=cache,id=m2-cache,sharing=shared,target=/root/.m2 ls -l /root/.m2
+RUN --mount=type=cache,id=m2-cache,sharing=shared,target=/root/.m2 ls -l .
 
 FROM amazoncorretto:24-alpine
 
