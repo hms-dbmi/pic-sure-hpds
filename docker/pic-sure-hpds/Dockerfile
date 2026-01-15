@@ -6,7 +6,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN type=bind,src=/root/.m2,target=/root/.m2 ls -l /root/.m2
+RUN --mount=type=bind,src=/root/.m2,target=/root/.m2 ls -l /root/.m2
 
 FROM amazoncorretto:24-alpine
 
