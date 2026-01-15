@@ -4,7 +4,9 @@ RUN yum update -y && yum install -y git && yum clean all
 
 WORKDIR /app
 
-COPY .m2 /root/.m2
+RUN \
+ - mount=type=cache,target=/root/.m2 \
+  mvn clean install -DskipTests
 
 COPY . .
 
