@@ -4,13 +4,7 @@ RUN yum update -y && yum install -y git && yum clean all
 
 WORKDIR /app
 
-RUN \
- - mount=type=cache,target=/root/.m2 \
-  mvn clean install -DskipTests
-
-COPY . .
-
-RUN mvn clean install -DskipTests
+RUN --mount=type=cache,target=/root/.m2 mvn clean install -DskipTests
 
 FROM amazoncorretto:24-alpine
 
