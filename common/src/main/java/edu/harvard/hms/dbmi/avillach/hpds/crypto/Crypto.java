@@ -5,10 +5,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
+import java.security.*;
 import java.util.HashMap;
 
 import javax.crypto.BadPaddingException;
@@ -54,29 +51,39 @@ public class Crypto {
 	public static byte[] encryptData(byte[] plaintextBytes) {
 		return encryptData(DEFAULT_KEY_NAME, plaintextBytes);
 	}
-	
+
 	public static byte[] encryptData(String keyName, byte[] plaintextBytes) {
 		byte[] key = keys.get(keyName);
-		SecureRandom secureRandom = new SecureRandom();
+		if (key == null) {
+			throw new IllegalStateException("No key loaded for: " + keyName);
+		}
+
 		SecretKey secretKey = new SecretKeySpec(key, "AES");
-		byte[] iv = new byte[12]; //NEVER REUSE THIS IV WITH SAME KEY
-		secureRandom.nextBytes(iv);
-		byte[] cipherText;
-		Cipher cipher;
+
+		byte[] iv = new byte[12]; // NEVER REUSE THIS IV WITH SAME KEY
+		new SecureRandom().nextBytes(iv);
+
 		try {
-			cipher = Cipher.getInstance("AES/GCM/NoPadding");
-			GCMParameterSpec parameterSpec = new GCMParameterSpec(128, iv); //128 bit auth tag length
+			Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+			GCMParameterSpec parameterSpec = new GCMParameterSpec(128, iv); // 128-bit auth tag length
 			cipher.init(Cipher.ENCRYPT_MODE, secretKey, parameterSpec);
-			cipherText = new byte[cipher.getOutputSize(plaintextBytes.length)];
-			cipher.doFinal(plaintextBytes, 0, plaintextBytes.length, cipherText, 0);
-			LOGGER.debug("Length of cipherText : " + cipherText.length);
-			ByteBuffer byteBuffer = ByteBuffer.allocate(4 + iv.length + cipherText.length);
-			byteBuffer.putInt(iv.length);
-			byteBuffer.put(iv);
-			byteBuffer.put(cipherText);
-			byte[] cipherMessage = byteBuffer.array();
+
+			// Allocate the final message once: [ivLen:int][iv][ciphertext+tag]
+			int ctLen = cipher.getOutputSize(plaintextBytes.length);
+			byte[] cipherMessage = new byte[4 + iv.length + ctLen];
+
+			// header + iv
+			ByteBuffer.wrap(cipherMessage, 0, 4).putInt(iv.length);
+			System.arraycopy(iv, 0, cipherMessage, 4, iv.length);
+
+			// write ciphertext directly into final array (avoids a second large allocation/copy)
+			cipher.doFinal(plaintextBytes, 0, plaintextBytes.length, cipherMessage, 4 + iv.length);
+
+			LOGGER.debug("Length of cipherText : {}", ctLen);
 			return cipherMessage;
-		} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | ShortBufferException | IllegalBlockSizeException | BadPaddingException e) {
+		} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException
+				 | InvalidAlgorithmParameterException | ShortBufferException
+				 | IllegalBlockSizeException | BadPaddingException e) {
 			throw new RuntimeException("Exception while trying to encrypt data : ", e);
 		}
 	}
@@ -87,22 +94,36 @@ public class Crypto {
 
 	public static byte[] decryptData(String keyName, byte[] encrypted) {
 		byte[] key = keys.get(keyName);
-		ByteBuffer byteBuffer = ByteBuffer.wrap(encrypted);
-		int ivLength = byteBuffer.getInt();
+
+		if (encrypted.length < 4) {
+			throw new IllegalArgumentException("Encrypted payload too small");
+		}
+
+		ByteBuffer bb = ByteBuffer.wrap(encrypted);
+		int ivLength = bb.getInt();
+
+		// GCM IV is typically 12 bytes; allow a small range if you need flexibility
+		if (ivLength < 12 || ivLength > 32) {
+			throw new IllegalArgumentException("Invalid ivLength: " + ivLength);
+		}
+		if (encrypted.length < 4 + ivLength + 16) { // 16 = GCM tag
+			throw new IllegalArgumentException("Encrypted payload truncated");
+		}
+
 		byte[] iv = new byte[ivLength];
-		byteBuffer.get(iv);
-		byte[] cipherText = new byte[byteBuffer.remaining()];
-		byteBuffer.get(cipherText);
-		Cipher cipher;
+		bb.get(iv);
+
+		int ctOffset = 4 + ivLength;
+		int ctLen = encrypted.length - ctOffset;
+
 		try {
-			cipher = Cipher.getInstance("AES/GCM/NoPadding");
+			Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
 			cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"), new GCMParameterSpec(128, iv));
-			return cipher.doFinal(cipherText);
-		} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
+			return cipher.doFinal(encrypted, ctOffset, ctLen);
+		} catch (GeneralSecurityException e) {
 			throw new RuntimeException("Exception caught trying to decrypt data : " + e, e);
 		}
 	}
-
 	private static void setKey(String keyName, byte[] key) {
 		keys.put(keyName, key);
 	}

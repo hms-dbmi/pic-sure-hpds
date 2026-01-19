@@ -86,9 +86,9 @@ public class SpoolingLoadingStore {
     // Constants for adaptive degradation
     private static final long TARGET_SIZE_BYTES = 1_500_000_000L;  // 1.5GB (safer margin for 2GB encryption limit)
     private static final int MIN_SAMPLE_SIZE = 10_000;              // Minimum sample for size estimation
-    private static final int MAX_SAMPLE_SIZE = 100_000;             // Maximum sample for size estimation
-    private static final double SAMPLE_RATIO = 0.01;                // 1% sample for large concepts
-    private static final double INITIAL_SAFETY_FACTOR = 0.85;       // 85% of target (conservative initial estimate)
+    private static final int MAX_SAMPLE_SIZE = 10_000_000;             // Maximum sample for size estimation
+    private static final double SAMPLE_RATIO = 0.50;                // 1% sample for large concepts
+    private static final double INITIAL_SAFETY_FACTOR = 0.50;       // 85% of target (conservative initial estimate)
     private static final int MAX_DEGRADATION_RETRIES = 3;           // Maximum verification retries
 
     public SpoolingLoadingStore(Path spoolDirectory, String outputDirectory, String encryptionKeyName, int cacheSize, int maxObservationsPerConcept) {
