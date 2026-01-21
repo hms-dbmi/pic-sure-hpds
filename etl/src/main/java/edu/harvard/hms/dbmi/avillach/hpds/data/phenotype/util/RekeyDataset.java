@@ -44,7 +44,13 @@ public class RekeyDataset {
 		store.allObservationsStore = new RandomAccessFile(HPDS_DIRECTORY + "allObservationsStore.javabin", "rw");
 		store.allIds = (TreeSet<Integer>) metadata[1];
 		initialLoad();
-		
+
+		// Clear source metadata to free memory before saving
+		sourceMetaStore.clear();
+		sourceMetaStore = null;
+		sourceStore.invalidateAll();
+		sourceStore = null;
+
 		store.saveStore(HPDS_DIRECTORY);
 	}
 

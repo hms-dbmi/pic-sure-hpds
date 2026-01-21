@@ -122,6 +122,11 @@ public class LoadingStore {
 		metaOut.writeObject(allIds);
 		metaOut.flush();
 		metaOut.close();
+
+		// Clear in-memory data to free memory before reading back from file
+		metadataMap.clear();
+		allIds.clear();
+
 		System.out.println("Closing Store");
 		allObservationsStore.close();
 		dumpStatsAndColumnMeta(hpdsDirectory);

@@ -130,6 +130,10 @@ public class LowRAMLoadingStore {
         metaOut.flush();
         metaOut.close();
 
+        // Clear in-memory data to free memory before reading back from file
+        metadataMap.clear();
+        allIds.clear();
+
         log.info("Cleaning up temporary file");
 
         allObservationsTemp.close();
