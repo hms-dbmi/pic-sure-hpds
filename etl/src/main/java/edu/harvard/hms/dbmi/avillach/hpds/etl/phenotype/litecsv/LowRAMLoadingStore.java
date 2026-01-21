@@ -108,9 +108,11 @@ public class LowRAMLoadingStore {
     public TreeSet<Integer> allIds = new TreeSet<Integer>();
 
     public void saveStore() throws FileNotFoundException, IOException, ClassNotFoundException {
+        logHeapUsage("Before flushing temp storage");
         log.info("flushing temp storage");
         loadingCache.invalidateAll();
         loadingCache.cleanUp();
+        logHeapUsage("After flushing temp storage");
 
         RandomAccessFile allObservationsStore = new RandomAccessFile(observationsFilename, "rw");
         // we dumped it all in a temp file; now sort all the data and compress it into the real Store
@@ -122,6 +124,7 @@ public class LowRAMLoadingStore {
             write(allObservationsStore, columnMeta, cube);
         }
         allObservationsStore.close();
+        logHeapUsage("After writing all observations");
 
         log.info("Writing metadata");
         ObjectOutputStream metaOut = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(new File(columnmetaFilename))));
@@ -129,17 +132,32 @@ public class LowRAMLoadingStore {
         metaOut.writeObject(allIds);
         metaOut.flush();
         metaOut.close();
+        logHeapUsage("After writing metadata to file");
 
-        // Clear in-memory data to free memory before reading back from file
+        // Write CSV directly from in-memory data (avoids deserializing from file)
+        writeColumnMetaCsv("/opt/local/hpds/", metadataMap);
+        logHeapUsage("After writing CSV");
+
+        // Clear in-memory data after all operations complete
         metadataMap.clear();
         allIds.clear();
+        logHeapUsage("After clearing in-memory data");
 
         log.info("Cleaning up temporary file");
-
         allObservationsTemp.close();
         File tempFile = new File(obsTempFilename);
         tempFile.delete();
-        dumpStatsAndColumnMeta("/opt/local/hpds/");
+    }
+
+    private void logHeapUsage(String phase) {
+        Runtime runtime = Runtime.getRuntime();
+        long usedMemory = runtime.totalMemory() - runtime.freeMemory();
+        long maxMemory = runtime.maxMemory();
+        log.info("Heap usage [{}]: used={} MB, max={} MB, utilization={}%",
+            phase,
+            usedMemory / (1024 * 1024),
+            maxMemory / (1024 * 1024),
+            (usedMemory * 100) / maxMemory);
     }
 
     private void write(RandomAccessFile allObservationsStore, ColumnMeta columnMeta, PhenoCube cube) throws IOException {
@@ -217,25 +235,38 @@ public class LowRAMLoadingStore {
 
     }
 
+    /**
+     * Reads metadata from file and writes CSV. Use writeColumnMetaCsv() if data is already in memory.
+     */
     public void dumpStatsAndColumnMeta(String hpdsDirectory) {
         try (
             FileInputStream fIn = new FileInputStream(hpdsDirectory + "columnMeta.javabin"); GZIPInputStream gIn =
-                new GZIPInputStream(fIn); ObjectInputStream oIn = new ObjectInputStream(gIn); BufferedWriter csvWriter =
-                    Files.newBufferedWriter(Paths.get(hpdsDirectory + "columnMeta.csv"), CREATE, TRUNCATE_EXISTING)
+                new GZIPInputStream(fIn); ObjectInputStream oIn = new ObjectInputStream(gIn)
         ) {
             TreeMap<String, ColumnMeta> metastore = (TreeMap<String, ColumnMeta>) oIn.readObject();
+            writeColumnMetaCsv(hpdsDirectory, metastore);
+        } catch (IOException | ClassNotFoundException e) {
+            log.error("Error loading store or dumping store meta to CSV: ", e);
+        }
+    }
+
+    /**
+     * Writes columnMeta.csv directly from an in-memory map, avoiding deserialization.
+     */
+    private void writeColumnMetaCsv(String hpdsDirectory, Map<String, ColumnMeta> metastore) {
+        try (BufferedWriter csvWriter = Files.newBufferedWriter(Paths.get(hpdsDirectory + "columnMeta.csv"), CREATE, TRUNCATE_EXISTING)) {
             CSVPrinter printer = new CSVPrinter(csvWriter, CSVFormat.DEFAULT);
             for (String key : metastore.keySet()) {
                 String[] columnMetaOut = createRow(key, metastore);
                 printer.printRecord(columnMetaOut);
             }
             csvWriter.flush();
-        } catch (IOException | ClassNotFoundException e) {
-            log.error("Error loading store or dumping store meta to CSV: ", e);
+        } catch (IOException e) {
+            log.error("Error writing columnMeta.csv: ", e);
         }
     }
 
-    private static String[] createRow(String key, TreeMap<String, ColumnMeta> metastore) {
+    private static String[] createRow(String key, Map<String, ColumnMeta> metastore) {
         ColumnMeta columnMeta = metastore.get(key);
         String[] columnMetaOut = new String[11];
 

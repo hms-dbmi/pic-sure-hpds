@@ -113,23 +113,42 @@ public class LoadingStore {
 	public TreeSet<Integer> allIds = new TreeSet<Integer>();
 	
 	public void saveStore(String hpdsDirectory) throws IOException {
+		logHeapUsage("Before invalidating store");
 		System.out.println("Invalidating store");
 		store.invalidateAll();
 		store.cleanUp();
+		logHeapUsage("After invalidating store");
+
 		System.out.println("Writing metadata");
 		ObjectOutputStream metaOut = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(hpdsDirectory + "columnMeta.javabin")));
 		metaOut.writeObject(metadataMap);
 		metaOut.writeObject(allIds);
 		metaOut.flush();
 		metaOut.close();
+		logHeapUsage("After writing metadata to file");
 
-		// Clear in-memory data to free memory before reading back from file
+		// Write CSV directly from in-memory data (avoids deserializing from file)
+		writeColumnMetaCsv(hpdsDirectory, metadataMap);
+		logHeapUsage("After writing CSV");
+
+		// Clear in-memory data after all operations complete
 		metadataMap.clear();
 		allIds.clear();
+		logHeapUsage("After clearing in-memory data");
 
 		System.out.println("Closing Store");
 		allObservationsStore.close();
-		dumpStatsAndColumnMeta(hpdsDirectory);
+	}
+
+	private void logHeapUsage(String phase) {
+		Runtime runtime = Runtime.getRuntime();
+		long usedMemory = runtime.totalMemory() - runtime.freeMemory();
+		long maxMemory = runtime.maxMemory();
+		log.info("Heap usage [{}]: used={} MB, max={} MB, utilization={}%",
+			phase,
+			usedMemory / (1024 * 1024),
+			maxMemory / (1024 * 1024),
+			(usedMemory * 100) / maxMemory);
 	}
 
 	public void dumpStats() {
@@ -164,51 +183,58 @@ public class LoadingStore {
 	/**
 	 * This method will display counts for the objects stored in the metadata.
 	 * This will also write out a csv file used by the data dictionary importer.
+	 * Reads from the serialized file - use writeColumnMetaCsv() if data is already in memory.
 	 */
 	public void dumpStatsAndColumnMeta(String hpdsDirectory) {
 		try (ObjectInputStream objectInputStream =
 					 new ObjectInputStream(new GZIPInputStream(new FileInputStream(hpdsDirectory + "columnMeta.javabin")))){
 			TreeMap<String, ColumnMeta> metastore = (TreeMap<String, ColumnMeta>) objectInputStream.readObject();
-			try(BufferedWriter writer = Files.newBufferedWriter(Paths.get(hpdsDirectory + "columnMeta.csv"), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
-				CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT);
-				for(String key : metastore.keySet()) {
-					ColumnMeta columnMeta = metastore.get(key);
-					Object[] columnMetaOut = new Object[11];
-
-					StringBuilder listQuoted = new StringBuilder();
-					AtomicInteger x = new AtomicInteger(1);
-
-					if(columnMeta.getCategoryValues() != null){
-						if(!columnMeta.getCategoryValues().isEmpty()) {
-							columnMeta.getCategoryValues().forEach(string -> {
-								listQuoted.append(string);
-								if(x.get() != columnMeta.getCategoryValues().size()) listQuoted.append("µ");
-								x.incrementAndGet();
-							});
-						}
-					}
-
-					columnMetaOut[0] = columnMeta.getName();
-					columnMetaOut[1] = String.valueOf(columnMeta.getWidthInBytes());
-					columnMetaOut[2] = String.valueOf(columnMeta.getColumnOffset());
-					columnMetaOut[3] = String.valueOf(columnMeta.isCategorical());
-					// this should nest the list of values in a list inside the String array.
-					columnMetaOut[4] = listQuoted;
-					columnMetaOut[5] = String.valueOf(columnMeta.getMin());
-					columnMetaOut[6] = String.valueOf(columnMeta.getMax());
-					columnMetaOut[7] = String.valueOf(columnMeta.getAllObservationsOffset());
-					columnMetaOut[8] = String.valueOf(columnMeta.getAllObservationsLength());
-					columnMetaOut[9] = String.valueOf(columnMeta.getObservationCount());
-					columnMetaOut[10] = String.valueOf(columnMeta.getPatientCount());
-
-					printer.printRecord(columnMetaOut);
-				}
-
-				writer.flush();
-            }
-
+			writeColumnMetaCsv(hpdsDirectory, metastore);
 		} catch (IOException | ClassNotFoundException e) {
 			throw new RuntimeException("Could not load metastore", e);
+		}
+	}
+
+	/**
+	 * Writes columnMeta.csv directly from an in-memory map, avoiding deserialization.
+	 */
+	private void writeColumnMetaCsv(String hpdsDirectory, Map<String, ColumnMeta> metastore) {
+		try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(hpdsDirectory + "columnMeta.csv"), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+			CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT);
+			for (String key : metastore.keySet()) {
+				ColumnMeta columnMeta = metastore.get(key);
+				Object[] columnMetaOut = new Object[11];
+
+				StringBuilder listQuoted = new StringBuilder();
+				AtomicInteger x = new AtomicInteger(1);
+
+				if (columnMeta.getCategoryValues() != null) {
+					if (!columnMeta.getCategoryValues().isEmpty()) {
+						columnMeta.getCategoryValues().forEach(string -> {
+							listQuoted.append(string);
+							if (x.get() != columnMeta.getCategoryValues().size()) listQuoted.append("µ");
+							x.incrementAndGet();
+						});
+					}
+				}
+
+				columnMetaOut[0] = columnMeta.getName();
+				columnMetaOut[1] = String.valueOf(columnMeta.getWidthInBytes());
+				columnMetaOut[2] = String.valueOf(columnMeta.getColumnOffset());
+				columnMetaOut[3] = String.valueOf(columnMeta.isCategorical());
+				columnMetaOut[4] = listQuoted;
+				columnMetaOut[5] = String.valueOf(columnMeta.getMin());
+				columnMetaOut[6] = String.valueOf(columnMeta.getMax());
+				columnMetaOut[7] = String.valueOf(columnMeta.getAllObservationsOffset());
+				columnMetaOut[8] = String.valueOf(columnMeta.getAllObservationsLength());
+				columnMetaOut[9] = String.valueOf(columnMeta.getObservationCount());
+				columnMetaOut[10] = String.valueOf(columnMeta.getPatientCount());
+
+				printer.printRecord(columnMetaOut);
+			}
+			writer.flush();
+		} catch (IOException e) {
+			throw new RuntimeException("Could not write columnMeta.csv", e);
 		}
 	}
 

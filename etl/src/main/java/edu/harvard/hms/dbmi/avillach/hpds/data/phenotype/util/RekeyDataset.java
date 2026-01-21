@@ -36,22 +36,40 @@ public class RekeyDataset {
 	private static String HPDS_DIRECTORY = "/opt/local/hpds/";
 
 	public static void main(String[] args) throws IOException, ClassNotFoundException, ExecutionException {
+		logHeapUsage("Start of RekeyDataset");
 		Crypto.loadDefaultKey();
 		Crypto.loadKey(SOURCE, "/opt/local/source/encryption_key");
-		sourceStore = initializeCache(); 
+		sourceStore = initializeCache();
 		Object[] metadata = loadMetadata();
 		sourceMetaStore = (TreeMap<String, ColumnMeta>) metadata[0];
 		store.allObservationsStore = new RandomAccessFile(HPDS_DIRECTORY + "allObservationsStore.javabin", "rw");
 		store.allIds = (TreeSet<Integer>) metadata[1];
+		logHeapUsage("After loading metadata");
+
 		initialLoad();
+		logHeapUsage("After initial load");
 
 		// Clear source metadata to free memory before saving
+		log.info("Clearing source metadata to free memory");
 		sourceMetaStore.clear();
 		sourceMetaStore = null;
 		sourceStore.invalidateAll();
 		sourceStore = null;
+		logHeapUsage("After clearing source data");
 
 		store.saveStore(HPDS_DIRECTORY);
+		logHeapUsage("After saving store");
+	}
+
+	private static void logHeapUsage(String phase) {
+		Runtime runtime = Runtime.getRuntime();
+		long usedMemory = runtime.totalMemory() - runtime.freeMemory();
+		long maxMemory = runtime.maxMemory();
+		log.info("Heap usage [{}]: used={} MB, max={} MB, utilization={}%",
+			phase,
+			usedMemory / (1024 * 1024),
+			maxMemory / (1024 * 1024),
+			(usedMemory * 100) / maxMemory);
 	}
 
 	private static void initialLoad() throws IOException, ExecutionException {
