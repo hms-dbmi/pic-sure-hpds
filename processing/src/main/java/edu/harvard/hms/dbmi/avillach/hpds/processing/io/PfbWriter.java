@@ -2,6 +2,7 @@ package edu.harvard.hms.dbmi.avillach.hpds.processing.io;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.KeyAndValue;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.dictionary.Concept;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.dictionary.DictionaryService;
 import org.apache.avro.Schema;
@@ -288,7 +289,7 @@ public class PfbWriter implements ResultWriter {
     }
 
     @Override
-    public void writeMultiValueEntity(Collection<List<List<String>>> entities) {
+    public void writeMultiValueEntity(Collection<List<List<KeyAndValue<?>>>> entities) {
         entities.forEach(entity -> {
             if (entity.size() != formattedFields.size()) {
                 throw new IllegalArgumentException("Entity length much match the number of fields in this document");

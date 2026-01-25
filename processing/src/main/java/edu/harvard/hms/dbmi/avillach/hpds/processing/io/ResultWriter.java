@@ -1,5 +1,6 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing.io;
 
+import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.KeyAndValue;
 import org.springframework.http.MediaType;
 
 import java.io.File;
@@ -11,7 +12,8 @@ public interface ResultWriter {
     void writeHeader(String[] data);
 
     void writeEntity(Collection<String[]> data);
-    void writeMultiValueEntity(Collection<List<List<String>>> data);
+
+    void writeMultiValueEntity(Collection<List<List<KeyAndValue<?>>>> data);
 
     File getFile();
 

@@ -1,6 +1,7 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing.io;
 
 import com.google.common.base.Joiner;
+import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.KeyAndValue;
 import org.springframework.http.MediaType;
 
 import java.io.File;
@@ -40,6 +41,7 @@ public class CsvWriter implements ResultWriter {
             throw new RuntimeException("IOException while appending to CSV file", e);
         }
     }
+
     @Override
     public void writeEntity(Collection<String[]> data) {
         try {
@@ -50,16 +52,14 @@ public class CsvWriter implements ResultWriter {
     }
 
     @Override
-    public void writeMultiValueEntity(Collection<List<List<String>>> data) {
+    public void writeMultiValueEntity(Collection<List<List<KeyAndValue<?>>>> data) {
         List<String[]> collect = data.stream().map(line -> {
-            return line.stream()
-                    .map(cell -> {
-                        if (cell == null) {
-                            return "";
-                        }
-                        return Joiner.on('\t').join(cell);
-                    })
-                    .toArray(String[]::new);
+            return line.stream().map(cell -> {
+                if (cell == null) {
+                    return "";
+                }
+                return Joiner.on('\t').join(cell);
+            }).toArray(String[]::new);
         }).toList();
         try {
             csvWriter.write(fileWriter, collect);
