@@ -5,52 +5,67 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.LoadingStore;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.config.CSVConfig;
 import edu.harvard.hms.dbmi.avillach.hpds.etl.phenotype.config.ConfigLoader;
+import jakarta.annotation.PostConstruct;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.util.Date;
-import java.util.Optional;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
-public class CSVLoaderNewSearch {
+@Service
+public class LoaderService {
 
-    private static final Logger log = LoggerFactory.getLogger(CSVLoaderNewSearch.class);
-
-    private static final LoadingStore store = new LoadingStore();
+    private static final Logger log = LoggerFactory.getLogger(LoaderService.class);
+    private final LoadingStore store = new LoadingStore();
     private static final ConfigLoader configLoader = new ConfigLoader();
 
+    @Value("${etl.hpds.directory:/opt/local/hpds/}")
+    private String hpdsDirectory;
+
+    @Value("${etl.rollup.enabled:true}")
+    private boolean rollupEnabled;
+
     private static boolean DO_VARNAME_ROLLUP = false;
-    private static final String HPDS_DIRECTORY = "/opt/local/hpds/";
 
-    public static void main(String[] args) throws IOException {
-        if (args.length > 1) {
-            if (args[0].equalsIgnoreCase("NO_ROLLUP")) {
-                log.info("NO_ROLLUP SET.");
-                DO_VARNAME_ROLLUP = false;
-            }
-        }
-
-        store.allObservationsStore = new RandomAccessFile(HPDS_DIRECTORY + "allObservationsStore.javabin", "rw");
-        initialLoad();
-        store.saveStore(HPDS_DIRECTORY);
+    // Use post construct DO_VARNAME_ROLLUP is a static field messes with Spring injection
+    @PostConstruct
+    public void init() {
+        DO_VARNAME_ROLLUP = rollupEnabled;
     }
 
-    private static void initialLoad() throws IOException {
+    public void runEtlProcess() throws IOException {
+        log.info("Starting ETL process... Rollup Enabled: {}", rollupEnabled);
+
+        store.allObservationsStore = new RandomAccessFile(hpdsDirectory + "allObservationsStore.javabin", "rw");
+        initialLoad();
+        store.saveStore(hpdsDirectory);
+        store.dumpStats(hpdsDirectory);
+        log.info("ETL process completed.");
+    }
+
+    private void initialLoad() throws IOException {
         Crypto.loadDefaultKey();
-        Reader in = new FileReader(HPDS_DIRECTORY + "allConcepts.csv");
-        Iterable<CSVRecord> records = CSVFormat.DEFAULT.withSkipHeaderRecord().withFirstRecordAsHeader().parse(new BufferedReader(in, 1024 * 1024));
+        Reader in = new FileReader(hpdsDirectory + "allConcepts.csv");
+        Iterable<CSVRecord> records = CSVFormat.DEFAULT
+                .withFirstRecordAsHeader()
+                .withSkipHeaderRecord(true)
+                .parse(new BufferedReader(in, 1024 * 1024));
 
         CSVConfig csvConfig = configLoader.getConfigFor("allConcepts");
+
         final PhenoCube[] currentConcept = new PhenoCube[1];
         for (CSVRecord record : records) {
             processRecord(currentConcept, record, csvConfig);
         }
+
     }
 
-    private static void processRecord(final PhenoCube[] currentConcept, CSVRecord record, CSVConfig csvConfig) {
+    private void processRecord(final PhenoCube[] currentConcept, CSVRecord record, CSVConfig csvConfig) {
         if (record.size() < 4) {
             log.info("Record number {} had less records than we exgpected so we are skipping it.", record.getRecordNumber());
             return;
@@ -81,7 +96,7 @@ public class CSVLoaderNewSearch {
         }
     }
 
-    private static PhenoCube getPhenoCube(PhenoCube currentConcept, String conceptPath, boolean isAlpha) {
+    private PhenoCube getPhenoCube(PhenoCube currentConcept, String conceptPath, boolean isAlpha) {
         if (currentConcept == null || !currentConcept.name.equals(conceptPath)) {
             currentConcept = store.store.getIfPresent(conceptPath);
             if (currentConcept == null) {
@@ -89,7 +104,6 @@ public class CSVLoaderNewSearch {
                 store.store.put(conceptPath, currentConcept);
             }
         }
-
         return currentConcept;
     }
 }

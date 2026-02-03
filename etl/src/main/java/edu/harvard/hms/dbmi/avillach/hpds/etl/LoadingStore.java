@@ -1,5 +1,15 @@
 package edu.harvard.hms.dbmi.avillach.hpds.etl;
 
+import com.google.common.cache.*;
+import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
+import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
+import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.KeyAndValue;
+import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -9,18 +19,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.cache.*;
-
-import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
-import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
-import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.KeyAndValue;
-import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
  
 public class LoadingStore {
  
@@ -36,7 +34,7 @@ public class LoadingStore {
 
 				@Override
 				public void onRemoval(RemovalNotification<String, PhenoCube> arg0) {
-					log.debug("removing " + arg0.getKey());
+					log.debug("Cache removal and writing to disk: " + arg0.getKey());
 					if(arg0.getValue().getLoadingMap()!=null) {
 						complete(arg0.getValue());
 					}
@@ -113,22 +111,22 @@ public class LoadingStore {
 	public TreeSet<Integer> allIds = new TreeSet<Integer>();
 	
 	public void saveStore(String hpdsDirectory) throws IOException {
-		System.out.println("Invalidating store");
+		log.info("Invalidating store");
 		store.invalidateAll();
 		store.cleanUp();
-		System.out.println("Writing metadata");
+		log.info("Writing metadata");
 		ObjectOutputStream metaOut = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(hpdsDirectory + "columnMeta.javabin")));
 		metaOut.writeObject(metadataMap);
 		metaOut.writeObject(allIds);
 		metaOut.flush();
 		metaOut.close();
-		System.out.println("Closing Store");
+		log.info("Closing Store");
 		allObservationsStore.close();
 		dumpStatsAndColumnMeta(hpdsDirectory);
 	}
 
 	public void dumpStats() {
-		System.out.println("Dumping Stats");
+		log.info("Dumping Stats");
 		try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream("/opt/local/hpds/columnMeta.javabin")));){
 			TreeMap<String, ColumnMeta> metastore = (TreeMap<String, ColumnMeta>) objectInputStream.readObject();
 			Set<Integer> allIds = (TreeSet<Integer>) objectInputStream.readObject();
@@ -151,6 +149,35 @@ public class LoadingStore {
 			System.out.println("Total Number of Patients : " + allIds.size());
 			System.out.println("Total Number of Observations : " + totalNumberOfObservations);
 			
+		} catch (IOException | ClassNotFoundException e) {
+			throw new RuntimeException("Could not load metastore");
+		}
+	}
+
+	public void dumpStats(String hpdsDirectory) {
+		log.info("Dumping Stats");
+		try (ObjectInputStream objectInputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream(hpdsDirectory + "columnMeta.javabin")));){
+			TreeMap<String, ColumnMeta> metastore = (TreeMap<String, ColumnMeta>) objectInputStream.readObject();
+			Set<Integer> allIds = (TreeSet<Integer>) objectInputStream.readObject();
+
+			long totalNumberOfObservations = 0;
+
+			System.out.println("\n\nConceptPath\tObservationCount\tMinNumValue\tMaxNumValue\tCategoryValues");
+			for(String key : metastore.keySet()) {
+				ColumnMeta columnMeta = metastore.get(key);
+				System.out.println(String.join("\t", key.toString(), columnMeta.getObservationCount()+"",
+						columnMeta.getMin()==null ? "NaN" : columnMeta.getMin().toString(),
+						columnMeta.getMax()==null ? "NaN" : columnMeta.getMax().toString(),
+						columnMeta.getCategoryValues() == null ? "NUMERIC CONCEPT" : String.join(",",
+								columnMeta.getCategoryValues()
+										.stream().map((value)->{return value==null ? "NULL_VALUE" : "\""+value+"\"";}).collect(Collectors.toList()))));
+				totalNumberOfObservations += columnMeta.getObservationCount();
+			}
+
+			System.out.println("Total Number of Concepts : " + metastore.size());
+			System.out.println("Total Number of Patients : " + allIds.size());
+			System.out.println("Total Number of Observations : " + totalNumberOfObservations);
+
 		} catch (IOException | ClassNotFoundException e) {
 			throw new RuntimeException("Could not load metastore");
 		}

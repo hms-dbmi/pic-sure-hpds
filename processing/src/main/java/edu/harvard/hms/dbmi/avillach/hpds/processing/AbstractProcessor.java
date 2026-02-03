@@ -139,9 +139,9 @@ public class AbstractProcessor {
 		// NULL (representing no phenotypic filters, i.e. all patients) or not empty patient ID sets require a genomic query.
 		// Otherwise, short circuit and return no patients
 		if ((distributableQuery.getPatientIds() == null || !distributableQuery.getPatientIds().isEmpty()) && distributableQuery.hasFilters()) {
-            Mono<VariantMask> patientMaskForVariantInfoFilters = genomicProcessor.getPatientMask(distributableQuery);
+			Mono<VariantMask> patientMaskForVariantInfoFilters = genomicProcessor.getPatientMask(distributableQuery);
 			return patientMaskForVariantInfoFilters.map(genomicProcessor::patientMaskToPatientIdSet).block();
-        }
+		}
 		return distributableQuery.getPatientIds();
 	}
 
@@ -153,9 +153,9 @@ public class AbstractProcessor {
 			query.getAllAnyRecordOf().forEach(anyRecordOfFilterList -> {
 				getPatientIdsForAnyRecordOf(anyRecordOfFilterList, distributableQuery).map(patientIdSets::add);
 			});
-            patientIdSets.addAll(getIdSetsForNumericFilters(query));
-            patientIdSets.addAll(getIdSetsForRequiredFields(query, distributableQuery));
-            patientIdSets.addAll(getIdSetsForCategoryFilters(query, distributableQuery));
+			patientIdSets.addAll(getIdSetsForNumericFilters(query));
+			patientIdSets.addAll(getIdSetsForRequiredFields(query, distributableQuery));
+			patientIdSets.addAll(getIdSetsForCategoryFilters(query, distributableQuery));
 		} catch (InvalidCacheLoadException e) {
 			log.warn("Invalid query supplied: " + e.getLocalizedMessage());
 			patientIdSets.add(new HashSet<>()); // if an invalid path is supplied, no patients should match.
@@ -166,7 +166,7 @@ public class AbstractProcessor {
 		if(!patientIdSets.isEmpty()) {
 			phenotypicPatientSet = applyBooleanLogic(patientIdSets);
 		} else {
-            // if there are no patient filters, represent with null. 0 patients means no patients matched the filter
+			// if there are no patient filters, represent with null. 0 patients means no patients matched the filter
 		}
 		distributableQuery.setVariantInfoFilters(query.getVariantInfoFilters());
 		distributableQuery.setPatientIds(phenotypicPatientSet);
@@ -183,7 +183,7 @@ public class AbstractProcessor {
 	public Set<Integer> getPatientSubsetForQuery(Query query) {
 		Set<Integer> patientIdSet = idSetsForEachFilter(query);
 
-        // todo: make sure this can safely be ignored
+		// todo: make sure this can safely be ignored
 		/*TreeSet<Integer> idList;
 		if(patientIdSet.isEmpty()) {
 			if(variantService.getPatientIds().length > 0 ) {
@@ -207,16 +207,16 @@ public class AbstractProcessor {
 
 	private List<Set<Integer>> getIdSetsForRequiredFields(Query query, DistributableQuery distributableQuery) {
 		if(!query.getRequiredFields().isEmpty()) {
-            return query.getRequiredFields().stream().map(path -> {
-                if (VariantUtils.pathIsVariantSpec(path)) {
-                    distributableQuery.addRequiredVariantField(path);
-                    return null;
-                } else {
-                    return new HashSet<Integer>(getCube(path).keyBasedIndex());
-                }
-            }).filter(Objects::nonNull).collect(Collectors.toList());
-        }
-        return List.of();
+			return query.getRequiredFields().stream().map(path -> {
+				if (VariantUtils.pathIsVariantSpec(path)) {
+					distributableQuery.addRequiredVariantField(path);
+					return null;
+				} else {
+					return new HashSet<Integer>(getCube(path).keyBasedIndex());
+				}
+			}).filter(Objects::nonNull).collect(Collectors.toList());
+		}
+		return List.of();
 	}
 
 	private Optional<Set<Integer>> getPatientIdsForAnyRecordOf(List<String> anyRecordOfFilters, DistributableQuery distributableQuery) {
@@ -234,7 +234,7 @@ public class AbstractProcessor {
 			}).collect(Collectors.toSet());
 			return Optional.of(anyRecordOfPatientSet);
 		}
-        return Optional.empty();
+		return Optional.empty();
 	}
 
 	private List<Set<Integer>> getIdSetsForNumericFilters(Query query) {
@@ -244,7 +244,7 @@ public class AbstractProcessor {
 				return keysForRange;
 			}).collect(Collectors.toList());
 		}
-        return List.of();
+		return List.of();
 	}
 
 	private List<Set<Integer>> getIdSetsForCategoryFilters(Query query, DistributableQuery distributableQuery) {
@@ -262,7 +262,7 @@ public class AbstractProcessor {
 				return ids;
 			}).filter(Objects::nonNull).collect(Collectors.toList());
 		}
-        return List.of();
+		return List.of();
 	}
 
 	public Collection<String> getVariantList(Query query) {
@@ -387,8 +387,8 @@ public class AbstractProcessor {
 		return genomicProcessor.getMasks(path, variantMasksVariantBucketHolder);
 	}
 
-    // todo: handle this locally, we do not want this in the genomic processor
-    protected VariantMask createMaskForPatientSet(Set<Integer> patientSubset) {
-        return genomicProcessor.createMaskForPatientSet(patientSubset);
-    }
+	// todo: handle this locally, we do not want this in the genomic processor
+	protected VariantMask createMaskForPatientSet(Set<Integer> patientSubset) {
+		return genomicProcessor.createMaskForPatientSet(patientSubset);
+	}
 }
