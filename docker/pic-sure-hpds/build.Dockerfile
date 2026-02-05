@@ -1,5 +1,6 @@
-ARG PIC-SURE-API-BUILD-VERSION
-FROM hms-dbmi/pic-sure-build:${PIC-SURE-API-BUILD-VERSION} as PSB
+ARG PIC_SURE_API_BUILD_VERSION
+
+FROM hms-dbmi/pic-sure-build:${PIC_SURE_API_BUILD_VERSION} as PSB
 
 FROM maven:3.9.9-amazoncorretto-24 AS build
 
