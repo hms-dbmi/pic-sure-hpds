@@ -132,8 +132,8 @@ public class CSVLoaderNewSearch {
                 );
 
                 Date date = null;
-                if (record.size() > 4 && record.get(DATETIME) != null && !record.get(DATETIME).isEmpty()) {
-                    date = new Date(Long.parseLong(record.get(DATETIME)));
+                if (record.size() > 4) {
+                    date = parseUtcDatetimeOrNull(record.get(DATETIME), record);
                 }
 
                 currentConcept[0].add(patientId, isAlpha ? value : Double.parseDouble(value), date);
@@ -151,5 +151,56 @@ public class CSVLoaderNewSearch {
         } catch (Exception e) {
             return "";
         }
+    }
+
+    private static Date parseUtcDatetimeOrNull(String raw, CSVRecord record) {
+        if (raw == null) return null;
+        String s = raw.trim();
+        if (s.isEmpty()) return null;
+
+        // 1) Epoch millis / seconds
+        try {
+            long v = Long.parseLong(s);
+            if (v > 0 && v < 10_000_000_000L) v *= 1000L; // seconds -> millis
+            return new Date(v);
+        } catch (NumberFormatException ignored) {
+        }
+
+        // Normalize common variants
+        // - allow "yyyy-MM-dd HH:mm:ss" by converting space -> 'T'
+        // - allow trailing 'Z' or offsets naturally via ISO parsers
+        String isoLike = s.contains("T") ? s : s.replace(' ', 'T');
+
+        // 2) ISO 8601 with Z (Instant) e.g. 2023-11-25T14:00:00Z or 2023-11-25T14:00:00.123Z
+        try {
+            return Date.from(java.time.Instant.parse(isoLike));
+        } catch (Exception ignored) {
+        }
+
+        // 3) ISO 8601 with offset e.g. 2023-11-25T14:00:00-05:00 or +00:00
+        try {
+            return Date.from(java.time.OffsetDateTime.parse(isoLike).toInstant());
+        } catch (Exception ignored) {
+        }
+
+        // 4) ISO local datetime (no zone) -> assume UTC
+        //    e.g. 2023-11-25T14:00:00 or 2023-11-25T14:00:00.123
+        java.time.format.DateTimeFormatter[] localFmts = new java.time.format.DateTimeFormatter[] {
+            java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME,
+            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"),
+            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS")
+        };
+
+        for (java.time.format.DateTimeFormatter fmt : localFmts) {
+            try {
+                java.time.LocalDateTime ldt = java.time.LocalDateTime.parse(isoLike, fmt);
+                return Date.from(ldt.toInstant(java.time.ZoneOffset.UTC));
+            } catch (Exception ignored) {
+            }
+        }
+
+        log.warn("Unparseable DATETIME (expected UTC / ISO-8601 / epoch) on record {}: DATETIME='{}' (leaving null)",
+            record.getRecordNumber(), raw);
+        return null;
     }
 }
