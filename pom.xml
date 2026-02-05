@@ -2,18 +2,22 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
 		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
 	<modelVersion>4.0.0</modelVersion>
+
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>3.5.3</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
+
 	<groupId>edu.harvard.hms.dbmi.avillach.hpds</groupId>
 	<artifactId>pic-sure-hpds</artifactId>
 	<version>3.0.0-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<name>pic-sure-hpds</name>
+
 	<modules>
 		<module>common</module>
 		<module>service</module>
@@ -24,7 +28,8 @@
 		<module>genomic-processor</module>
 		<module>docker</module>
 		<module>war</module>
-    </modules>
+	</modules>
+
 	<properties>
 		<maven.compiler.release>24</maven.compiler.release>
 		<java.version>24</java.version>
@@ -33,6 +38,7 @@
 		<aws.version>2.20.153</aws.version>
 		<spotless.version>2.46.1</spotless.version>
 	</properties>
+
 	<repositories>
 		<!-- Local Reposilite for resolving internal snapshots/releases -->
 		<repository>
@@ -59,7 +65,7 @@
 			</snapshots>
 		</repository>
 
-		<!-- Keep GitHub Packages -->
+		<!-- Keep GitHub Packages for resolving (if needed) -->
 		<repository>
 			<id>github</id>
 			<name>GitHub HMS-DBMI Apache Maven Packages</name>
@@ -69,6 +75,7 @@
 			</snapshots>
 		</repository>
 	</repositories>
+
 	<build>
 		<pluginManagement>
 			<plugins>
@@ -97,6 +104,7 @@
 						</execution>
 					</executions>
 				</plugin>
+
 				<plugin>
 					<groupId>com.diffplug.spotless</groupId>
 					<artifactId>spotless-maven-plugin</artifactId>
@@ -112,46 +120,53 @@
 					</configuration>
 				</plugin>
 
-				<!-- clean lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#clean_Lifecycle -->
+				<!-- clean lifecycle -->
 				<plugin>
 					<artifactId>maven-clean-plugin</artifactId>
 					<version>3.5.0</version>
 				</plugin>
-				<!-- default lifecycle, jar packaging: see https://maven.apache.org/ref/current/maven-core/default-bindings.html#Plugin_bindings_for_jar_packaging -->
+
+				<!-- default lifecycle -->
 				<plugin>
 					<artifactId>maven-resources-plugin</artifactId>
 					<version>3.3.1</version>
 				</plugin>
+
 				<plugin>
 					<artifactId>maven-compiler-plugin</artifactId>
 					<version>3.14.0</version>
 					<configuration>
-						<!--this is the target Java version-->
 						<release>24</release>
 					</configuration>
 				</plugin>
+
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-surefire-plugin</artifactId>
 					<version>3.5.3</version>
 				</plugin>
+
 				<plugin>
 					<artifactId>maven-jar-plugin</artifactId>
 					<version>3.4.2</version>
 				</plugin>
+
 				<plugin>
 					<artifactId>maven-install-plugin</artifactId>
 					<version>3.1.4</version>
 				</plugin>
+
 				<plugin>
 					<artifactId>maven-deploy-plugin</artifactId>
 					<version>3.1.4</version>
 				</plugin>
-				<!-- site lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#site_Lifecycle -->
+
+				<!-- site lifecycle -->
 				<plugin>
 					<artifactId>maven-site-plugin</artifactId>
 					<version>3.21.0</version>
 				</plugin>
+
 				<plugin>
 					<artifactId>maven-project-info-reports-plugin</artifactId>
 					<version>3.9.0</version>
@@ -159,6 +174,7 @@
 			</plugins>
 		</pluginManagement>
 	</build>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -170,6 +186,7 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 	</dependencies>
+
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
@@ -177,6 +194,7 @@
 				<artifactId>spring-boot-starter-tomcat</artifactId>
 				<scope>provided</scope>
 			</dependency>
+
 			<dependency>
 				<groupId>edu.harvard.hms.dbmi.avillach.hpds</groupId>
 				<artifactId>common</artifactId>
@@ -207,6 +225,7 @@
 				<artifactId>data</artifactId>
 				<version>${project.version}</version>
 			</dependency>
+
 			<dependency>
 				<groupId>edu.harvard.hms.dbmi.avillach</groupId>
 				<artifactId>pic-sure-resource-api</artifactId>
@@ -234,6 +253,7 @@
 					</exclusion>
 				</exclusions>
 			</dependency>
+
 			<dependency>
 				<groupId>com.google.guava</groupId>
 				<artifactId>guava</artifactId>
@@ -259,6 +279,7 @@
 				<artifactId>commons-io</artifactId>
 				<version>2.20.0</version>
 			</dependency>
+
 			<dependency>
 				<groupId>javax.xml.bind</groupId>
 				<artifactId>jaxb-api</artifactId>
@@ -279,61 +300,110 @@
 				<artifactId>activation</artifactId>
 				<version>1.1.1</version>
 			</dependency>
+
 			<dependency>
 				<groupId>org.mockito</groupId>
 				<artifactId>mockito-core</artifactId>
 				<version>5.18.0</version>
 				<scope>test</scope>
 			</dependency>
+
 			<dependency>
 				<groupId>com.oracle.database.jdbc</groupId>
 				<artifactId>ojdbc10</artifactId>
 				<version>19.17.0.0</version>
 			</dependency>
+
 			<dependency>
 				<groupId>io.projectreactor.netty</groupId>
 				<artifactId>reactor-netty</artifactId>
 				<version>1.2.8</version>
 			</dependency>
+
 			<dependency>
 				<groupId>com.fasterxml.jackson.core</groupId>
 				<artifactId>jackson-databind</artifactId>
 				<version>2.15.3</version>
 			</dependency>
+
 			<dependency>
 				<groupId>org.apache.avro</groupId>
 				<artifactId>avro</artifactId>
 				<version>1.12.0</version>
 			</dependency>
+
 			<dependency>
 				<groupId>org.xerial.snappy</groupId>
 				<artifactId>snappy-java</artifactId>
 				<version>1.1.10.5</version>
 			</dependency>
+
 			<dependency>
 				<groupId>software.amazon.awssdk</groupId>
 				<artifactId>s3</artifactId>
 				<version>${aws.version}</version>
 				<exclusions>
-					<!--Spring boot will complain about this dep on startup. It's not needed (we use SLF4J + Logback)-->
 					<exclusion>
 						<groupId>commons-logging</groupId>
 						<artifactId>commons-logging</artifactId>
 					</exclusion>
 				</exclusions>
 			</dependency>
+
 			<dependency>
 				<groupId>io.swagger.core.v3</groupId>
 				<artifactId>swagger-annotations</artifactId>
 				<version>2.2.40</version>
 			</dependency>
-    </dependencies>
-  </dependencyManagement>
-  <distributionManagement>
-    <repository>
-      <id>github</id>
-      <name>GitHub HMS-DBMI Apache Maven Packages</name>
-      <url>https://maven.pkg.github.com/hms-dbmi/pic-sure-hpds</url>
-    </repository>
-  </distributionManagement>
+		</dependencies>
+	</dependencyManagement>
+
+	<!-- Default deploy target remains GitHub Packages -->
+	<distributionManagement>
+		<repository>
+			<id>github</id>
+			<name>GitHub HMS-DBMI Apache Maven Packages</name>
+			<url>https://maven.pkg.github.com/hms-dbmi/pic-sure-hpds</url>
+		</repository>
+	</distributionManagement>
+
+	<!-- Added: deploy to local Reposilite when -Pdeploy-local is provided -->
+	<profiles>
+		<profile>
+			<id>deploy-local</id>
+
+			<distributionManagement>
+				<snapshotRepository>
+					<id>reposilite-snapshots</id>
+					<name>Reposilite Snapshots</name>
+					<url>http://reposilite:8080/snapshots</url>
+				</snapshotRepository>
+
+				<repository>
+					<id>reposilite-releases</id>
+					<name>Reposilite Releases</name>
+					<url>http://reposilite:8080/releases</url>
+				</repository>
+			</distributionManagement>
+
+			<!-- Makes: mvn clean install -Pdeploy-local deploy during install -->
+			<build>
+				<plugins>
+					<plugin>
+						<artifactId>maven-deploy-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>deploy-during-install</id>
+								<phase>install</phase>
+								<goals>
+									<goal>deploy</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+
 </project>

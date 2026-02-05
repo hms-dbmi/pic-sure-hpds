@@ -14,4 +14,4 @@ WORKDIR /app
 
 COPY . .
 
-RUN mvn -s /root/.m2/settings.xml clean install -DskipTests -U
+RUN mvn -s /root/.m2/settings.xml clean install -Pdeploy-local -DskipTests -U
