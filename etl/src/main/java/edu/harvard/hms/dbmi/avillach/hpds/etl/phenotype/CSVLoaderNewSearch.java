@@ -19,7 +19,7 @@ public class CSVLoaderNewSearch {
 
 	private static LoadingStore store = new LoadingStore();
 
-	private static Logger log = LoggerFactory.getLogger(CSVLoaderNewSearch.class); 
+	private static Logger log = LoggerFactory.getLogger(CSVLoaderNewSearch.class);
 
 	private static final int PATIENT_NUM = 0;
 
@@ -32,7 +32,7 @@ public class CSVLoaderNewSearch {
 	private static final int DATETIME = 4;
 
 	private static boolean DO_VARNAME_ROLLUP = false;
-	
+
 	public static void main(String[] args) throws IOException {
 		if(args.length > 1) {
 			if(args[0].equalsIgnoreCase("NO_ROLLUP")) {
@@ -57,67 +57,99 @@ public class CSVLoaderNewSearch {
 		}
 	}
 
-	private static void processRecord(final PhenoCube[] currentConcept, CSVRecord record) {
-		if(record.size()<4) {
-			log.info("Record number " + record.getRecordNumber() 
-			+ " had less records than we expected so we are skipping it.");
-			return;
-		}
+    private static void processRecord(final PhenoCube[] currentConcept, CSVRecord record) {
+        if (record.size() < 4) {
+            log.info("Record number {} had less records than we expected so we are skipping it.", record.getRecordNumber());
+            return;
+        }
 
-		try {
-			String conceptPathFromRow = record.get(CONCEPT_PATH);
-			String[] segments = conceptPathFromRow.split("\\\\");
-			for(int x = 0;x<segments.length;x++) {
-				segments[x] = segments[x].trim();
-			}
-			conceptPathFromRow = String.join("\\", segments) + "\\";
-			conceptPathFromRow = conceptPathFromRow.replaceAll("\\ufffd", "");
-			String textValueFromRow = record.get(TEXT_VALUE) == null ? null : record.get(TEXT_VALUE).trim();
-			if(textValueFromRow!=null) {
-				textValueFromRow = textValueFromRow.replaceAll("\\ufffd", "");
-			} 
-			String conceptPath;
-			
-			if(DO_VARNAME_ROLLUP) {
-				conceptPath = conceptPathFromRow.endsWith("\\" +textValueFromRow+"\\") ? conceptPathFromRow.replaceAll("\\\\[^\\\\]*\\\\$", "\\\\") : conceptPathFromRow;
-			} else {
-				conceptPath = conceptPathFromRow;
-			}
-			// This is not getDouble because we need to handle null values, not coerce them into 0s
-			String numericValue = record.get(NUMERIC_VALUE);
-			/*
-			if((numericValue==null || numericValue.isEmpty()) && textValueFromRow!=null) {
-				try {
-					numericValue = Double.parseDouble(textValueFromRow) + "";
-				}catch(NumberFormatException e) {
+        // Gate: PATIENT_NUM must be a valid int
+        final String patientStr = record.get(PATIENT_NUM);
+        final int patientId;
+        if (patientStr == null || patientStr.trim().isEmpty()) {
+            log.warn("Skipping record {}: missing PATIENT_NUM. Record={}", record.getRecordNumber(), record);
+            return;
+        }
+        try {
+            patientId = Integer.parseInt(patientStr.trim());
+        } catch (NumberFormatException nfe) {
+            // Log the raw value + a little context to debug upstream data
+            String concept = safeGet(record, CONCEPT_PATH);
+            String textVal = safeGet(record, TEXT_VALUE);
+            String numVal  = safeGet(record, NUMERIC_VALUE);
+            log.warn(
+                "Skipping record {}: invalid PATIENT_NUM='{}'. conceptPath='{}' text='{}' numeric='{}'. FullRecord={}",
+                record.getRecordNumber(), patientStr, concept, textVal, numVal, record
+            );
+            return;
+        }
 
-				}
-			}*/
-			boolean isAlpha = (numericValue == null || numericValue.isEmpty());
-			if(currentConcept[0] == null || !currentConcept[0].name.equals(conceptPath)) {
-				System.out.println(conceptPath);
-				try {
-					currentConcept[0] = store.store.get(conceptPath);
-				} catch(InvalidCacheLoadException e) {
-					currentConcept[0] = new PhenoCube(conceptPath, isAlpha ? String.class : Double.class);
-					store.store.put(conceptPath, currentConcept[0]);
-				}
-			}
-			String value = isAlpha ? record.get(TEXT_VALUE) : numericValue;
+        try {
+            String conceptPathFromRow = record.get(CONCEPT_PATH);
+            String[] segments = conceptPathFromRow.split("\\\\");
+            for (int x = 0; x < segments.length; x++) {
+                segments[x] = segments[x].trim();
+            }
+            conceptPathFromRow = String.join("\\", segments) + "\\";
+            conceptPathFromRow = conceptPathFromRow.replaceAll("\\ufffd", "");
 
-			if(value != null && !value.trim().isEmpty() && ((isAlpha && currentConcept[0].vType == String.class)||(!isAlpha && currentConcept[0].vType == Double.class))) {
-				value = value.trim();
-				currentConcept[0].setColumnWidth(isAlpha ? Math.max(currentConcept[0].getColumnWidth(), value.getBytes().length) : Double.BYTES);
-				int patientId = Integer.parseInt(record.get(PATIENT_NUM));
-				Date date = null;
-				if(record.size()>4 && record.get(DATETIME) != null && ! record.get(DATETIME).isEmpty()) {
-					date = new Date(Long.parseLong(record.get(DATETIME)));
-				}
-				currentConcept[0].add(patientId, isAlpha ? value : Double.parseDouble(value), date);
-				store.allIds.add(patientId);
-			}
-		} catch (ExecutionException e) {
-			e.printStackTrace();
-		}
-	}
+            String textValueFromRow = record.get(TEXT_VALUE) == null ? null : record.get(TEXT_VALUE).trim();
+            if (textValueFromRow != null) {
+                textValueFromRow = textValueFromRow.replaceAll("\\ufffd", "");
+            }
+
+            String conceptPath;
+            if (DO_VARNAME_ROLLUP) {
+                conceptPath = conceptPathFromRow.endsWith("\\" + textValueFromRow + "\\")
+                    ? conceptPathFromRow.replaceAll("\\\\[^\\\\]*\\\\$", "\\\\")
+                    : conceptPathFromRow;
+            } else {
+                conceptPath = conceptPathFromRow;
+            }
+
+            String numericValue = record.get(NUMERIC_VALUE);
+            boolean isAlpha = (numericValue == null || numericValue.isEmpty());
+
+            if (currentConcept[0] == null || !currentConcept[0].name.equals(conceptPath)) {
+                System.out.println(conceptPath);
+                try {
+                    currentConcept[0] = store.store.get(conceptPath);
+                } catch (InvalidCacheLoadException e) {
+                    currentConcept[0] = new PhenoCube(conceptPath, isAlpha ? String.class : Double.class);
+                    store.store.put(conceptPath, currentConcept[0]);
+                }
+            }
+
+            String value = isAlpha ? record.get(TEXT_VALUE) : numericValue;
+
+            if (value != null
+                && !value.trim().isEmpty()
+                && ((isAlpha && currentConcept[0].vType == String.class) || (!isAlpha && currentConcept[0].vType == Double.class))) {
+
+                value = value.trim();
+                currentConcept[0].setColumnWidth(
+                    isAlpha ? Math.max(currentConcept[0].getColumnWidth(), value.getBytes().length) : Double.BYTES
+                );
+
+                Date date = null;
+                if (record.size() > 4 && record.get(DATETIME) != null && !record.get(DATETIME).isEmpty()) {
+                    date = new Date(Long.parseLong(record.get(DATETIME)));
+                }
+
+                currentConcept[0].add(patientId, isAlpha ? value : Double.parseDouble(value), date);
+                store.allIds.add(patientId);
+            }
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static String safeGet(CSVRecord record, int idx) {
+        try {
+            String v = record.get(idx);
+            return v == null ? "" : v;
+        } catch (Exception e) {
+            return "";
+        }
+    }
 }
