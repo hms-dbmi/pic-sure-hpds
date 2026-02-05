@@ -44,7 +44,6 @@
 			</releases>
 			<snapshots>
 				<enabled>true</enabled>
-				<updatePolicy>always</updatePolicy>
 			</snapshots>
 		</repository>
 
@@ -54,7 +53,6 @@
 			<url>http://reposilite:8080/releases</url>
 			<releases>
 				<enabled>true</enabled>
-				<updatePolicy>daily</updatePolicy>
 			</releases>
 			<snapshots>
 				<enabled>false</enabled>
