@@ -1,7 +1,3 @@
-ARG PIC_SURE_API_BUILD_VERSION
-
-FROM hms-dbmi/pic-sure-build:${PIC_SURE_API_BUILD_VERSION} as PSB
-
 FROM maven:3.9.9-amazoncorretto-24 AS build
 
 COPY ./settings.xml /root/.m2/settings.xml
