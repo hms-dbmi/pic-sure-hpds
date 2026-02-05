@@ -34,6 +34,20 @@
 		<spotless.version>2.46.1</spotless.version>
 	</properties>
 	<repositories>
+		<!-- Local Reposilite for resolving internal snapshots/releases -->
+		<repository>
+			<id>reposilite</id>
+			<name>Reposilite</name>
+			<url>http://reposilite:8080</url>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+		</repository>
+
+		<!-- Keep GitHub Packages -->
 		<repository>
 			<id>github</id>
 			<name>GitHub HMS-DBMI Apache Maven Packages</name>
