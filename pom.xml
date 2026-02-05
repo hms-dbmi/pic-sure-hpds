@@ -36,14 +36,28 @@
 	<repositories>
 		<!-- Local Reposilite for resolving internal snapshots/releases -->
 		<repository>
-			<id>reposilite</id>
-			<name>Reposilite</name>
-			<url>http://reposilite:8080</url>
+			<id>reposilite-snapshots</id>
+			<name>Reposilite Snapshots</name>
+			<url>http://reposilite:8080/snapshots</url>
 			<releases>
-				<enabled>true</enabled>
+				<enabled>false</enabled>
 			</releases>
 			<snapshots>
 				<enabled>true</enabled>
+				<updatePolicy>always</updatePolicy>
+			</snapshots>
+		</repository>
+
+		<repository>
+			<id>reposilite-releases</id>
+			<name>Reposilite Releases</name>
+			<url>http://reposilite:8080/releases</url>
+			<releases>
+				<enabled>true</enabled>
+				<updatePolicy>daily</updatePolicy>
+			</releases>
+			<snapshots>
+				<enabled>false</enabled>
 			</snapshots>
 		</repository>
 
