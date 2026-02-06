@@ -22,6 +22,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHol
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.v3.PhenotypicObservationStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -49,16 +50,21 @@ public class AbstractProcessor {
 
 	private final GenomicProcessor genomicProcessor;
 
+	private final PhenotypicObservationStore phenotypicObservationStore;
+
 
 	@Autowired
 	public AbstractProcessor(
 			PhenotypeMetaStore phenotypeMetaStore,
-			GenomicProcessor genomicProcessor, @Value("${HPDS_DATA_DIRECTORY:/opt/local/hpds/}") String hpdsDataDirectory
+			GenomicProcessor genomicProcessor,
+			PhenotypicObservationStore phenotypicObservationStore,
+			@Value("${HPDS_DATA_DIRECTORY:/opt/local/hpds/}") String hpdsDataDirectory
 	) throws ClassNotFoundException, IOException, InterruptedException {
 
 		this.hpdsDataDirectory = hpdsDataDirectory;
 		this.phenotypeMetaStore = phenotypeMetaStore;
 		this.genomicProcessor = genomicProcessor;
+		this.phenotypicObservationStore = phenotypicObservationStore;
 
 		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
 		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
@@ -96,6 +102,7 @@ public class AbstractProcessor {
 		this.phenotypeMetaStore = phenotypeMetaStore;
 		this.store = store;
 		this.genomicProcessor = genomicProcessor;
+		this.phenotypicObservationStore = null;
 
 		CACHE_SIZE = Integer.parseInt(System.getProperty("CACHE_SIZE", "100"));
 		ID_BATCH_SIZE = Integer.parseInt(System.getProperty("ID_BATCH_SIZE", "0"));
@@ -323,9 +330,7 @@ public class AbstractProcessor {
 	}
 
 	/**
-	 * Load the variantStore object from disk and build the PhenoCube cache.
-	 *
-	 * @return
+	 * Build the PhenoCube cache, delegating to PhenotypicObservationStore for loading.
 	 */
 	protected LoadingCache<String, PhenoCube<?>> initializeCache() {
 		return CacheBuilder.newBuilder()
@@ -333,22 +338,7 @@ public class AbstractProcessor {
 				.build(
 						new CacheLoader<String, PhenoCube<?>>() {
 							public PhenoCube<?> load(String key) throws Exception {
-								try(RandomAccessFile allObservationsStore = new RandomAccessFile(hpdsDataDirectory + "allObservationsStore.javabin", "r");){
-									ColumnMeta columnMeta = phenotypeMetaStore.getColumnMeta(key);
-									if(columnMeta != null) {
-										allObservationsStore.seek(columnMeta.getAllObservationsOffset());
-										int length = (int) (columnMeta.getAllObservationsLength() - columnMeta.getAllObservationsOffset());
-										byte[] buffer = new byte[length];
-										allObservationsStore.read(buffer);
-										allObservationsStore.close();
-										try (ObjectInputStream inStream = new ObjectInputStream(new ByteArrayInputStream(Crypto.decryptData(buffer)))) {
-											return (PhenoCube<?>)inStream.readObject();
-										}
-									}else {
-										log.warn("ColumnMeta not found for : [{}]", key);
-										return null;
-									}
-								}
+								return phenotypicObservationStore.loadPhenoCube(key);
 							}
 						});
 	}

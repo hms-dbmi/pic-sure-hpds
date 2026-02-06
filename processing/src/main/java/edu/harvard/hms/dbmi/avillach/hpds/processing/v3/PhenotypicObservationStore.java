@@ -62,7 +62,11 @@ public class PhenotypicObservationStore {
      * @return the PhenoCube for this key
      */
     public PhenoCube<?> loadPhenoCube(String key) {
-        try (RandomAccessFile allObservationsStore = new RandomAccessFile(hpdsDataDirectory + "allObservationsStore.javabin", "r");) {
+        String shardDir = phenotypeMetaStore.getShardDirectory(key);
+        if (shardDir == null) {
+            shardDir = hpdsDataDirectory;
+        }
+        try (RandomAccessFile allObservationsStore = new RandomAccessFile(shardDir + "allObservationsStore.javabin", "r");) {
             ColumnMeta columnMeta = phenotypeMetaStore.getColumnMeta(key);
             if (columnMeta != null) {
                 allObservationsStore.seek(columnMeta.getAllObservationsOffset());

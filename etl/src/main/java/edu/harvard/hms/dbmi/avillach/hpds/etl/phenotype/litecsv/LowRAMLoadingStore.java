@@ -135,7 +135,8 @@ public class LowRAMLoadingStore {
         allObservationsTemp.close();
         File tempFile = new File(obsTempFilename);
         tempFile.delete();
-        dumpStatsAndColumnMeta("/opt/local/hpds/");
+        String outputDir = new File(columnmetaFilename).getParent() + "/";
+        dumpStatsAndColumnMeta(outputDir);
     }
 
     private void write(RandomAccessFile allObservationsStore, ColumnMeta columnMeta, PhenoCube cube) throws IOException {
