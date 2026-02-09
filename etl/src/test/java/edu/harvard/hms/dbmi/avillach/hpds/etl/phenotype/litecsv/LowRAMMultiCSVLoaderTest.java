@@ -26,7 +26,7 @@ class LowRAMMultiCSVLoaderTest {
         file.close();
 
         LowRAMMultiCSVLoader subject = new LowRAMMultiCSVLoader(
-            inputDir.getAbsolutePath(), outputDir.getAbsolutePath() + "/", false, 5D, null
+            inputDir.getAbsolutePath(), outputDir.getAbsolutePath() + "/", false, 5D, null, true
         );
         int actual = subject.processCSVsFromHPDSDir(5D);
 

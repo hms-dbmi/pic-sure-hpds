@@ -70,7 +70,8 @@ public class PhenotypeMetaStore {
     @SuppressWarnings("unchecked")
     public PhenotypeMetaStore(
         @Value("${HPDS_DATA_DIRECTORY:/opt/local/hpds/}") String hpdsDataDirectory,
-        @Value("${CHILD_CONCEPT_CACHE_SIZE:500}") int childConceptCacheSize
+        @Value("${CHILD_CONCEPT_CACHE_SIZE:500}") int childConceptCacheSize,
+        @Value("${HPDS_SHARDING_ENABLED:false}") boolean shardingEnabled
     ) {
         metaStore = new TreeMap<>();
         patientIds = new TreeSet<>();
@@ -78,41 +79,41 @@ public class PhenotypeMetaStore {
 
         boolean foundAny = false;
 
-        // 1. Check for legacy single-file layout
-        String legacyColumnMetaFile = hpdsDataDirectory + "columnMeta.javabin";
-        File legacyFile = new File(legacyColumnMetaFile);
-        if (legacyFile.exists()) {
-            log.info("Found legacy columnMeta.javabin at root: {}", legacyColumnMetaFile);
-            loadShardMetadata(legacyColumnMetaFile, hpdsDataDirectory);
+        // 1. Check for root-level columnMeta.javabin
+        String rootColumnMetaFile = hpdsDataDirectory + "columnMeta.javabin";
+        File rootFile = new File(rootColumnMetaFile);
+        if (rootFile.exists()) {
+            log.info("Found columnMeta.javabin at root: {}", rootColumnMetaFile);
+            loadShardMetadata(rootColumnMetaFile, hpdsDataDirectory);
             foundAny = true;
         }
 
-        // 2. Scan for shard subdirectories
-        File dataDir = new File(hpdsDataDirectory);
-        File[] subdirs = dataDir.listFiles(File::isDirectory);
+        // 2. If sharding is enabled, also scan for shard subdirectories
         boolean foundShards = false;
-        if (subdirs != null) {
-            for (File subdir : subdirs) {
-                File shardColumnMeta = new File(subdir, "columnMeta.javabin");
-                if (shardColumnMeta.exists()) {
-                    String shardDir = subdir.getAbsolutePath() + "/";
-                    log.info("Found shard columnMeta.javabin in: {}", shardDir);
-                    loadShardMetadata(shardColumnMeta.getAbsolutePath(), shardDir);
-                    foundShards = true;
-                    foundAny = true;
+        if (shardingEnabled) {
+            File dataDir = new File(hpdsDataDirectory);
+            File[] subdirs = dataDir.listFiles(File::isDirectory);
+            if (subdirs != null) {
+                for (File subdir : subdirs) {
+                    File shardColumnMeta = new File(subdir, "columnMeta.javabin");
+                    if (shardColumnMeta.exists()) {
+                        String shardDir = subdir.getAbsolutePath() + "/";
+                        log.info("Found shard columnMeta.javabin in: {}", shardDir);
+                        loadShardMetadata(shardColumnMeta.getAbsolutePath(), shardDir);
+                        foundShards = true;
+                        foundAny = true;
+                    }
                 }
+            }
+
+            if (rootFile.exists() && foundShards) {
+                log.warn("Both root columnMeta.javabin and shard subdirectories found. Loading both for migration support.");
             }
         }
 
-        // 3. Warn if both legacy and shards exist
-        if (legacyFile.exists() && foundShards) {
-            log.warn("Both legacy root columnMeta.javabin and shard subdirectories found. Loading both for migration support.");
-        }
-
-        // 4. If nothing found, log warning
         if (!foundAny) {
             log.warn("************************************************");
-            log.warn("No columnMeta.javabin found at {} or in any subdirectory.", hpdsDataDirectory);
+            log.warn("No columnMeta.javabin found at {}{}.", hpdsDataDirectory, shardingEnabled ? " or in any subdirectory" : "");
             log.warn("If you meant to include phenotype data of any kind, please check that the data directory is correct.");
             log.warn("************************************************");
         }

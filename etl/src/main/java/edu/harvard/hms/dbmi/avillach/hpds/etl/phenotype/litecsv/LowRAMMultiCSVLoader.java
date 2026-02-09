@@ -20,18 +20,20 @@ public class LowRAMMultiCSVLoader {
     private final boolean rollUpVarNames;
     private final double maxChunkSize;
     private final ConfigLoader configLoader;
+    private final boolean shardingEnabled;
 
-    public LowRAMMultiCSVLoader(String inputDir, String outputDir, boolean rollUpVarNames, double maxChunkSize, ConfigLoader configLoader) {
+    public LowRAMMultiCSVLoader(String inputDir, String outputDir, boolean rollUpVarNames, double maxChunkSize, ConfigLoader configLoader, boolean shardingEnabled) {
         this.inputDir = inputDir == null ? "/opt/local/hpds_input" : inputDir;
         this.outputDir = outputDir == null ? "/opt/local/hpds/" : outputDir;
         this.rollUpVarNames = rollUpVarNames;
         this.maxChunkSize = maxChunkSize;
         this.configLoader = configLoader;
+        this.shardingEnabled = shardingEnabled;
         Crypto.loadDefaultKey();
     }
 
     /**
-     * @deprecated Use the constructor with outputDir parameter instead.
+     * @deprecated Use the constructor with shardingEnabled parameter instead.
      */
     @Deprecated
     public LowRAMMultiCSVLoader(LowRAMLoadingStore store, LowRAMCSVProcessor processor, String inputDir) {
@@ -40,16 +42,23 @@ public class LowRAMMultiCSVLoader {
         this.rollUpVarNames = false;
         this.maxChunkSize = 5D;
         this.configLoader = null;
+        this.shardingEnabled = false;
         Crypto.loadDefaultKey();
     }
 
     public static void main(String[] args) {
         boolean rollUpVarNames = true;
+        boolean shardingEnabled = false;
         double maxChunkSize = 5D;
         for (String arg : args) {
             if (arg.equalsIgnoreCase("NO_ROLLUP")) {
                 log.info("Configured to not roll up variable names");
                 rollUpVarNames = false;
+            }
+
+            if (arg.equalsIgnoreCase("SHARDING")) {
+                log.info("Sharding enabled: each CSV will produce its own Javabin shard");
+                shardingEnabled = true;
             }
 
             if (arg.contains("MAX_CHUNK_SIZE")) {
@@ -68,7 +77,7 @@ public class LowRAMMultiCSVLoader {
         String inputDir = "/opt/local/hpds_input";
         String outputDir = "/opt/local/hpds/";
         ConfigLoader configLoader = new ConfigLoader();
-        LowRAMMultiCSVLoader loader = new LowRAMMultiCSVLoader(inputDir, outputDir, rollUpVarNames, maxChunkSize, configLoader);
+        LowRAMMultiCSVLoader loader = new LowRAMMultiCSVLoader(inputDir, outputDir, rollUpVarNames, maxChunkSize, configLoader, shardingEnabled);
         int exitCode = loader.processCSVsFromHPDSDir(maxChunkSize);
         System.exit(exitCode);
     }
@@ -76,6 +85,50 @@ public class LowRAMMultiCSVLoader {
     protected int processCSVsFromHPDSDir(double maxChunkSize) {
         log.info("Looking for files to process. All files must be smaller than {}G", maxChunkSize);
         log.info("Files larger than {}G should be split into a series of CSVs", maxChunkSize);
+        log.info("Sharding is {}", shardingEnabled ? "ENABLED" : "DISABLED");
+        if (shardingEnabled) {
+            return processWithSharding(maxChunkSize);
+        } else {
+            return processWithoutSharding(maxChunkSize);
+        }
+    }
+
+    /**
+     * Original behavior: all CSVs are processed into a single store at the root output directory.
+     */
+    private int processWithoutSharding(double maxChunkSize) {
+        LowRAMLoadingStore store = new LowRAMLoadingStore(
+            outputDir + "allObservationsTemp.javabin",
+            outputDir + "columnMeta.javabin",
+            outputDir + "allObservationsStore.javabin",
+            DEFAULT_KEY_NAME
+        );
+        LowRAMCSVProcessor processor = configLoader != null
+            ? new LowRAMCSVProcessor(store, rollUpVarNames, maxChunkSize, configLoader)
+            : new LowRAMCSVProcessor(store, rollUpVarNames, maxChunkSize);
+
+        try (Stream<Path> input_files = Files.list(Path.of(inputDir))) {
+            input_files.map(Path::toFile).filter(File::isFile).peek(f -> log.info("Found file {}", f.getAbsolutePath()))
+                .filter(f -> f.getName().endsWith(".csv")).peek(f -> log.info("Confirmed file {} is a .csv", f.getAbsolutePath()))
+                .map(processor::process).forEach(status -> log.info("Finished processing file {}", status));
+        } catch (IOException e) {
+            log.error("Exception processing files: ", e);
+            return 1;
+        }
+
+        try {
+            store.saveStore();
+        } catch (IOException | ClassNotFoundException e) {
+            log.error("Error saving store: ", e);
+            return 1;
+        }
+        return 0;
+    }
+
+    /**
+     * Sharded behavior: each CSV produces its own Javabin artifacts in a separate subdirectory.
+     */
+    private int processWithSharding(double maxChunkSize) {
         try (Stream<Path> input_files = Files.list(Path.of(inputDir))) {
             input_files.map(Path::toFile).filter(File::isFile).peek(f -> log.info("Found file {}", f.getAbsolutePath()))
                 .filter(f -> f.getName().endsWith(".csv")).peek(f -> log.info("Confirmed file {} is a .csv", f.getAbsolutePath()))

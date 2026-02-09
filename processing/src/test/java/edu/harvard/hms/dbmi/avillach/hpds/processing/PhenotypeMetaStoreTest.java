@@ -73,7 +73,7 @@ class PhenotypeMetaStoreTest {
         TreeSet<Integer> ids = new TreeSet<>(Set.of(1, 2, 3));
         writeColumnMeta(new File(tempDir, "columnMeta.javabin"), meta, ids);
 
-        PhenotypeMetaStore store = new PhenotypeMetaStore(tempDir.getAbsolutePath() + "/", 500);
+        PhenotypeMetaStore store = new PhenotypeMetaStore(tempDir.getAbsolutePath() + "/", 500, false);
         assertEquals(2, store.getMetaStore().size());
         assertTrue(store.getMetaStore().containsKey("\\concept1\\"));
         assertTrue(store.getMetaStore().containsKey("\\concept2\\"));
@@ -103,7 +103,7 @@ class PhenotypeMetaStoreTest {
         TreeSet<Integer> ids2 = new TreeSet<>(Set.of(2, 3));
         writeColumnMeta(new File(shard2Dir, "columnMeta.javabin"), meta2, ids2);
 
-        PhenotypeMetaStore store = new PhenotypeMetaStore(tempDir.getAbsolutePath() + "/", 500);
+        PhenotypeMetaStore store = new PhenotypeMetaStore(tempDir.getAbsolutePath() + "/", 500, true);
         assertEquals(2, store.getMetaStore().size());
         assertTrue(store.getMetaStore().containsKey("\\study1\\age\\"));
         assertTrue(store.getMetaStore().containsKey("\\study2\\weight\\"));
@@ -131,7 +131,7 @@ class PhenotypeMetaStoreTest {
         TreeSet<Integer> shardIds = new TreeSet<>(Set.of(20));
         writeColumnMeta(new File(shardDir, "columnMeta.javabin"), shardMeta, shardIds);
 
-        PhenotypeMetaStore store = new PhenotypeMetaStore(tempDir.getAbsolutePath() + "/", 500);
+        PhenotypeMetaStore store = new PhenotypeMetaStore(tempDir.getAbsolutePath() + "/", 500, true);
         assertEquals(2, store.getMetaStore().size());
         assertTrue(store.getMetaStore().containsKey("\\legacy\\concept\\"));
         assertTrue(store.getMetaStore().containsKey("\\new\\concept\\"));
@@ -140,7 +140,7 @@ class PhenotypeMetaStoreTest {
 
     @Test
     public void constructor_emptyDirectory_noFiles(@TempDir File tempDir) {
-        PhenotypeMetaStore store = new PhenotypeMetaStore(tempDir.getAbsolutePath() + "/", 500);
+        PhenotypeMetaStore store = new PhenotypeMetaStore(tempDir.getAbsolutePath() + "/", 500, false);
         assertTrue(store.getMetaStore().isEmpty());
         assertTrue(store.getPatientIds().isEmpty());
     }
@@ -163,7 +163,7 @@ class PhenotypeMetaStoreTest {
         meta2.put("\\shared\\concept\\", secondMeta);
         writeColumnMeta(new File(shard2Dir, "columnMeta.javabin"), meta2, new TreeSet<>(Set.of(2)));
 
-        PhenotypeMetaStore store = new PhenotypeMetaStore(tempDir.getAbsolutePath() + "/", 500);
+        PhenotypeMetaStore store = new PhenotypeMetaStore(tempDir.getAbsolutePath() + "/", 500, true);
         // Only one concept should exist
         assertEquals(1, store.getMetaStore().size());
         // First shard alphabetically wins (shard_a before shard_b)
@@ -195,9 +195,47 @@ class PhenotypeMetaStoreTest {
         meta.put("\\valid\\concept\\", new ColumnMeta().setName("valid"));
         writeColumnMeta(new File(validShardDir, "columnMeta.javabin"), meta, new TreeSet<>(Set.of(1)));
 
-        PhenotypeMetaStore store = new PhenotypeMetaStore(tempDir.getAbsolutePath() + "/", 500);
+        PhenotypeMetaStore store = new PhenotypeMetaStore(tempDir.getAbsolutePath() + "/", 500, true);
         assertEquals(1, store.getMetaStore().size());
         assertTrue(store.getMetaStore().containsKey("\\valid\\concept\\"));
+    }
+
+    @Test
+    public void constructor_shardingDisabled_ignoresSubdirectories(@TempDir File tempDir) throws Exception {
+        // Create a shard subdirectory with data
+        File shardDir = new File(tempDir, "shard_study1");
+        shardDir.mkdirs();
+        TreeMap<String, ColumnMeta> shardMeta = new TreeMap<>();
+        shardMeta.put("\\study1\\age\\", new ColumnMeta().setName("age"));
+        writeColumnMeta(new File(shardDir, "columnMeta.javabin"), shardMeta, new TreeSet<>(Set.of(1, 2)));
+
+        // With sharding disabled, subdirectories should be ignored
+        PhenotypeMetaStore store = new PhenotypeMetaStore(tempDir.getAbsolutePath() + "/", 500, false);
+        assertTrue(store.getMetaStore().isEmpty());
+        assertTrue(store.getPatientIds().isEmpty());
+        assertNull(store.getShardDirectory("\\study1\\age\\"));
+    }
+
+    @Test
+    public void constructor_shardingDisabled_stillLoadsRootFile(@TempDir File tempDir) throws Exception {
+        // Create root-level file
+        TreeMap<String, ColumnMeta> meta = new TreeMap<>();
+        meta.put("\\concept1\\", new ColumnMeta().setName("concept1"));
+        writeColumnMeta(new File(tempDir, "columnMeta.javabin"), meta, new TreeSet<>(Set.of(1)));
+
+        // Also create a shard subdirectory
+        File shardDir = new File(tempDir, "shard_extra");
+        shardDir.mkdirs();
+        TreeMap<String, ColumnMeta> shardMeta = new TreeMap<>();
+        shardMeta.put("\\extra\\concept\\", new ColumnMeta().setName("extra"));
+        writeColumnMeta(new File(shardDir, "columnMeta.javabin"), shardMeta, new TreeSet<>(Set.of(2)));
+
+        // With sharding disabled, only root file is loaded; shard subdirectory is ignored
+        PhenotypeMetaStore store = new PhenotypeMetaStore(tempDir.getAbsolutePath() + "/", 500, false);
+        assertEquals(1, store.getMetaStore().size());
+        assertTrue(store.getMetaStore().containsKey("\\concept1\\"));
+        assertFalse(store.getMetaStore().containsKey("\\extra\\concept\\"));
+        assertEquals(new TreeSet<>(Set.of(1)), store.getPatientIds());
     }
 
     private void writeColumnMeta(File file, TreeMap<String, ColumnMeta> meta, TreeSet<Integer> patientIds) throws Exception {
