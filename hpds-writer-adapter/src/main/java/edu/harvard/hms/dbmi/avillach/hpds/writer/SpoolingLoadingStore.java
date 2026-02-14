@@ -166,7 +166,7 @@ public class SpoolingLoadingStore {
             allIds.add(patientNum);
 
         // Ensure metadata exists for this concept (determined by first observation's type)
-        ConceptMetadata meta = conceptMetadata.computeIfAbsent(conceptPath, k -> {
+         ConceptMetadata meta = conceptMetadata.computeIfAbsent(conceptPath, k -> {
             boolean isCategorical = value instanceof String;
             int width = isCategorical ? 80 : 8; // Default widths
             return new ConceptMetadata(isCategorical, width);
