@@ -308,10 +308,10 @@ public class IngestServiceApplication implements CommandLineRunner {
      */
     private void processFilesInParallel(List<Path> fileList, ParquetObservationProducer producer,
                                        HPDSWriterAdapter writer, AtomicLong totalObservations) throws IOException {
-        int threadCount = config.getFileProcessingThreads();
-        ExecutorService fileProcessorPool = Executors.newFixedThreadPool(threadCount);
+        // Use virtual threads for unlimited file concurrency (Java 21+)
+        ExecutorService fileProcessorPool = Executors.newVirtualThreadPerTaskExecutor();
 
-        log.info("Processing {} files with {} threads", fileList.size(), threadCount);
+        log.info("Processing {} files with virtual threads (unlimited concurrency)", fileList.size());
 
         List<Future<ProcessingResult>> futures = new ArrayList<>();
         for (Path file : fileList) {
@@ -416,10 +416,10 @@ public class IngestServiceApplication implements CommandLineRunner {
      */
     private void processCsvFilesInParallel(List<Path> fileList, CsvObservationProducer producer,
                                           HPDSWriterAdapter writer, AtomicLong totalObservations) throws IOException {
-        int threadCount = config.getFileProcessingThreads();
-        ExecutorService fileProcessorPool = Executors.newFixedThreadPool(threadCount);
+        // Use virtual threads for unlimited file concurrency (Java 21+)
+        ExecutorService fileProcessorPool = Executors.newVirtualThreadPerTaskExecutor();
 
-        log.info("Processing {} CSV files with {} threads", fileList.size(), threadCount);
+        log.info("Processing {} CSV files with virtual threads (unlimited concurrency)", fileList.size());
 
         List<Future<ProcessingResult>> futures = new ArrayList<>();
         for (Path file : fileList) {

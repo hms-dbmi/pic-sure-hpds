@@ -39,8 +39,12 @@ import java.util.function.Consumer;
 public class CsvObservationProducer {
     private static final Logger log = LoggerFactory.getLogger(CsvObservationProducer.class);
 
+    // Large file threshold: files above this size get parallel chunk processing
+    private static final long LARGE_FILE_THRESHOLD_BYTES = 500_000_000L; // 500MB
+
     private final String runId;
     private final FailureSink failureSink;
+    private final CsvChunkProcessor chunkProcessor;
 
     // Expected header names (case-insensitive)
     private static final String HEADER_PATIENT_NUM = "PATIENT_NUM";
@@ -52,6 +56,7 @@ public class CsvObservationProducer {
     public CsvObservationProducer(String runId, FailureSink failureSink) {
         this.runId = runId;
         this.failureSink = failureSink;
+        this.chunkProcessor = new CsvChunkProcessor(runId, failureSink);
     }
 
     /**
@@ -63,7 +68,17 @@ public class CsvObservationProducer {
      * @param batchSize rows per batch
      */
     public void processFile(Path filePath, Consumer<List<ObservationRow>> consumer, int batchSize) throws IOException {
-        log.debug("Processing CSV file: {}", filePath);
+        long fileSize = Files.size(filePath);
+
+        // Check if file is large enough for parallel processing
+        if (fileSize > LARGE_FILE_THRESHOLD_BYTES) {
+            log.info("Large CSV detected ({} MB), using parallel chunk processing",
+                     fileSize / 1024 / 1024);
+            chunkProcessor.processLargeFileInParallel(filePath, consumer, batchSize, this);
+            return;
+        }
+
+        log.debug("Processing CSV file sequentially: {} ({} MB)", filePath, fileSize / 1024 / 1024);
 
         try (BufferedReader reader = Files.newBufferedReader(filePath)) {
             // Read first line to detect headers
@@ -144,6 +159,56 @@ public class CsvObservationProducer {
             }
 
             log.info("Completed processing CSV file: {}", filePath);
+        }
+    }
+
+    /**
+     * Process CSV from a BufferedReader (used by chunk processor for parallel processing).
+     * This method is package-private to allow CsvChunkProcessor access.
+     *
+     * @param reader BufferedReader positioned at start of data (no header)
+     * @param filePath source file path (for error reporting)
+     * @param consumer callback for each batch
+     * @param batchSize rows per batch
+     * @param hasHeaders whether reader includes header row (false for chunks)
+     * @return number of rows processed
+     */
+    long processStream(BufferedReader reader, Path filePath,
+                       Consumer<List<ObservationRow>> consumer,
+                       int batchSize, boolean hasHeaders) throws IOException {
+        CSVFormat format = CSVFormat.DEFAULT.builder()
+            .setIgnoreEmptyLines(true)
+            .setTrim(true)
+            .setQuote('"')
+            .build();
+
+        try (CSVParser parser = new CSVParser(reader, format)) {
+            List<ObservationRow> batch = new ArrayList<>(batchSize);
+            long rowsProcessed = 0;
+
+            for (CSVRecord record : parser) {
+                try {
+                    ObservationRow row = parseRecord(record, filePath, hasHeaders);
+                    if (row != null) {
+                        batch.add(row);
+                        rowsProcessed++;
+
+                        if (batch.size() >= batchSize) {
+                            consumer.accept(new ArrayList<>(batch));
+                            batch.clear();
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to parse CSV record at line {}: {}", record.getRecordNumber(), e.getMessage());
+                }
+            }
+
+            // Flush remaining
+            if (!batch.isEmpty()) {
+                consumer.accept(batch);
+            }
+
+            return rowsProcessed;
         }
     }
 
