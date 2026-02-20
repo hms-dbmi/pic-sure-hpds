@@ -40,6 +40,9 @@ public class IngestConfig {
     private int storeCacheSize = 16;
     private int fileProcessingThreads = 12; // Default for r7g.4xlarge (16 vCPU - 4 overhead)
     private int maxObservationsPerConcept = 5_000_000; // Default: 5M observations = ~190MB per concept
+    private int finalizationConcurrency = 12; // Default: 12 concurrent concepts during finalization (safe for 112GB heap)
+    private int finalizationChunkSize = 1000; // Process 1000 concepts at a time (for 200K+ scale)
+    private boolean disableAdaptiveDegradation = false; // Disable degradation for massive scale (requires proper max-observations tuning)
 
     @PostConstruct
     public void validateAndLog() {
@@ -138,6 +141,9 @@ public class IngestConfig {
         log.info("Store cache size: {}", storeCacheSize);
         log.info("File processing threads: {}", fileProcessingThreads);
         log.info("Max observations per concept: {}", maxObservationsPerConcept);
+        log.info("Finalization concurrency: {}", finalizationConcurrency);
+        log.info("Finalization chunk size: {}", finalizationChunkSize);
+        log.info("Disable adaptive degradation: {}", disableAdaptiveDegradation);
         log.info("================================");
     }
 
@@ -251,5 +257,29 @@ public class IngestConfig {
 
     public void setMaxObservationsPerConcept(int maxObservationsPerConcept) {
         this.maxObservationsPerConcept = maxObservationsPerConcept;
+    }
+
+    public int getFinalizationConcurrency() {
+        return finalizationConcurrency;
+    }
+
+    public void setFinalizationConcurrency(int finalizationConcurrency) {
+        this.finalizationConcurrency = finalizationConcurrency;
+    }
+
+    public int getFinalizationChunkSize() {
+        return finalizationChunkSize;
+    }
+
+    public void setFinalizationChunkSize(int finalizationChunkSize) {
+        this.finalizationChunkSize = finalizationChunkSize;
+    }
+
+    public boolean isDisableAdaptiveDegradation() {
+        return disableAdaptiveDegradation;
+    }
+
+    public void setDisableAdaptiveDegradation(boolean disableAdaptiveDegradation) {
+        this.disableAdaptiveDegradation = disableAdaptiveDegradation;
     }
 }

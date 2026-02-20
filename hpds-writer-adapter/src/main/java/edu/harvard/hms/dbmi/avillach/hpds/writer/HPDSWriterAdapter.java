@@ -24,10 +24,10 @@ public class HPDSWriterAdapter implements AutoCloseable {
     private final SpoolingLoadingStore store;
     private volatile boolean closed = false;
 
-    public HPDSWriterAdapter(Path spoolDirectory, String outputDirectory, String encryptionKeyName, int cacheSize, int maxObservationsPerConcept) {
-        this.store = new SpoolingLoadingStore(spoolDirectory, outputDirectory, encryptionKeyName, cacheSize, maxObservationsPerConcept);
-        log.info("Initialized HPDS writer adapter: spool={}, output={}, cacheSize={}, maxObsPerConcept={}",
-                spoolDirectory, outputDirectory, cacheSize, maxObservationsPerConcept);
+    public HPDSWriterAdapter(Path spoolDirectory, String outputDirectory, String encryptionKeyName, int cacheSize, int maxObservationsPerConcept, int finalizationConcurrency, int finalizationChunkSize, boolean disableAdaptiveDegradation) {
+        this.store = new SpoolingLoadingStore(spoolDirectory, outputDirectory, encryptionKeyName, cacheSize, maxObservationsPerConcept, finalizationConcurrency, finalizationChunkSize, disableAdaptiveDegradation);
+        log.info("Initialized HPDS writer adapter: spool={}, output={}, cacheSize={}, maxObsPerConcept={}, finalizationConcurrency={}, chunkSize={}, disableDegradation={}",
+                spoolDirectory, outputDirectory, cacheSize, maxObservationsPerConcept, finalizationConcurrency, finalizationChunkSize, disableAdaptiveDegradation);
     }
 
     /**
@@ -39,7 +39,10 @@ public class HPDSWriterAdapter implements AutoCloseable {
             "/opt/local/hpds/",
             "default",
             16,
-            5_000_000  // Default: 5M observations per concept
+            5_000_000,  // Default: 5M observations per concept
+            12,         // Default: 12 concurrent finalizations
+            1000,       // Default: 1000 concepts per chunk
+            false       // Default: adaptive degradation enabled
         );
     }
 

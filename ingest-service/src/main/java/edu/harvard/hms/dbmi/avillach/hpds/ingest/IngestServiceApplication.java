@@ -116,7 +116,10 @@ public class IngestServiceApplication implements CommandLineRunner {
                  config.getOutputDir(),
                  encryptionKeyName,
                  config.getStoreCacheSize(),
-                 config.getMaxObservationsPerConcept())) {
+                 config.getMaxObservationsPerConcept(),
+                 config.getFinalizationConcurrency(),
+                 config.getFinalizationChunkSize(),
+                 config.isDisableAdaptiveDegradation())) {
 
             // Process Parquet datasets
             log.info("Processing Parquet datasets from config: {}", config.getParquetConfigPath());

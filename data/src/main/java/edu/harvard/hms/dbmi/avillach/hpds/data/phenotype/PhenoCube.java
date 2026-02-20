@@ -13,14 +13,17 @@ public class PhenoCube<V extends Comparable<V>> implements Serializable {
 
 	int columnWidth;
 
-	V[] lowDimValues; 
+	V[] lowDimValues;
 	boolean isLowDim = false;
 
 	private KeyAndValue<V>[] sortedByKey;
-	
+
 	private TreeMap<V, TreeSet<Integer>> categoryMap;
 
 	private transient List<KeyAndValue<V>> loadingMap = Collections.synchronizedList(new ArrayList<>());
+
+	// Cache for sortedByValue to avoid redundant array copies and sorts
+	private transient KeyAndValue<V>[] cachedSortedByValue;
 
 	public PhenoCube(String name, Class<V> vType){
 		this.vType = vType;
@@ -156,11 +159,13 @@ public class PhenoCube<V extends Comparable<V>> implements Serializable {
 	}
 
 	public KeyAndValue<V>[] sortedByValue() {
-		KeyAndValue<V>[] sortedByValue = Arrays.copyOf(sortedByKey(), sortedByKey().length);
-		Arrays.sort(sortedByValue, (KeyAndValue<V> o1, KeyAndValue<V> o2) -> {
-			return o1.value.compareTo(o2.value);
-		});
-		return sortedByValue;
+		if (cachedSortedByValue == null) {
+			cachedSortedByValue = Arrays.copyOf(sortedByKey(), sortedByKey().length);
+			Arrays.sort(cachedSortedByValue, (KeyAndValue<V> o1, KeyAndValue<V> o2) -> {
+				return o1.value.compareTo(o2.value);
+			});
+		}
+		return cachedSortedByValue;
 	}
 
 	public KeyAndValue<V>[] sortedByTimestamp() {
@@ -189,6 +194,7 @@ public class PhenoCube<V extends Comparable<V>> implements Serializable {
 	
 	public PhenoCube<V> setSortedByKey(KeyAndValue<V>[] sortedByKey) {
 		this.sortedByKey = sortedByKey;
+		this.cachedSortedByValue = null;  // Invalidate cache when sortedByKey changes
 		return this;
 	}
 
