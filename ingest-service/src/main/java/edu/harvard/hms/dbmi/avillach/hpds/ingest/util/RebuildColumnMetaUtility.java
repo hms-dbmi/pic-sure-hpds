@@ -316,122 +316,21 @@ public class RebuildColumnMetaUtility {
     }
 
     /**
-     * Build ColumnMeta from PhenoCube.
+     * Build ColumnMeta from PhenoCube using shared utility.
      */
-    @SuppressWarnings("unchecked")
     private ColumnMeta buildColumnMeta(PhenoCube<?> cube, long startOffset, long endOffset) {
-        String conceptPath = cube.name;
-        boolean isCategorical = cube.isStringType();
-
-        ColumnMeta meta = new ColumnMeta()
-            .setName(conceptPath)
-            .setCategorical(isCategorical)
-            .setAllObservationsOffset(startOffset)
-            .setAllObservationsLength(endOffset);
-
-        KeyAndValue<?>[] observations = cube.sortedByKey();
-        meta.setObservationCount(observations.length);
-
-        // Count unique patients
-        Set<Integer> uniquePatients = Arrays.stream(observations)
-            .map(KeyAndValue::getKey)
-            .collect(Collectors.toSet());
-        meta.setPatientCount(uniquePatients.size());
-
-        // Set category values or min/max
-        if (isCategorical) {
-            // Extract unique categorical values (sorted)
-            TreeSet<String> uniqueValues = new TreeSet<>();
-            for (Object value : cube.keyBasedArray()) {
-                if (value != null) {
-                    uniqueValues.add(value.toString());
-                }
-            }
-            List<String> categoryValues = new ArrayList<>(uniqueValues);
-            meta.setCategoryValues(categoryValues);
-
-            // Calculate width in bytes (longest category value)
-            int maxWidth = categoryValues.stream()
-                .mapToInt(String::length)
-                .max()
-                .orElse(1);
-            meta.setWidthInBytes(maxWidth);
-
-        } else {
-            // Extract min/max for numeric
-            double min = Double.MAX_VALUE;
-            double max = Double.MIN_VALUE;
-            for (Object value : cube.keyBasedArray()) {
-                if (value instanceof Double) {
-                    double d = (Double) value;
-                    min = Math.min(min, d);
-                    max = Math.max(max, d);
-                }
-            }
-            meta.setMin(min == Double.MAX_VALUE ? Double.NaN : min);
-            meta.setMax(max == Double.MIN_VALUE ? Double.NaN : max);
-
-            // Numeric width is always 1 (stored as Double)
-            meta.setWidthInBytes(1);
-        }
-
+        ColumnMeta meta = edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.util.ColumnMetaBuilder
+            .fromPhenoCube(cube); // Calculate width from data
+        meta.setAllObservationsOffset(startOffset);
+        meta.setAllObservationsLength(endOffset);
         return meta;
     }
 
     /**
-     * Write columnMeta.csv (data dictionary).
-     *
-     * CSV columns:
-     * 1. name
-     * 2. widthInBytes
-     * 3. columnOffset
-     * 4. isCategorical
-     * 5. categoryValues (µ-delimited)
-     * 6. min
-     * 7. max
-     * 8. allObservationsOffset
-     * 9. allObservationsLength
-     * 10. observationCount
-     * 11. patientCount
+     * Write columnMeta.csv using shared utility.
      */
     private void writeColumnMetaCsv(TreeMap<String, ColumnMeta> metadataMap, Path csvPath) throws IOException {
-        try (BufferedWriter writer = Files.newBufferedWriter(
-                csvPath,
-                StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING);
-             CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT)) {
-
-            for (Map.Entry<String, ColumnMeta> entry : metadataMap.entrySet()) {
-                ColumnMeta meta = entry.getValue();
-                Object[] row = new Object[11];
-
-                // Build category values string (µ-delimited)
-                StringBuilder categoryValuesStr = new StringBuilder();
-                if (meta.getCategoryValues() != null && !meta.getCategoryValues().isEmpty()) {
-                    AtomicInteger idx = new AtomicInteger(0);
-                    meta.getCategoryValues().forEach(value -> {
-                        categoryValuesStr.append(value);
-                        if (idx.incrementAndGet() < meta.getCategoryValues().size()) {
-                            categoryValuesStr.append("µ");
-                        }
-                    });
-                }
-
-                row[0] = meta.getName();
-                row[1] = String.valueOf(meta.getWidthInBytes());
-                row[2] = String.valueOf(meta.getColumnOffset());
-                row[3] = String.valueOf(meta.isCategorical());
-                row[4] = categoryValuesStr.toString();
-                row[5] = String.valueOf(meta.getMin());
-                row[6] = String.valueOf(meta.getMax());
-                row[7] = String.valueOf(meta.getAllObservationsOffset());
-                row[8] = String.valueOf(meta.getAllObservationsLength());
-                row[9] = String.valueOf(meta.getObservationCount());
-                row[10] = String.valueOf(meta.getPatientCount());
-
-                printer.printRecord(row);
-            }
-        }
+        edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.util.ColumnMetaBuilder
+            .writeColumnMetaCsv(metadataMap, csvPath);
     }
 }

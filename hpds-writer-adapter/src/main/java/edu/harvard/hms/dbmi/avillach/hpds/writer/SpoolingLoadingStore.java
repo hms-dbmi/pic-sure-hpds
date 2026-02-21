@@ -459,8 +459,9 @@ public class SpoolingLoadingStore {
             metaOut.writeObject(allIds);
         }
 
-        // Write columnMeta.csv for data dictionary
-        dumpColumnMetaCSV();
+        // Write columnMeta.csv for data dictionary using shared utility
+        edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.util.ColumnMetaBuilder
+            .writeColumnMetaCsv(sortedMetadata, Paths.get(outputDirectory + "columnMeta.csv"));
 
         // Cleanup spool files
         cleanupSpool();
@@ -595,11 +596,20 @@ public class SpoolingLoadingStore {
             log.error("CRITICAL: Concept '{}' EXCEEDS JAVA ARRAY LIMIT", conceptPath);
             log.error("═══════════════════════════════════════════════════════════════");
             log.error("Partial files found:     {}", partials.size());
-            log.error("Estimated observations:  {} ({:.2f}B)", estimatedTotalObs, estimatedTotalObs / 1_000_000_000.0);
-            log.error("Java array limit:        {} ({:.2f}B)", JAVA_ARRAY_LIMIT, JAVA_ARRAY_LIMIT / 1_000_000_000.0);
-            log.error("Overflow:                {} observations ({:.1f}% over limit)",
-                      estimatedTotalObs - JAVA_ARRAY_LIMIT,
-                      100.0 * (estimatedTotalObs - JAVA_ARRAY_LIMIT) / JAVA_ARRAY_LIMIT);
+            log.atError().setMessage("Estimated observations:  {} ({} B)")
+                    .addArgument(estimatedTotalObs)
+                    .addArgument(() -> String.format("%.2f", estimatedTotalObs / 1_000_000_000.0))
+                    .log();
+            log.atError().setMessage("Java array limit:        {} ({} B)")
+                    .addArgument(JAVA_ARRAY_LIMIT)
+                    .addArgument(() -> String.format("%.2f", JAVA_ARRAY_LIMIT / 1_000_000_000.0))
+                    .log();
+            long overflow = estimatedTotalObs - JAVA_ARRAY_LIMIT;
+            double overflowPct = 100.0 * overflow / JAVA_ARRAY_LIMIT;
+            log.atError().setMessage("Overflow:                {} observations ({} over limit)")
+                    .addArgument(overflow)
+                    .addArgument(String.format("%.1f%%", overflowPct))
+                    .log();
             log.error("");
             log.error("This concept cannot be finalized without data loss.");
             log.error("");
@@ -679,8 +689,14 @@ public class SpoolingLoadingStore {
         // Log deduplication statistics
         if (duplicatesSkipped > 0) {
             double dedupRate = 100.0 * duplicatesSkipped / totalRead;
-            log.info("Dedup for '{}': {} read, {} unique, {} duplicates ({:.1f}%) | Time: {}ms",
-                     conceptPath, totalRead, allEntries.size(), duplicatesSkipped, dedupRate, dedupTime);
+            log.atInfo().setMessage("Dedup for '{}': {} read, {} unique, {} duplicates ({}) | Time: {}ms")
+                    .addArgument(conceptPath)
+                    .addArgument(totalRead)
+                    .addArgument(allEntries.size())
+                    .addArgument(duplicatesSkipped)
+                    .addArgument(String.format("%.1f%%", dedupRate))
+                    .addArgument(dedupTime)
+                    .log();
         } else {
             log.debug("Dedup for '{}': {} observations, no duplicates | Time: {}ms",
                       conceptPath, totalRead, dedupTime);
@@ -799,35 +815,10 @@ public class SpoolingLoadingStore {
             log.debug("Adaptive degradation disabled - writing cube as-is for: {}", conceptPath);
         }
 
-        // STEP 2: Build ColumnMeta
-        ColumnMeta columnMeta = new ColumnMeta()
-            .setName(conceptPath)
-            .setWidthInBytes(meta.columnWidth)
-            .setCategorical(meta.isCategorical);
-
+        // STEP 2: Build ColumnMeta using shared utility
+        ColumnMeta columnMeta = edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.util.ColumnMetaBuilder
+            .fromPhenoCube(finalCube, meta.columnWidth);
         columnMeta.setAllObservationsOffset(store.getFilePointer());
-        columnMeta.setObservationCount(finalCube.sortedByKey().length);
-        columnMeta.setPatientCount(
-            Arrays.stream(finalCube.sortedByKey())
-                .map(KeyAndValue::getKey)
-                .collect(Collectors.toSet())
-                .size()
-        );
-
-        // Set category values or min/max
-        if (meta.isCategorical) {
-            columnMeta.setCategoryValues(
-                new ArrayList<>(new TreeSet<>((List<String>) finalCube.keyBasedArray()))
-            );
-        } else {
-            List<Double> values = (List<Double>) finalCube.keyBasedArray().stream()
-                .map(v -> (Double) v)
-                .collect(Collectors.toList());
-            double min = values.stream().mapToDouble(Double::doubleValue).min().orElse(Double.NaN);
-            double max = values.stream().mapToDouble(Double::doubleValue).max().orElse(Double.NaN);
-            columnMeta.setMin(min);
-            columnMeta.setMax(max);
-        }
 
         // STEP 3: Serialize and encrypt with size validation
         // OPTIMIZED: Pre-size ByteArrayOutputStream to avoid reallocations (saves 27.7 hours at 200K scale)
@@ -838,9 +829,13 @@ public class SpoolingLoadingStore {
             out.flush();
 
             byte[] serialized = byteStream.toByteArray();
-            log.debug("Serialized {} to {} bytes (estimated: {}, accuracy: {:.1f}%)",
-                    conceptPath, serialized.length, estimatedSize,
-                    100.0 * estimatedSize / serialized.length);
+            double accuracy = 100.0 * estimatedSize / serialized.length;
+            log.atDebug().setMessage("Serialized {} to {} bytes (estimated: {}, accuracy: {})")
+                    .addArgument(conceptPath)
+                    .addArgument(serialized.length)
+                    .addArgument(estimatedSize)
+                    .addArgument(String.format("%.1f%%", accuracy))
+                    .log();
 
             // Hard limit check: AES-GCM encryption fails at ~2.14GB (Integer.MAX_VALUE)
             // Allow 100MB buffer for encryption overhead
