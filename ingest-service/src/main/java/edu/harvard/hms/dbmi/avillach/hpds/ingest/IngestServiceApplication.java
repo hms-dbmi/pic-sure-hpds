@@ -119,7 +119,8 @@ public class IngestServiceApplication implements CommandLineRunner {
                  config.getMaxObservationsPerConcept(),
                  config.getFinalizationConcurrency(),
                  config.getFinalizationChunkSize(),
-                 config.isDisableAdaptiveDegradation())) {
+                 config.isDisableAdaptiveDegradation(),
+                 false)) {
 
             // Process Parquet datasets
             log.info("Processing Parquet datasets from config: {}", config.getParquetConfigPath());
@@ -170,6 +171,7 @@ public class IngestServiceApplication implements CommandLineRunner {
             log.info("Duration: {} seconds", durationSeconds);
             log.info("Output: {}", config.getOutputDir());
             log.info("Failures: {}", config.getFailureFile());
+            log.info("Deduplication: Per-concept (during finalization) - check finalization logs for stats");
         }
     }
 
@@ -321,8 +323,9 @@ public class IngestServiceApplication implements CommandLineRunner {
             Future<ProcessingResult> future = fileProcessorPool.submit(() -> {
                 try {
                     AtomicInteger batchAccepted = new AtomicInteger(0);
+                    String sourceName = "parquet:" + producer.getDatasetName() + ":" + file.getFileName();
                     producer.processFile(file, batch -> {
-                        int accepted = writer.acceptBatch(batch);
+                        int accepted = writer.acceptBatch(batch, sourceName);
                         batchAccepted.addAndGet(accepted);
                     }, config.getBatchSize());
                     return new ProcessingResult(file, batchAccepted.get(), null);
@@ -430,8 +433,9 @@ public class IngestServiceApplication implements CommandLineRunner {
                 try {
                     log.info("Processing CSV file: {} on thread: {}", file.getFileName(), Thread.currentThread().getName());
                     AtomicInteger batchAccepted = new AtomicInteger(0);
+                    String sourceName = "csv:" + file.getFileName();
                     producer.processFile(file, batch -> {
-                        int accepted = writer.acceptBatch(batch);
+                        int accepted = writer.acceptBatch(batch, sourceName);
                         batchAccepted.addAndGet(accepted);
                     }, config.getBatchSize());
                     return new ProcessingResult(file, batchAccepted.get(), null);

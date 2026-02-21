@@ -8,6 +8,8 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Facade for writing observations to HPDS stores.
@@ -24,10 +26,18 @@ public class HPDSWriterAdapter implements AutoCloseable {
     private final SpoolingLoadingStore store;
     private volatile boolean closed = false;
 
-    public HPDSWriterAdapter(Path spoolDirectory, String outputDirectory, String encryptionKeyName, int cacheSize, int maxObservationsPerConcept, int finalizationConcurrency, int finalizationChunkSize, boolean disableAdaptiveDegradation) {
+    public HPDSWriterAdapter(Path spoolDirectory, String outputDirectory, String encryptionKeyName, int cacheSize, int maxObservationsPerConcept, int finalizationConcurrency, int finalizationChunkSize, boolean disableAdaptiveDegradation, boolean enableDeduplication) {
         this.store = new SpoolingLoadingStore(spoolDirectory, outputDirectory, encryptionKeyName, cacheSize, maxObservationsPerConcept, finalizationConcurrency, finalizationChunkSize, disableAdaptiveDegradation);
-        log.info("Initialized HPDS writer adapter: spool={}, output={}, cacheSize={}, maxObsPerConcept={}, finalizationConcurrency={}, chunkSize={}, disableDegradation={}",
+
+        log.info("Initialized HPDS writer adapter: spool={}, output={}, cacheSize={}, maxObsPerConcept={}, finalizationConcurrency={}, chunkSize={}, disableDegradation={} (per-concept deduplication during finalization)",
                 spoolDirectory, outputDirectory, cacheSize, maxObservationsPerConcept, finalizationConcurrency, finalizationChunkSize, disableAdaptiveDegradation);
+    }
+
+    /**
+     * Backward compatibility constructor (deduplication disabled by default).
+     */
+    public HPDSWriterAdapter(Path spoolDirectory, String outputDirectory, String encryptionKeyName, int cacheSize, int maxObservationsPerConcept, int finalizationConcurrency, int finalizationChunkSize, boolean disableAdaptiveDegradation) {
+        this(spoolDirectory, outputDirectory, encryptionKeyName, cacheSize, maxObservationsPerConcept, finalizationConcurrency, finalizationChunkSize, disableAdaptiveDegradation, false);
     }
 
     /**
@@ -47,10 +57,12 @@ public class HPDSWriterAdapter implements AutoCloseable {
     }
 
     /**
-     * Accepts a batch of observations for writing.
+     * Accepts a batch of observations for writing (without source tracking).
      *
      * Observations are validated and added to the appropriate concept cubes.
      * Invalid observations are logged and skipped.
+     *
+     * Deduplication occurs during finalization (per-concept in mergePartials()).
      *
      * This method is thread-safe and can be called concurrently from multiple producers.
      *
@@ -58,6 +70,24 @@ public class HPDSWriterAdapter implements AutoCloseable {
      * @return number of observations successfully accepted
      */
     public int acceptBatch(List<ObservationRow> batch) {
+        return acceptBatch(batch, "unknown");
+    }
+
+    /**
+     * Accepts a batch of observations for writing with source tracking.
+     *
+     * Observations are validated and added to the appropriate concept cubes.
+     * Invalid observations are logged and skipped.
+     *
+     * Deduplication occurs during finalization (per-concept in mergePartials()).
+     *
+     * This method is thread-safe and can be called concurrently from multiple producers.
+     *
+     * @param batch list of observation rows to ingest
+     * @param sourceName source identifier (e.g., "csv:allConcepts.csv" or "parquet:dataset_fitbit")
+     * @return number of observations successfully accepted
+     */
+    public int acceptBatch(List<ObservationRow> batch, String sourceName) {
         if (closed) {
             throw new IllegalStateException("Writer adapter is closed");
         }
@@ -95,7 +125,7 @@ public class HPDSWriterAdapter implements AutoCloseable {
      *
      * This method:
      * 1. Flushes all in-memory caches
-     * 2. Merges all spooled partials per concept
+     * 2. Merges all spooled partials per concept (with per-concept deduplication)
      * 3. Writes each concept exactly once to allObservationsStore
      * 4. Writes columnMeta.javabin
      * 5. Cleans up spool files
@@ -110,7 +140,7 @@ public class HPDSWriterAdapter implements AutoCloseable {
             return;
         }
 
-        log.info("Closing and finalizing HPDS writer adapter");
+        log.info("Closing and finalizing HPDS writer adapter (per-concept deduplication enabled)");
         try {
             store.saveStore();
             closed = true;

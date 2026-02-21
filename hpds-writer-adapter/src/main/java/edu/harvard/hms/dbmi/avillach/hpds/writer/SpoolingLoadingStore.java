@@ -359,6 +359,7 @@ public class SpoolingLoadingStore {
         // Prepare for chunked processing
         ConcurrentHashMap<String, ColumnMeta> metadataMap = new ConcurrentHashMap<>();
         List<String> failedConcepts = Collections.synchronizedList(new ArrayList<>());
+        Map<String, String> failureDetails = new ConcurrentHashMap<>(); // conceptPath -> error message
         List<String> allConcepts = new ArrayList<>(conceptMetadata.keySet());
         int totalConcepts = allConcepts.size();
         int totalChunks = (totalConcepts + finalizationChunkSize - 1) / finalizationChunkSize;
@@ -367,7 +368,7 @@ public class SpoolingLoadingStore {
         Runtime runtime = Runtime.getRuntime();
         long heapBeforeMB = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024;
 
-        log.info("=====Finalizing concepts in CHUNKED parallel mode (massive scale)=====");
+        log.info("=====Finalizing concepts in CHUNKED parallel mode=====");
         log.info("Total concepts:       {}", totalConcepts);
         log.info("Chunk size:           {}", finalizationChunkSize);
         log.info("Total chunks:         {}", totalChunks);
@@ -385,17 +386,17 @@ public class SpoolingLoadingStore {
                 long chunkStart = System.currentTimeMillis();
                 long heapBeforeChunkMB = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024;
 
-                log.info("===== Processing chunk {}/{}: concepts {}-{} ({} concepts) =====",
+                log.debug("===== Processing chunk {}/{}: concepts {}-{} ({} concepts) =====",
                          chunkIdx + 1, totalChunks, startIdx + 1, endIdx, chunk.size());
 
                 // Process this chunk in parallel
-                processChunk(chunk, allObservationsStore, metadataMap, failedConcepts);
+                processChunk(chunk, allObservationsStore, metadataMap, failedConcepts, failureDetails);
 
                 long chunkEnd = System.currentTimeMillis();
                 long chunkTime = chunkEnd - chunkStart;
                 long heapAfterChunkMB = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024;
 
-                log.info("Chunk {}/{} complete: {}ms | Heap: {} MB -> {} MB (delta: {} MB) | Concepts finalized: {}/{}",
+                log.debug("Chunk {}/{} complete: {}ms | Heap: {} MB -> {} MB (delta: {} MB) | Concepts finalized: {}/{}",
                          chunkIdx + 1, totalChunks, chunkTime,
                          heapBeforeChunkMB, heapAfterChunkMB, heapAfterChunkMB - heapBeforeChunkMB,
                          metadataMap.size(), totalConcepts);
@@ -418,26 +419,43 @@ public class SpoolingLoadingStore {
             log.info("Concepts finalized:   {}", metadataMap.size());
             log.info("Chunks processed:     {}", totalChunks);
             log.info("Concurrency/chunk:    {}", finalizationConcurrency);
-            log.info("Avg per concept:      {:.1f}ms", totalTime / (double) totalConcepts);
-            log.info("Avg per chunk:        {:.1f}ms", totalTime / (double) totalChunks);
+            log.info("Avg per concept:      {}ms", String.format("%.1f", totalTime / (double) totalConcepts));
+            log.info("Avg per chunk:        {}ms", String.format("%.1f", totalTime / (double) totalChunks));
             log.info("Heap before/after:    {} MB -> {} MB (delta: {} MB)", heapBeforeMB, heapAfterMB, heapAfterMB - heapBeforeMB);
             log.info("==========================================");
 
-            // Check for failures
+            // Report failures as warnings (don't abort - we finalized the successful concepts)
             if (!failedConcepts.isEmpty()) {
-                log.error("Finalization completed with {} failures: {}", failedConcepts.size(), failedConcepts);
-                throw new IOException(String.format(
-                    "Failed to finalize %d concepts: %s",
-                    failedConcepts.size(),
-                    String.join(", ", failedConcepts)));
+                log.warn("========== FINALIZATION WARNINGS ==========");
+
+                log.warn("Successfully finalized {}/{} concepts ({}%)",
+                        metadataMap.size(), totalConcepts,
+                        String.format("%.2f", 100.0 * metadataMap.size() / (double) totalConcepts));
+
+                log.warn("Failed to finalize {} concepts ({}%):",
+                        failedConcepts.size(),
+                        String.format("%.2f", 100.0 * failedConcepts.size() / (double) totalConcepts));
+
+                // Log each failure with its detailed error
+                for (String conceptPath : failedConcepts) {
+                    String errorDetail = failureDetails.getOrDefault(conceptPath, "Unknown error");
+                    log.warn("  - {} | Reason: {}", conceptPath, errorDetail);
+                }
+
+                log.warn("==========================================");
+                log.warn("IMPORTANT: {} successful concepts WERE written to allObservationsStore.javabin", metadataMap.size());
+                log.warn("Failed concepts will NOT be queryable in HPDS");
+                log.warn("Review the errors above to determine if intervention is needed");
             }
         }
 
-        // Write columnMeta.javabin
+        // Write columnMeta.javabin (for successful concepts)
+        // Convert ConcurrentHashMap to TreeMap for compatibility with existing readers
         log.info("Writing columnMeta.javabin");
+        TreeMap<String, ColumnMeta> sortedMetadata = new TreeMap<>(metadataMap);
         try (ObjectOutputStream metaOut = new ObjectOutputStream(
             new GZIPOutputStream(new FileOutputStream(outputDirectory + "columnMeta.javabin")))) {
-            metaOut.writeObject(metadataMap);
+            metaOut.writeObject(sortedMetadata);
             metaOut.writeObject(allIds);
         }
 
@@ -457,11 +475,13 @@ public class SpoolingLoadingStore {
      * @param store RandomAccessFile for writing
      * @param metadataMap Concurrent map for column metadata
      * @param failedConcepts List to collect failures
+     * @param failureDetails Map to collect failure reasons
      */
     private void processChunk(List<String> chunk,
                              RandomAccessFile store,
                              ConcurrentHashMap<String, ColumnMeta> metadataMap,
-                             List<String> failedConcepts) {
+                             List<String> failedConcepts,
+                             Map<String, String> failureDetails) {
         ExecutorService executor = Executors.newFixedThreadPool(finalizationConcurrency, Thread.ofVirtual().factory());
         List<Future<?>> futures = new ArrayList<>();
 
@@ -470,8 +490,15 @@ public class SpoolingLoadingStore {
                 try {
                     finalizeConceptParallel(conceptPath, store, metadataMap);
                 } catch (Exception e) {
-                    log.error("Failed to finalize concept: {}", conceptPath, e);
+                    // Extract concise error message for reporting
+                    String errorMsg = e.getClass().getSimpleName() + ": " + e.getMessage();
+                    if (e.getCause() != null) {
+                        errorMsg += " (caused by: " + e.getCause().getClass().getSimpleName() + ")";
+                    }
+
+                    log.error("Failed to finalize concept: {} | Error: {}", conceptPath, errorMsg, e);
                     failedConcepts.add(conceptPath);
+                    failureDetails.put(conceptPath, errorMsg);
                     // Don't throw - let other concepts finish
                 }
             }));
@@ -542,7 +569,13 @@ public class SpoolingLoadingStore {
 
     /**
      * Merges all spooled partials for a concept into a single PhenoCube.
-     * Uses external merge if needed (currently in-memory for simplicity).
+     *
+     * DEDUPLICATION: During merge, filters out duplicate observations using fingerprint matching.
+     * This ensures each unique observation (patientNum, conceptPath, value, timestamp) appears
+     * exactly once, even if the same observation was ingested multiple times from different sources.
+     *
+     * Memory bounded: HashSet<ObservationFingerprint> is cleared after each concept.
+     * Worst case: 50M observations × 29 bytes/fingerprint = ~1.45GB per concept.
      */
     @SuppressWarnings("unchecked")
     private PhenoCube mergePartials(String conceptPath, ConceptMetadata meta) throws IOException {
@@ -587,7 +620,14 @@ public class SpoolingLoadingStore {
                 JAVA_ARRAY_LIMIT / 1_000_000_000.0));
         }
 
+        // ========== DEDUPLICATION LOGIC ==========
+        // Track unique observations for THIS concept only
+        Set<ObservationFingerprint> seenInThisConcept = new HashSet<>();
         List<KeyAndValue> allEntries = new ArrayList<>();
+
+        int totalRead = 0;
+        int duplicatesSkipped = 0;
+        long dedupStart = System.currentTimeMillis();
 
         // Read all partials
         for (Path partial : partials) {
@@ -595,6 +635,7 @@ public class SpoolingLoadingStore {
                  GZIPInputStream gzis = new GZIPInputStream(fis);
                  ObjectInputStream ois = new ObjectInputStream(gzis)) {
                 List<KeyAndValue> entries = (List<KeyAndValue>) ois.readObject();
+                totalRead += entries.size();
 
                 // Handle type coercion: if concept was promoted to categorical but partials contain Doubles,
                 // convert them to Strings to ensure consistent typing
@@ -607,14 +648,46 @@ public class SpoolingLoadingStore {
                     }
                 }
 
-                allEntries.addAll(entries);
+                // Deduplicate: check fingerprint before adding
+                for (KeyAndValue entry : entries) {
+                    ObservationFingerprint fp = new ObservationFingerprint(
+                        entry.getKey(),                                    // patientNum
+                        conceptPath,                                       // conceptPath
+                        entry.getValue().toString(),                       // value (normalized)
+                        entry.getTimestamp() != null ? entry.getTimestamp() : 0L  // timestamp
+                    );
+
+                    if (seenInThisConcept.add(fp)) {
+                        // Unique observation - add to final list
+                        allEntries.add(entry);
+                    } else {
+                        // Duplicate observation - skip
+                        duplicatesSkipped++;
+                    }
+                }
             } catch (ClassNotFoundException e) {
                 throw new IOException("Failed to deserialize partial: " + partial, e);
             }
         }
 
+        // Free deduplication memory immediately
+        seenInThisConcept.clear();
+
+        long dedupEnd = System.currentTimeMillis();
+        long dedupTime = dedupEnd - dedupStart;
+
+        // Log deduplication statistics
+        if (duplicatesSkipped > 0) {
+            double dedupRate = 100.0 * duplicatesSkipped / totalRead;
+            log.info("Dedup for '{}': {} read, {} unique, {} duplicates ({:.1f}%) | Time: {}ms",
+                     conceptPath, totalRead, allEntries.size(), duplicatesSkipped, dedupRate, dedupTime);
+        } else {
+            log.debug("Dedup for '{}': {} observations, no duplicates | Time: {}ms",
+                      conceptPath, totalRead, dedupTime);
+        }
+
         merged.setLoadingMap(allEntries);
-        log.debug("Merged {} partials for concept {} ({} total observations)",
+        log.debug("Merged {} partials for concept {} ({} unique observations after dedup)",
             partials.size(), conceptPath, allEntries.size());
 
         return merged;

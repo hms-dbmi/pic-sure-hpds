@@ -144,6 +144,7 @@ public class IngestConfig {
         log.info("Finalization concurrency: {}", finalizationConcurrency);
         log.info("Finalization chunk size: {}", finalizationChunkSize);
         log.info("Disable adaptive degradation: {}", disableAdaptiveDegradation);
+        log.info("Deduplication: per-concept (during finalization)");
         log.info("================================");
     }
 

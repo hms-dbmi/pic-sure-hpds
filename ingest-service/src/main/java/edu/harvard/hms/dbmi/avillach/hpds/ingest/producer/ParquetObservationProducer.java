@@ -58,6 +58,13 @@ public class ParquetObservationProducer {
     }
 
     /**
+     * Returns the dataset name for this producer.
+     */
+    public String getDatasetName() {
+        return config.datasetName();
+    }
+
+    /**
      * Processes a single Parquet file with bounded memory using Arrow Dataset API.
      *
      * @param filePath path to Parquet file

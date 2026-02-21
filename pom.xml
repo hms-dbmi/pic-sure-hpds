@@ -37,6 +37,14 @@
 	</properties>
 	<repositories>
 		<repository>
+			<id>central</id>
+			<name>Maven Central</name>
+			<url>https://repo.maven.apache.org/maven2</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</repository>
+		<repository>
 			<id>github</id>
 			<name>GitHub HMS-DBMI Apache Maven Packages</name>
 			<url>https://maven.pkg.github.com/hms-dbmi/pic-sure</url>
