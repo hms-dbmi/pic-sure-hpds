@@ -132,7 +132,7 @@ public class CSVLoaderNewSearch {
                 );
 
                 Date date = null;
-                if (record.size() > 4) {
+                if (record.size() > 4 && !record.get(DATETIME).equals("0")) {
                     date = parseUtcDatetimeOrNull(record.get(DATETIME), record);
                 }
 
