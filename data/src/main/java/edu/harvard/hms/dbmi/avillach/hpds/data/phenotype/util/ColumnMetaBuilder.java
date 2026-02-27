@@ -148,11 +148,14 @@ public class ColumnMetaBuilder {
      * @throws IOException if writing fails
      */
     public static void writeColumnMetaCsv(TreeMap<String, ColumnMeta> metadataMap, Path csvPath) throws IOException {
+        // Use RFC4180 format to ensure proper quoting of fields containing commas, quotes, or newlines
+        CSVFormat format = CSVFormat.RFC4180;
+
         try (BufferedWriter writer = Files.newBufferedWriter(
                 csvPath,
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING);
-             CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT)) {
+             CSVPrinter printer = new CSVPrinter(writer, format)) {
 
             for (Map.Entry<String, ColumnMeta> entry : metadataMap.entrySet()) {
                 ColumnMeta columnMeta = entry.getValue();

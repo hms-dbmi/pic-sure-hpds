@@ -132,24 +132,32 @@ public class PhenoCube<V extends Comparable<V>> implements Serializable {
 	}
 
 	private int seekForMinIndex(int minSearchIndex, KeyAndValue<V> minEntry, KeyAndValue<V>[] sortedByValue) {
-		
+		// Fix off-by-one: must check bounds BEFORE array access
 		minSearchIndex--;
-		
+
 		Comparator<KeyAndValue<V>> comparator = (a,b)->{
 			return a.value.compareTo(b.value);
 		};
-		while(minSearchIndex > -1 && comparator.compare(sortedByValue[minSearchIndex], minEntry)>=0) {
+		// Check minSearchIndex is within bounds before accessing array
+		while(minSearchIndex > -1 && minSearchIndex < sortedByValue.length &&
+		      comparator.compare(sortedByValue[minSearchIndex], minEntry)>=0) {
 			minSearchIndex--;
 		}
 		return Math.max(0, minSearchIndex+1);
 	}
 
 	private int seekForMaxIndex(int maxSearchIndex, KeyAndValue<V> maxEntry, KeyAndValue<V>[] sortedByValue) {
-		Comparator<KeyAndValue<V>> comparator = (a,b)->{
-			return a.value.compareTo(b.value);
-		};
-		while(maxSearchIndex < sortedByValue.length && comparator.compare(maxEntry, sortedByValue[maxSearchIndex])>=0) {
-			maxSearchIndex++;
+		// Fix off-by-one: bounds check must prevent array access
+		// When maxSearchIndex reaches sortedByValue.length, we must stop
+		while(maxSearchIndex < sortedByValue.length) {
+			Comparator<KeyAndValue<V>> comparator = (a,b)->{
+				return a.value.compareTo(b.value);
+			};
+			if(comparator.compare(maxEntry, sortedByValue[maxSearchIndex]) >= 0) {
+				maxSearchIndex++;
+			} else {
+				break;
+			}
 		}
 		return maxSearchIndex;
 	}

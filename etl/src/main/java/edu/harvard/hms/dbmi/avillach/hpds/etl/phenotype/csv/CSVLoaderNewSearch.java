@@ -73,7 +73,7 @@ public class CSVLoaderNewSearch {
             currentConcept[0].setColumnWidth(isAlpha ? Math.max(currentConcept[0].getColumnWidth(), value.getBytes().length) : Double.BYTES);
             int patientId = Integer.parseInt(record.get(CSVParserUtil.PATIENT_NUM));
             Date date = null;
-            if (record.size() > 4 && record.get(CSVParserUtil.DATETIME) != null && !record.get(CSVParserUtil.DATETIME).isEmpty()) {
+            if (record.size() > 4 && record.get(CSVParserUtil.DATETIME) != null && !record.get(CSVParserUtil.DATETIME).isEmpty() && record.get(CSVParserUtil.DATETIME).equals("0")) {
                 date = new Date(Long.parseLong(record.get(CSVParserUtil.DATETIME)));
             }
             currentConcept[0].add(patientId, isAlpha ? value : Double.parseDouble(value), date);
