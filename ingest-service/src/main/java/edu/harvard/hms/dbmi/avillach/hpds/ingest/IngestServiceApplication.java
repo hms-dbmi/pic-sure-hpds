@@ -280,6 +280,14 @@ public class IngestServiceApplication implements CommandLineRunner {
 
             ParquetObservationProducer producer = new ParquetObservationProducer(runId, config, failureSink, patientIdResolver);
 
+            // Set per-file observation limit (use dataset config or global default)
+            long perFileLimit = config.maxObservationsPerFile() != null
+                ? config.maxObservationsPerFile()
+                : this.config.getMaxObservationsPerFile(); // Global default from IngestConfig
+
+            producer.setPerFileObservationLimit(perFileLimit);
+            log.info("Dataset '{}': per-file observation limit = {}", config.datasetName(), perFileLimit);
+
             // Find all parquet files for this dataset
             Path datasetPath = Paths.get(baseDir, config.datasetName());
             if (!Files.exists(datasetPath)) {
@@ -313,10 +321,15 @@ public class IngestServiceApplication implements CommandLineRunner {
      */
     private void processFilesInParallel(List<Path> fileList, ParquetObservationProducer producer,
                                        HPDSWriterAdapter writer, AtomicLong totalObservations) throws IOException {
-        // Use virtual threads for unlimited file concurrency (Java 21+)
-        ExecutorService fileProcessorPool = Executors.newVirtualThreadPerTaskExecutor();
+        // Use virtual threads with bounded concurrency to prevent OOM from Arrow off-heap allocations
+        // Each file needs ~100MB of direct memory for Arrow buffers, so we limit concurrency
+        // based on available MaxDirectMemorySize
+        ExecutorService fileProcessorPool = Executors.newFixedThreadPool(
+            config.getFileProcessingThreads(),
+            Thread.ofVirtual().factory()
+        );
 
-        log.info("Processing {} files with virtual threads (unlimited concurrency)", fileList.size());
+        log.info("Processing {} files with {} bounded virtual threads", fileList.size(), config.getFileProcessingThreads());
 
         List<Future<ProcessingResult>> futures = new ArrayList<>();
         for (Path file : fileList) {
@@ -422,10 +435,13 @@ public class IngestServiceApplication implements CommandLineRunner {
      */
     private void processCsvFilesInParallel(List<Path> fileList, CsvObservationProducer producer,
                                           HPDSWriterAdapter writer, AtomicLong totalObservations) throws IOException {
-        // Use virtual threads for unlimited file concurrency (Java 21+)
-        ExecutorService fileProcessorPool = Executors.newVirtualThreadPerTaskExecutor();
+        // Use virtual threads with bounded concurrency to prevent OOM from Arrow off-heap allocations
+        ExecutorService fileProcessorPool = Executors.newFixedThreadPool(
+            config.getFileProcessingThreads(),
+            Thread.ofVirtual().factory()
+        );
 
-        log.info("Processing {} CSV files with virtual threads (unlimited concurrency)", fileList.size());
+        log.info("Processing {} CSV files with {} bounded virtual threads", fileList.size(), config.getFileProcessingThreads());
 
         List<Future<ProcessingResult>> futures = new ArrayList<>();
         for (Path file : fileList) {

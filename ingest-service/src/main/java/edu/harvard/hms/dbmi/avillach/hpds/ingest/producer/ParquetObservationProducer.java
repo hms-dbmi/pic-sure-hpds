@@ -48,6 +48,7 @@ public class ParquetObservationProducer {
     private final FailureSink failureSink;
     private final PatientIdResolver patientIdResolver;
     private final BufferAllocator allocator;
+    private long perFileObservationLimit = Long.MAX_VALUE; // Default: unlimited
 
     public ParquetObservationProducer(String runId, ParquetDatasetConfig config, FailureSink failureSink, PatientIdResolver patientIdResolver) {
         this.runId = runId;
@@ -55,6 +56,14 @@ public class ParquetObservationProducer {
         this.failureSink = failureSink;
         this.patientIdResolver = patientIdResolver;
         this.allocator = new RootAllocator(Long.MAX_VALUE);
+    }
+
+    /**
+     * Sets the per-file observation limit.
+     * When limit is reached, file processing stops and remaining rows are skipped.
+     */
+    public void setPerFileObservationLimit(long limit) {
+        this.perFileObservationLimit = limit;
     }
 
     /**
@@ -72,7 +81,7 @@ public class ParquetObservationProducer {
      * @param batchSize number of rows per batch
      */
     public void processFile(java.nio.file.Path filePath, Consumer<List<ObservationRow>> consumer, int batchSize) throws IOException {
-        log.debug("Processing Parquet file: {}", filePath);
+        log.debug("Processing Parquet file: {} (limit: {} observations)", filePath, perFileObservationLimit);
 
         String fileUri = filePath.toUri().toString();
 
@@ -96,8 +105,10 @@ public class ParquetObservationProducer {
 
             List<ObservationRow> batch = new ArrayList<>(batchSize);
             long rowCount = 0;
+            long observationsGenerated = 0;
+            boolean limitReached = false;
 
-            while (reader.loadNextBatch()) {
+            while (reader.loadNextBatch() && !limitReached) {
                 VectorSchemaRoot root = reader.getVectorSchemaRoot();
                 int rows = root.getRowCount();
 
@@ -105,7 +116,22 @@ public class ParquetObservationProducer {
                     rowCount++;
                     try {
                         List<ObservationRow> rowObservations = parseRow(root, i, filePath);
+
+                        // Check if adding these observations would exceed the per-file limit
+                        if (observationsGenerated + rowObservations.size() > perFileObservationLimit) {
+                            // Limit reached - stop processing this file
+                            limitReached = true;
+
+                            log.info("Per-file limit reached: {} | Limit: {} obs | Generated: {} obs | Rows processed: {}",
+                                     filePath.getFileName(), perFileObservationLimit, observationsGenerated, rowCount - 1);
+
+                            // Record file limit event (with unknown skipped count - Arrow doesn't provide total row count easily)
+                            recordFileLimitReached(filePath, rowCount - 1, -1, observationsGenerated, perFileObservationLimit);
+                            break;
+                        }
+
                         batch.addAll(rowObservations);
+                        observationsGenerated += rowObservations.size();
 
                         if (batch.size() >= batchSize) {
                             consumer.accept(new ArrayList<>(batch));
@@ -116,6 +142,8 @@ public class ParquetObservationProducer {
                         recordFailure(filePath.toString(), null, null, FailureReason.UNKNOWN, e.getMessage());
                     }
                 }
+
+                if (limitReached) break;
             }
 
             // Flush remaining batch
@@ -123,7 +151,9 @@ public class ParquetObservationProducer {
                 consumer.accept(batch);
             }
 
-            log.debug("Completed processing file: {} ({} rows)", filePath, rowCount);
+            log.debug("Completed processing file: {} ({} rows, {} observations{})",
+                      filePath, rowCount, observationsGenerated,
+                      limitReached ? " - LIMIT REACHED" : "");
         } catch (Exception e) {
             throw new IOException("Failed to process Parquet file: " + filePath, e);
         }
@@ -332,6 +362,17 @@ public class ParquetObservationProducer {
             detail
         );
         failureSink.recordFailure(record);
+    }
+
+    /**
+     * Records when a file reaches its observation limit.
+     * TODO: Implement FileLimitTracker for detailed per-file tracking.
+     */
+    private void recordFileLimitReached(java.nio.file.Path file, long rowsRead, long rowsSkipped,
+                                        long observationsGenerated, long limit) {
+        // For now, just log - will be replaced with FileLimitTracker in Phase 2
+        log.warn("File limit tracking not yet implemented: file={}, rowsRead={}, rowsSkipped={}, obsGenerated={}, limit={}",
+                 file.getFileName(), rowsRead, rowsSkipped, observationsGenerated, limit);
     }
 
     public void close() {

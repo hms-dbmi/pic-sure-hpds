@@ -21,6 +21,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
@@ -71,6 +72,9 @@ public class SpoolingLoadingStore {
     // Concept-level locks for parallel observation writes (replaces global synchronized)
     private final ConcurrentHashMap<String, ReentrantLock> conceptLocks = new ConcurrentHashMap<>();
 
+    // Track rejected observations per concept (when concept limit reached)
+    private final ConcurrentHashMap<String, AtomicLong> conceptRejections = new ConcurrentHashMap<>();
+
     /**
      * Metadata tracked per concept during ingestion.
      */
@@ -79,6 +83,7 @@ public class SpoolingLoadingStore {
         int columnWidth;
         int totalPartialCount = 0; // Track number of spooled partials
         AtomicInteger observationCount = new AtomicInteger(0); // Track observations in current cache entry
+        AtomicLong totalObservationCount = new AtomicLong(0); // Track TOTAL observations (including across spools)
 
         ConceptMetadata(boolean isCategorical, int columnWidth) {
             this.isCategorical = isCategorical;
@@ -181,12 +186,23 @@ public class SpoolingLoadingStore {
             return new ConceptMetadata(isCategorical, width);
         });
 
-        // Check if concept has exceeded observation limit - force eviction if needed
+        // Check if concept has exceeded TOTAL observation limit - REJECT if so
+        if (meta.totalObservationCount.get() >= maxObservationsPerConcept) {
+            // REJECT this observation - concept has reached its limit
+            conceptRejections.computeIfAbsent(conceptPath, k -> new AtomicLong(0))
+                             .incrementAndGet();
+            log.debug("Rejecting observation for concept '{}' (limit reached: {} total observations)",
+                      conceptPath, meta.totalObservationCount.get());
+            return; // Early return - don't add observation
+        }
+
+        // Check if concept has exceeded PER-SPOOL observation limit - force eviction if needed
+        // This is a memory management mechanism, NOT a total limit
         if (meta.observationCount.get() >= maxObservationsPerConcept) {
             // Force eviction by invalidating from cache
             PhenoCube cube = cache.getIfPresent(conceptPath);
             if (cube != null && cube.getLoadingMap() != null && !cube.getLoadingMap().isEmpty()) {
-                log.info("Concept '{}' reached limit ({} observations), spooling...",
+                log.info("Concept '{}' reached per-spool limit ({} observations), spooling...",
                         conceptPath, meta.observationCount.get());
                 spoolPartial(conceptPath, cube);
                 cache.invalidate(conceptPath);
@@ -240,7 +256,8 @@ public class SpoolingLoadingStore {
             try {
                 PhenoCube cube = cache.get(conceptPath);
                 cube.add(patientNum, coercedValue, timestamp);
-                meta.observationCount.incrementAndGet();  // Track observation count
+                meta.observationCount.incrementAndGet();  // Track observations in current spool
+                meta.totalObservationCount.incrementAndGet();  // Track total observations (across all spools)
             } catch (Exception e) {
                 throw new RuntimeException("Failed to add observation for concept: " + conceptPath, e);
             }
@@ -465,6 +482,9 @@ public class SpoolingLoadingStore {
 
         // Cleanup spool files
         cleanupSpool();
+
+        // Write concept rejection tracking report
+        writeConceptRejectionReport();
 
         log.info("Store finalized: {} concepts, {} patients", metadataMap.size(), allIds.size());
     }
@@ -904,6 +924,46 @@ public class SpoolingLoadingStore {
                 cube.sortedByKey().length, minimal.size());
 
         return buildCubeFromSample(cube, minimal);
+    }
+
+    /**
+     * Writes concept rejection tracking report.
+     * Records observations that were rejected when concepts hit maxObservationsPerConcept limit.
+     */
+    private void writeConceptRejectionReport() {
+        if (conceptRejections.isEmpty()) {
+            log.info("No concept rejections to report");
+            return;
+        }
+
+        Path reportPath = Path.of(outputDirectory, "concept_rejections.jsonl");
+        try (BufferedWriter writer = Files.newBufferedWriter(reportPath,
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+
+            for (Map.Entry<String, AtomicLong> entry : conceptRejections.entrySet()) {
+                String conceptPath = entry.getKey();
+                long rejected = entry.getValue().get();
+                ConceptMetadata meta = conceptMetadata.get(conceptPath);
+                long accepted = meta != null ? meta.totalObservationCount.get() : 0;
+
+                // Format as JSON
+                String json = String.format(
+                    "{\"conceptPath\":\"%s\",\"observationsAccepted\":%d,\"observationsRejected\":%d,\"rejectionRate\":%.2f,\"reason\":\"exceeded_max_observations_per_concept\"}",
+                    conceptPath.replace("\"", "\\\""),
+                    accepted,
+                    rejected,
+                    rejected > 0 ? (100.0 * rejected / (accepted + rejected)) : 0.0
+                );
+                writer.write(json);
+                writer.newLine();
+            }
+
+            log.info("Concept rejection report written: {} ({} concepts with rejections)",
+                     reportPath, conceptRejections.size());
+
+        } catch (IOException e) {
+            log.error("Failed to write concept rejection report", e);
+        }
     }
 
     /**

@@ -40,6 +40,7 @@ public class IngestConfig {
     private int storeCacheSize = 16;
     private int fileProcessingThreads = 12; // Default for r7g.4xlarge (16 vCPU - 4 overhead)
     private int maxObservationsPerConcept = 5_000_000; // Default: 5M observations = ~190MB per concept
+    private long maxObservationsPerFile = 1_000_000L; // Default: 1M observations per parquet file (prevents OOM on large files)
     private int finalizationConcurrency = 12; // Default: 12 concurrent concepts during finalization (safe for 112GB heap)
     private int finalizationChunkSize = 1000; // Process 1000 concepts at a time (for 200K+ scale)
     private boolean disableAdaptiveDegradation = false; // Disable degradation for massive scale (requires proper max-observations tuning)
@@ -141,6 +142,7 @@ public class IngestConfig {
         log.info("Store cache size: {}", storeCacheSize);
         log.info("File processing threads: {}", fileProcessingThreads);
         log.info("Max observations per concept: {}", maxObservationsPerConcept);
+        log.info("Max observations per file: {}", maxObservationsPerFile);
         log.info("Finalization concurrency: {}", finalizationConcurrency);
         log.info("Finalization chunk size: {}", finalizationChunkSize);
         log.info("Disable adaptive degradation: {}", disableAdaptiveDegradation);
@@ -258,6 +260,14 @@ public class IngestConfig {
 
     public void setMaxObservationsPerConcept(int maxObservationsPerConcept) {
         this.maxObservationsPerConcept = maxObservationsPerConcept;
+    }
+
+    public long getMaxObservationsPerFile() {
+        return maxObservationsPerFile;
+    }
+
+    public void setMaxObservationsPerFile(long maxObservationsPerFile) {
+        this.maxObservationsPerFile = maxObservationsPerFile;
     }
 
     public int getFinalizationConcurrency() {

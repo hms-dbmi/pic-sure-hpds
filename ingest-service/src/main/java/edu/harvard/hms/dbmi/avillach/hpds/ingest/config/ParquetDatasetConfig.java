@@ -14,7 +14,8 @@ public record ParquetDatasetConfig(
     String participantIdColumn,
     String timestampColumn,         // or "none" for relational child tables
     List<VariableConfig> variables, // variables to ingest
-    @JsonProperty("conceptPathPrefix") List<String> conceptPathPrefix  // e.g., ["phs003463", "RECOVER_Adult", "DigitalHealthData"]
+    @JsonProperty("conceptPathPrefix") List<String> conceptPathPrefix,  // e.g., ["phs003463", "RECOVER_Adult", "DigitalHealthData"]
+    @JsonProperty("maxObservationsPerFile") Long maxObservationsPerFile  // Per-file observation limit (null = use global default)
 ) {
     /**
      * Configuration for a single variable/column.
