@@ -124,4 +124,26 @@ class PhenotypicFilterValidatorTest {
         assertThrows(IllegalArgumentException.class, () -> phenotypicFilterValidator.validate(phenotypicFilter2, metaStore));
     }
 
+    @Test
+    public void validate_validAuthorizationFilter_isValid() {
+        AuthorizationFilter authorizationFilter = new AuthorizationFilter("\\study123\\demographics\\sex\\", Set.of("male"));
+        phenotypicFilterValidator.validate(authorizationFilter, metaStore);
+    }
+
+    @Test
+    public void validate_emptyValuesAuthorizationFilter_throwsException() {
+        // Authorization filters cannot be empty
+        AuthorizationFilter authorizationFilter = new AuthorizationFilter("\\study123\\demographics\\sex\\", Set.of());
+        assertThrows(IllegalArgumentException.class, () -> phenotypicFilterValidator.validate(authorizationFilter, metaStore));
+        AuthorizationFilter nullAuthorizationFilter = new AuthorizationFilter("\\study123\\demographics\\sex\\", null);
+        assertThrows(IllegalArgumentException.class, () -> phenotypicFilterValidator.validate(nullAuthorizationFilter, metaStore));
+    }
+
+    @Test
+    public void validate_continuousAuthorizationFilter_throwsException() {
+        AuthorizationFilter authorizationFilter = new AuthorizationFilter("\\study123\\demographics\\age\\", Set.of("male"));
+        assertThrows(IllegalArgumentException.class, () -> phenotypicFilterValidator.validate(authorizationFilter, metaStore));
+    }
+
+
 }
