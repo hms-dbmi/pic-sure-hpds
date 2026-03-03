@@ -7,6 +7,9 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
+import edu.harvard.dbmi.avillach.logging.LoggingClient;
+import edu.harvard.dbmi.avillach.logging.LoggingEvent;
+import edu.harvard.dbmi.avillach.logging.RequestInfo;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.InfoColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.ResultType;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.upload.SignUrlService;
@@ -47,7 +50,7 @@ public class PicSureService {
     public PicSureService(
         QueryService queryService, CountProcessor countProcessor, VariantListProcessor variantListProcessor,
         AbstractProcessor abstractProcessor, Paginator paginator, SignUrlService signUrlService, FileSharingService fileSystemService,
-        QueryDecorator queryDecorator, TestDataService testDataService
+        QueryDecorator queryDecorator, TestDataService testDataService, LoggingClient loggingClient
     ) {
         this.queryService = queryService;
         this.countProcessor = countProcessor;
@@ -59,6 +62,7 @@ public class PicSureService {
         this.signUrlService = signUrlService;
         Crypto.loadDefaultKey();
         this.testDataService = testDataService;
+        this.loggingClient = loggingClient;
         Crypto.loadDefaultKey();
     }
 
@@ -83,6 +87,8 @@ public class PicSureService {
     private final QueryDecorator queryDecorator;
 
     private final TestDataService testDataService;
+
+    private final LoggingClient loggingClient;
 
     private static final String QUERY_METADATA_FIELD = "queryMetadata";
     private static final int RESPONSE_CACHE_SIZE = 50;
@@ -206,7 +212,21 @@ public class PicSureService {
         if (Crypto.hasKey(Crypto.DEFAULT_KEY_NAME)) {
             try {
                 Query query = convertIncomingQuery(queryJson);
-                return ResponseEntity.ok(convertToQueryStatus(queryService.runQuery(query)));
+                QueryStatus result = convertToQueryStatus(queryService.runQuery(query));
+
+                loggingClient.send(LoggingEvent.builder("QUERY")
+                    .action("QUERY_EXECUTED")
+                    .request(RequestInfo.builder()
+                        .method("POST")
+                        .url("/PIC-SURE/query")
+                        .build())
+                    .metadata(Map.of(
+                        "result_type", String.valueOf(query.getExpectedResultType()),
+                        "query_id", String.valueOf(result.getResourceResultId())
+                    ))
+                    .build());
+
+                return ResponseEntity.ok(result);
             } catch (IOException e) {
                 log.error("IOException caught in query processing:", e);
                 return ResponseEntity.status(500).build();
