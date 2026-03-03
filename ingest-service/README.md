@@ -27,6 +27,8 @@ This is the core ingestion service component. It provides the data processing lo
 | **[Configuration Guide](docs/CONFIGURATION.md)** | Application properties, dataset configs, observation limits |
 | **[Architecture Guide](docs/ARCHITECTURE.md)** | System design, module structure, SpoolingLoadingStore |
 | **[Development Guide](docs/DEVELOPMENT.md)** | Maven builds, testing, local development |
+| **[Spooling Workflow](docs/SPOOLING_WORKFLOW.md)** | Complete workflow diagram from ingestion to finalization |
+| **[Spool Estimation Bug Fix](docs/SPOOL_ESTIMATION_BUG.md)** | Details on the fixed spool file estimation bug |
 
 **For deployment and operations documentation**, see the `hpds-ingest/` orchestration layer.
 
@@ -125,6 +127,21 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 4. Cache eviction triggers finalization
 5. ColumnStore writes to disk
 6. JSONL reports track data loss
+
+## Important Notes
+
+### Spool File Estimation (Fixed)
+
+Earlier versions had a bug where the system would incorrectly estimate total observations by assuming every spool file was full. This caused false "exceeds Java array limit" errors for concepts with < 100K observations.
+
+**Symptoms of the old bug:**
+- Error claiming billions of observations for concepts with < 100K
+- "42 partials × 100M ≈ 4.20B observations" type messages
+- Finalization failures on valid data
+
+**This has been fixed.** The system now uses the actual observation count tracked during ingestion (`meta.totalObservationCount`), which is 100% accurate.
+
+See [SPOOL_ESTIMATION_BUG.md](docs/SPOOL_ESTIMATION_BUG.md) for technical details.
 
 ## Deployment
 

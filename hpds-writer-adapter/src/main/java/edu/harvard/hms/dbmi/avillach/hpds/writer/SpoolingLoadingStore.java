@@ -607,46 +607,53 @@ public class SpoolingLoadingStore {
         merged.setColumnWidth(meta.columnWidth);
 
         // SAFETY CHECK: Prevent Java array size limit violation (Integer.MAX_VALUE = 2,147,483,647)
-        // Conservative estimate: assume each partial has maxObservationsPerConcept observations
-        long estimatedTotalObs = (long) partials.size() * maxObservationsPerConcept;
+        // Use actual observation count tracked during ingestion (accurate, not estimated)
+        long actualTotalObs = meta.totalObservationCount.get();
         final int JAVA_ARRAY_LIMIT = Integer.MAX_VALUE - 10_000_000; // 2,137,483,647 with 10M safety buffer
 
-        if (estimatedTotalObs > JAVA_ARRAY_LIMIT) {
+        if (actualTotalObs > JAVA_ARRAY_LIMIT) {
             log.error("═══════════════════════════════════════════════════════════════");
             log.error("CRITICAL: Concept '{}' EXCEEDS JAVA ARRAY LIMIT", conceptPath);
             log.error("═══════════════════════════════════════════════════════════════");
             log.error("Partial files found:     {}", partials.size());
-            log.atError().setMessage("Estimated observations:  {} ({} B)")
-                    .addArgument(estimatedTotalObs)
-                    .addArgument(() -> String.format("%.2f", estimatedTotalObs / 1_000_000_000.0))
+            log.error("  (Multiple partials created due to cache eviction, not observation count)");
+            log.atError().setMessage("Actual observations:     {} ({} B)")
+                    .addArgument(actualTotalObs)
+                    .addArgument(() -> String.format("%.2f", actualTotalObs / 1_000_000_000.0))
                     .log();
             log.atError().setMessage("Java array limit:        {} ({} B)")
                     .addArgument(JAVA_ARRAY_LIMIT)
                     .addArgument(() -> String.format("%.2f", JAVA_ARRAY_LIMIT / 1_000_000_000.0))
                     .log();
-            long overflow = estimatedTotalObs - JAVA_ARRAY_LIMIT;
+            long overflow = actualTotalObs - JAVA_ARRAY_LIMIT;
             double overflowPct = 100.0 * overflow / JAVA_ARRAY_LIMIT;
             log.atError().setMessage("Overflow:                {} observations ({} over limit)")
                     .addArgument(overflow)
                     .addArgument(String.format("%.1f%%", overflowPct))
                     .log();
             log.error("");
-            log.error("This concept cannot be finalized without data loss.");
+            log.error("This concept genuinely has too many observations for a single Java array.");
             log.error("");
-            log.error("SOLUTION: Reduce max-observations-per-concept to 5M");
-            log.error("  - Current setting: {}M observations per partial", maxObservationsPerConcept / 1_000_000);
-            log.error("  - Allows {} partials before hitting limit", partials.size());
-            log.error("  - Recommended: ingest.max-observations-per-concept=5000000");
-            log.error("  - This allows: 2.1B / 5M = 420 max partials (safe)");
+            log.error("SOLUTION: This concept genuinely has too many observations");
+            log.atError().setMessage("  - Actual observations: {} ({} B)")
+                    .addArgument(actualTotalObs)
+                    .addArgument(() -> String.format("%.2f", actualTotalObs / 1_000_000_000.0))
+                    .log();
+            log.atError().setMessage("  - Java array limit:    {} ({} B)")
+                    .addArgument(JAVA_ARRAY_LIMIT)
+                    .addArgument(() -> String.format("%.2f", JAVA_ARRAY_LIMIT / 1_000_000_000.0))
+                    .log();
+            log.error("  - Consider data reduction strategies (see HARD_LIMIT_ANALYSIS.md)");
+            log.error("  - Or enable adaptive degradation (currently: {})", disableAdaptiveDegradation ? "DISABLED" : "ENABLED");
             log.error("═══════════════════════════════════════════════════════════════");
 
             throw new IOException(String.format(
-                "Concept '%s' exceeds Java array limit: %d partials × %dM ≈ %.2fB observations > %.2fB limit (Integer.MAX_VALUE). " +
-                "Cannot merge without data loss. REQUIRED ACTION: Reduce ingest.max-observations-per-concept to 5000000 (5M) and re-ingest.",
+                "Concept '%s' exceeds Java array limit: %d actual observations (%.2fB) > %.2fB limit (Integer.MAX_VALUE). " +
+                "This concept genuinely has too many observations to merge into a single array. " +
+                "Consider data reduction strategies (see HARD_LIMIT_ANALYSIS.md) or enable adaptive degradation.",
                 conceptPath,
-                partials.size(),
-                maxObservationsPerConcept / 1_000_000,
-                estimatedTotalObs / 1_000_000_000.0,
+                actualTotalObs,
+                actualTotalObs / 1_000_000_000.0,
                 JAVA_ARRAY_LIMIT / 1_000_000_000.0));
         }
 
