@@ -24,11 +24,6 @@ import java.util.function.Consumer;
  *   <li>Each chunk reads its portion independently via RandomAccessFile</li>
  * </ol>
  *
- * <p>Expected Performance:
- * <ul>
- *   <li>5GB CSV: 80 min → 8-12 min (8-10x speedup)</li>
- *   <li>50GB CSV: 13 hours → 60-90 min (10-12x speedup)</li>
- * </ul>
  */
 public class CsvChunkProcessor {
     private static final Logger log = LoggerFactory.getLogger(CsvChunkProcessor.class);
