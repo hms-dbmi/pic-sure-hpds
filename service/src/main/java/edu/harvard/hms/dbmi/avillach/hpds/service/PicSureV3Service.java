@@ -210,7 +210,11 @@ public class PicSureV3Service {
 
     private Query convertIncomingQuery(QueryRequest queryJson)
         throws IOException, JsonParseException, JsonMappingException, JsonProcessingException {
-        return mapper.readValue(mapper.writeValueAsString(queryJson.getQuery()), Query.class);
+        Object query = queryJson.getQuery();
+        log.info("Query = " + query);
+        String queryString = mapper.writeValueAsString(query);
+        log.info("Query String = " + queryString);
+        return mapper.readValue(queryString, Query.class);
     }
 
     private QueryStatus convertToQueryStatus(AsyncResult entity) {
