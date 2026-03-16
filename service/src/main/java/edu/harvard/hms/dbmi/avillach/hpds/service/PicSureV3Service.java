@@ -208,13 +208,15 @@ public class PicSureV3Service {
         }
     }
 
-    private Query convertIncomingQuery(QueryRequest queryJson)
-        throws IOException, JsonParseException, JsonMappingException, JsonProcessingException {
+    private Query convertIncomingQuery(QueryRequest queryJson) throws IOException {
         Object query = queryJson.getQuery();
-        log.info("Query = " + query);
-        String queryString = mapper.writeValueAsString(query);
-        log.info("Query String = " + queryString);
-        return mapper.readValue(queryString, Query.class);
+        if (query instanceof String) {
+            return mapper.readValue((String) query, Query.class);
+        } else {
+            String queryString = mapper.writeValueAsString(query);
+            log.info("Query String = " + queryString);
+            return mapper.readValue(queryString, Query.class);
+        }
     }
 
     private QueryStatus convertToQueryStatus(AsyncResult entity) {
