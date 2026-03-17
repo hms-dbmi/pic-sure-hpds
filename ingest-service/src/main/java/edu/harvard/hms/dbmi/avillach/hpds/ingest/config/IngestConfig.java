@@ -127,7 +127,22 @@ public class IngestConfig {
             throw new IllegalStateException(errorMsg);
         }
 
-        // Log effective configuration
+        // Log effective configuration (structured event)
+        log.atInfo()
+            .addKeyValue("event_type", "config.validated")
+            .addKeyValue("event_schema_version", "1.0")
+            .addKeyValue("validation_status", "passed")
+            .addKeyValue("config_parquet_base_dir", parquetBaseDir)
+            .addKeyValue("config_parquet_config_path", parquetConfigPath)
+            .addKeyValue("config_output_dir", outputDir)
+            .addKeyValue("config_spool_dir", spoolDir)
+            .addKeyValue("config_batch_size", batchSize)
+            .addKeyValue("config_file_processing_threads", fileProcessingThreads)
+            .addKeyValue("config_max_observations_per_concept", maxObservationsPerConcept)
+            .addKeyValue("config_max_observations_per_file", maxObservationsPerFile)
+            .log("=== CONFIGURATION VALIDATED ===");
+
+        // Log traditional format for console readability
         log.info("=== EFFECTIVE CONFIGURATION ===");
         log.info("Parquet base dir: {}", parquetBaseDir);
         log.info("Parquet config: {}", parquetConfigPath);

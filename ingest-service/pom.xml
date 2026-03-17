@@ -68,6 +68,13 @@
             <version>33.4.0-jre</version>
         </dependency>
 
+        <!-- Structured logging -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>7.4</version>
+        </dependency>
+
         <!-- HTTP Client (exclude commons-logging, Spring Boot uses SLF4J bridge) -->
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>

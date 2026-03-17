@@ -19,6 +19,7 @@ import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -81,8 +82,45 @@ public class ParquetObservationProducer {
      * @param batchSize number of rows per batch
      */
     public void processFile(java.nio.file.Path filePath, Consumer<List<ObservationRow>> consumer, int batchSize) throws IOException {
-        log.debug("Processing Parquet file: {} (limit: {} observations)", filePath, perFileObservationLimit);
+        long fileSize = 0;
+        try {
+            fileSize = java.nio.file.Files.size(filePath);
+        } catch (IOException e) {
+            log.warn("Unable to get file size for {}: {}", filePath, e.getMessage());
+        }
 
+        // Set up MDC for file-level context
+        MDC.put("file_name", filePath.getFileName().toString());
+        MDC.put("dataset_id", config.datasetName());
+
+        long startTime = System.currentTimeMillis();
+
+        try {
+            // Emit file.processing.started event
+            log.atInfo()
+                .addKeyValue("event_type", "file.processing.started")
+                .addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("source_type", "parquet")
+                .addKeyValue("dataset_id", config.datasetName())
+                .addKeyValue("file_path", filePath.toString())
+                .addKeyValue("file_name", filePath.getFileName().toString())
+                .addKeyValue("file_size_bytes", fileSize)
+                .log("Processing Parquet file: {} (limit: {} observations)", filePath.getFileName(), perFileObservationLimit);
+
+            processFileInternal(filePath, consumer, batchSize, startTime, fileSize);
+
+        } finally {
+            // Clean up MDC
+            MDC.remove("file_name");
+            MDC.remove("dataset_id");
+        }
+    }
+
+    /**
+     * Internal processing logic, extracted to allow proper try-finally MDC cleanup.
+     */
+    private void processFileInternal(java.nio.file.Path filePath, Consumer<List<ObservationRow>> consumer,
+                                     int batchSize, long startTime, long fileSize) throws IOException {
         String fileUri = filePath.toUri().toString();
 
         // Build column projection (only read needed columns)
@@ -151,10 +189,38 @@ public class ParquetObservationProducer {
                 consumer.accept(batch);
             }
 
-            log.debug("Completed processing file: {} ({} rows, {} observations{})",
-                      filePath, rowCount, observationsGenerated,
-                      limitReached ? " - LIMIT REACHED" : "");
+            long elapsedMs = System.currentTimeMillis() - startTime;
+
+            // Emit file.processing.completed event
+            log.atInfo()
+                .addKeyValue("event_type", "file.processing.completed")
+                .addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("source_type", "parquet")
+                .addKeyValue("dataset_id", config.datasetName())
+                .addKeyValue("file_path", filePath.toString())
+                .addKeyValue("file_name", filePath.getFileName().toString())
+                .addKeyValue("file_size_bytes", fileSize)
+                .addKeyValue("records_read", rowCount)
+                .addKeyValue("observations_generated", observationsGenerated)
+                .addKeyValue("elapsed_ms", elapsedMs)
+                .addKeyValue("limit_reached", limitReached)
+                .log("Completed processing file: {} ({} rows, {} observations{}, {} ms)",
+                     filePath.getFileName(), rowCount, observationsGenerated,
+                     limitReached ? " - LIMIT REACHED" : "", elapsedMs);
         } catch (Exception e) {
+            // Emit file.processing.failed event
+            long elapsedMs = System.currentTimeMillis() - startTime;
+            log.atError()
+                .addKeyValue("event_type", "file.processing.failed")
+                .addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("source_type", "parquet")
+                .addKeyValue("dataset_id", config.datasetName())
+                .addKeyValue("file_path", filePath.toString())
+                .addKeyValue("file_name", filePath.getFileName().toString())
+                .addKeyValue("file_size_bytes", fileSize)
+                .addKeyValue("elapsed_ms", elapsedMs)
+                .addKeyValue("error_message", e.getMessage())
+                .log("Failed to process Parquet file: {}", filePath.getFileName());
             throw new IOException("Failed to process Parquet file: " + filePath, e);
         }
     }

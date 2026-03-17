@@ -14,6 +14,7 @@ import edu.harvard.hms.dbmi.avillach.hpds.writer.ObservationRow;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -73,13 +74,27 @@ public class IngestServiceApplication implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        log.info("Starting HPDS multi-source ingestion");
-
-        // Check for deprecated CLI args and warn
-        checkDeprecatedArgs(args);
-
+        // Generate run ID and set up MDC for structured logging
         String runId = UUID.randomUUID().toString();
-        log.info("Run ID: {}", runId);
+        MDC.put("run_id", runId);
+        MDC.put("service_name", "hpds-ingest-service");
+        MDC.put("service_version", "3.0.0-SNAPSHOT");
+
+        // Check for environment variable (set by container)
+        String env = System.getenv("ENVIRONMENT");
+        if (env != null && !env.isBlank()) {
+            MDC.put("environment", env);
+        }
+
+        try {
+            // Emit structured start event
+            log.atInfo()
+                .addKeyValue("event_type", "ingest.started")
+                .addKeyValue("event_schema_version", "1.0")
+                .log("Starting HPDS multi-source ingestion");
+
+            // Check for deprecated CLI args and warn
+            checkDeprecatedArgs(args);
 
         // Initialize patient ID resolver
         PatientIdResolver patientIdResolver = initializePatientIdResolver(
@@ -123,47 +138,97 @@ public class IngestServiceApplication implements CommandLineRunner {
                  false)) {
 
             // Process Parquet datasets
-            log.info("Processing Parquet datasets from config: {}", config.getParquetConfigPath());
-            List<ParquetDatasetConfig> datasetConfigs = processParquetDatasets(
-                runId,
-                config.getParquetBaseDir(),
-                config.getParquetConfigPath(),
-                failureSink,
-                writer,
-                totalObservations,
-                patientIdResolver
-            );
+            MDC.put("stage", "parquet");
+            try {
+                log.atInfo()
+                    .addKeyValue("event_type", "stage.started")
+                    .addKeyValue("event_schema_version", "1.0")
+                    .addKeyValue("stage", "parquet")
+                    .log("Processing Parquet datasets from config: {}", config.getParquetConfigPath());
 
-            // Warn if no datasets were processed
-            if (datasetConfigs.isEmpty()) {
-                log.error("!!! NO DATASET CONFIGS FOUND - ZERO INGESTION !!!");
-                log.error("Config path: {}", config.getParquetConfigPath());
+                List<ParquetDatasetConfig> datasetConfigs = processParquetDatasets(
+                    runId,
+                    config.getParquetBaseDir(),
+                    config.getParquetConfigPath(),
+                    failureSink,
+                    writer,
+                    totalObservations,
+                    patientIdResolver
+                );
+
+                // Warn if no datasets were processed
+                if (datasetConfigs.isEmpty()) {
+                    log.atError()
+                        .addKeyValue("event_type", "warning.no.dataset.configs")
+                        .addKeyValue("event_schema_version", "1.0")
+                        .addKeyValue("config_path", config.getParquetConfigPath())
+                        .log("!!! NO DATASET CONFIGS FOUND - ZERO INGESTION !!!");
+                }
+            } finally {
+                MDC.remove("stage");
             }
 
             // Process CSV files (optional)
             if (config.getCsvDir() != null) {
-                log.info("Processing CSV files from: {}", config.getCsvDir());
-                processCsvFiles(runId, config.getCsvDir(), failureSink, writer, totalObservations);
+                MDC.put("stage", "csv");
+                try {
+                    log.atInfo()
+                        .addKeyValue("event_type", "stage.started")
+                        .addKeyValue("event_schema_version", "1.0")
+                        .addKeyValue("stage", "csv")
+                        .log("Processing CSV files from: {}", config.getCsvDir());
+
+                    processCsvFiles(runId, config.getCsvDir(), failureSink, writer, totalObservations);
+                } finally {
+                    MDC.remove("stage");
+                }
             }
 
             // Finalize stores
-            log.info("Finalizing HPDS stores...");
-            writer.closeAndSave();
+            MDC.put("stage", "finalization");
+            try {
+                log.atInfo()
+                    .addKeyValue("event_type", "stage.started")
+                    .addKeyValue("event_schema_version", "1.0")
+                    .addKeyValue("stage", "finalization")
+                    .log("Finalizing HPDS stores...");
+
+                writer.closeAndSave();
+            } finally {
+                MDC.remove("stage");
+            }
 
             Instant endTime = Instant.now();
             long durationSeconds = endTime.getEpochSecond() - startTime.getEpochSecond();
 
             // Log completion with warning if zero ingestion
             if (totalObservations.get() == 0 && failureSink.getTotalFailures() == 0) {
-                log.error("=== INGESTION COMPLETE (BUT WITH ZERO OBSERVATIONS) ===");
-                log.error("This usually indicates a configuration problem:");
-                log.error("  - Config path may not contain any .jsonl files");
-                log.error("  - Dataset names in config may not match directory names");
-                log.error("  - Parquet base directory may be incorrect");
+                log.atWarn()
+                    .addKeyValue("event_type", "warning.zero.ingestion")
+                    .addKeyValue("event_schema_version", "1.0")
+                    .addKeyValue("total_observations", 0L)
+                    .addKeyValue("total_failures", 0L)
+                    .addKeyValue("config_path", config.getParquetConfigPath())
+                    .addKeyValue("possible_causes", java.util.List.of(
+                        "Config path may not contain any .jsonl files",
+                        "Dataset names in config may not match directory names",
+                        "Parquet base directory may be incorrect"
+                    ))
+                    .log("=== INGESTION COMPLETE (BUT WITH ZERO OBSERVATIONS) - likely configuration problem ===");
             } else {
-                log.info("=== INGESTION COMPLETE ===");
+                // Emit structured completion event
+                log.atInfo()
+                    .addKeyValue("event_type", "ingest.completed")
+                    .addKeyValue("event_schema_version", "1.0")
+                    .addKeyValue("status", "completed")
+                    .addKeyValue("total_observations", totalObservations.get())
+                    .addKeyValue("total_patients", writer.getPatientCount())
+                    .addKeyValue("total_failures", failureSink.getTotalFailures())
+                    .addKeyValue("duration_seconds", durationSeconds)
+                    .log("=== INGESTION COMPLETE ===");
             }
 
+            // Traditional log lines for console readability (also in JSON)
             log.info("Run ID: {}", runId);
             log.info("Total observations: {}", totalObservations.get());
             log.info("Total patients: {}", writer.getPatientCount());
@@ -173,6 +238,10 @@ public class IngestServiceApplication implements CommandLineRunner {
             log.info("Failures: {}", config.getFailureFile());
             log.info("Deduplication: Per-concept (during finalization) - check finalization logs for stats");
         }
+        } finally {
+            // Clean up MDC
+            MDC.clear();
+        }
     }
 
     /**
@@ -180,19 +249,44 @@ public class IngestServiceApplication implements CommandLineRunner {
      */
     private void checkDeprecatedArgs(String[] args) {
         if (Arrays.stream(args).anyMatch(arg -> arg.startsWith("--parquet.dir="))) {
-            log.warn("DEPRECATED: --parquet.dir is deprecated, use --ingest.parquet.base-dir");
+            log.atWarn()
+                .addKeyValue("event_type", "config.deprecated.arg")
+                .addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("deprecated_arg", "--parquet.dir")
+                .addKeyValue("replacement_arg", "--ingest.parquet.base-dir")
+                .log("DEPRECATED: --parquet.dir is deprecated, use --ingest.parquet.base-dir");
         }
         if (Arrays.stream(args).anyMatch(arg -> arg.startsWith("--parquet.config="))) {
-            log.warn("DEPRECATED: --parquet.config is deprecated, use --ingest.parquet.config-path");
+            log.atWarn()
+                .addKeyValue("event_type", "config.deprecated.arg")
+                .addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("deprecated_arg", "--parquet.config")
+                .addKeyValue("replacement_arg", "--ingest.parquet.config-path")
+                .log("DEPRECATED: --parquet.config is deprecated, use --ingest.parquet.config-path");
         }
         if (Arrays.stream(args).anyMatch(arg -> arg.startsWith("--mapping.dbgapFile="))) {
-            log.warn("DEPRECATED: --mapping.dbgapFile is deprecated, use --ingest.mapping.dbgap-file");
+            log.atWarn()
+                .addKeyValue("event_type", "config.deprecated.arg")
+                .addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("deprecated_arg", "--mapping.dbgapFile")
+                .addKeyValue("replacement_arg", "--ingest.mapping.dbgap-file")
+                .log("DEPRECATED: --mapping.dbgapFile is deprecated, use --ingest.mapping.dbgap-file");
         }
         if (Arrays.stream(args).anyMatch(arg -> arg.startsWith("--mapping.patientMappingFile="))) {
-            log.warn("DEPRECATED: --mapping.patientMappingFile is deprecated, use --ingest.mapping.patient-file");
+            log.atWarn()
+                .addKeyValue("event_type", "config.deprecated.arg")
+                .addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("deprecated_arg", "--mapping.patientMappingFile")
+                .addKeyValue("replacement_arg", "--ingest.mapping.patient-file")
+                .log("DEPRECATED: --mapping.patientMappingFile is deprecated, use --ingest.mapping.patient-file");
         }
         if (Arrays.stream(args).anyMatch(arg -> arg.startsWith("--output.dir="))) {
-            log.warn("DEPRECATED: --output.dir is deprecated, use --ingest.output.dir");
+            log.atWarn()
+                .addKeyValue("event_type", "config.deprecated.arg")
+                .addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("deprecated_arg", "--output.dir")
+                .addKeyValue("replacement_arg", "--ingest.output.dir")
+                .log("DEPRECATED: --output.dir is deprecated, use --ingest.output.dir");
         }
     }
 

@@ -3,6 +3,14 @@
     <!--
         Spring Boot automatically prioritizes logback-spring.xml over logback.xml
         Supports ${property} substitution from Spring Environment
+
+        STRUCTURED LOGGING: This configuration emits dual log streams:
+        1. Console (human-readable) → stdout → CloudWatch /aws/ec2/hpds-ingest
+        2. Structured JSON → file → ${OUTPUT_DIR}/logs → S3
+
+        NOTE: Structured log path uses ${OUTPUT_DIR} environment variable
+              Set in entrypoint.sh (default: /opt/data/output)
+              This ensures consistency between orchestration and logging config
     -->
 
     <!-- Import Spring Boot defaults (optional, for consistency) -->
@@ -14,14 +22,17 @@
                     source="logging.file.name"
                     defaultValue="ingest.log"/>
 
-    <!-- Console appender -->
+    <!-- Console appender: Human-readable, for operators and CloudWatch -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <filter class="ch.qos.logback.core.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- Rolling file appender with Spring property substitution -->
+    <!-- Rolling file appender with Spring property substitution (legacy) -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_FILE}</file>
         <append>true</append>
@@ -38,10 +49,42 @@
         </rollingPolicy>
     </appender>
 
-    <!-- Root logger -->
+    <!-- Structured JSON appender: Machine-readable, for programmatic analysis -->
+    <appender name="STRUCTURED_JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!-- Use OUTPUT_DIR environment variable and RUN_ID system property for path -->
+        <file>${OUTPUT_DIR:-/opt/data/output}/logs/ingest-structured-${RUN_ID:-unknown}.jsonl</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${OUTPUT_DIR:-/opt/data/output}/logs/ingest-structured-${RUN_ID:-unknown}.%d{yyyy-MM-dd}.%i.jsonl</fileNamePattern>
+            <maxFileSize>500MB</maxFileSize>
+            <maxHistory>1</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- Include MDC fields -->
+            <includeMdcKeyNames>run_id,stage,dataset_id,file_name,service_name,service_version,environment</includeMdcKeyNames>
+
+            <!-- Add static fields -->
+            <customFields>{"service_name":"hpds-ingest-service","service_version":"3.0.0-SNAPSHOT"}</customFields>
+
+            <!-- Include stack traces (shortened for readability) -->
+            <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                <maxDepthPerThrowable>30</maxDepthPerThrowable>
+                <maxLength>2048</maxLength>
+            </throwableConverter>
+
+            <!-- Include context properties -->
+            <includeContext>true</includeContext>
+            <includeCallerData>false</includeCallerData>
+        </encoder>
+    </appender>
+
+    <!-- Root logger: send to console, file (legacy), and structured JSON -->
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE"/>
+        <appender-ref ref="STRUCTURED_JSON"/>
     </root>
 
     <!-- Package-specific loggers -->

@@ -140,13 +140,41 @@ public class HPDSWriterAdapter implements AutoCloseable {
             return;
         }
 
-        log.info("Closing and finalizing HPDS writer adapter (per-concept deduplication enabled)");
+        long startTime = System.currentTimeMillis();
+
+        // Structured event: finalization started
+        log.atInfo()
+                .addKeyValue("event_type", "writer.finalization.started")
+                .addKeyValue("event_schema_version", "1.0")
+                .log("Closing and finalizing HPDS writer adapter (per-concept deduplication enabled)");
+
         try {
             store.saveStore();
             closed = true;
-            log.info("HPDS writer adapter closed successfully");
+
+            long elapsedMs = System.currentTimeMillis() - startTime;
+            double elapsedSeconds = elapsedMs / 1000.0;
+
+            // Structured event: finalization completed
+            log.atInfo()
+                    .addKeyValue("event_type", "writer.finalization.completed")
+                    .addKeyValue("event_schema_version", "1.0")
+                    .addKeyValue("elapsed_ms", elapsedMs)
+                    .addKeyValue("elapsed_seconds", elapsedSeconds)
+                    .addKeyValue("total_patients", getPatientCount())
+                    .log("HPDS writer adapter closed successfully ({} seconds)",
+                         String.format("%.1f", elapsedSeconds));
         } catch (IOException e) {
-            log.error("Failed to finalize HPDS stores", e);
+            long elapsedMs = System.currentTimeMillis() - startTime;
+
+            // Structured event: finalization failed
+            log.atError()
+                    .addKeyValue("event_type", "writer.finalization.failed")
+                    .addKeyValue("event_schema_version", "1.0")
+                    .addKeyValue("elapsed_ms", elapsedMs)
+                    .addKeyValue("error_message", e.getMessage())
+                    .setCause(e)
+                    .log("Failed to finalize HPDS stores");
             throw e;
         }
     }

@@ -73,7 +73,7 @@ public class RekeyDataset {
 									ColumnMeta columnMeta = sourceMetaStore.get(key);
 									if(columnMeta != null) {
 										allObservationsStore.seek(columnMeta.getAllObservationsOffset());
-										int length = (int) (columnMeta.getAllObservationsLength() - columnMeta.getAllObservationsOffset());
+											int length = (int) (columnMeta.getAllObservationsLength() - columnMeta.getAllObservationsOffset());
 										byte[] buffer = new byte[length];
 										allObservationsStore.read(buffer);
 										allObservationsStore.close();

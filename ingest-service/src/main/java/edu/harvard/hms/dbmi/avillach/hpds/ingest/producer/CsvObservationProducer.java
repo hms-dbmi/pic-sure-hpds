@@ -9,6 +9,7 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -69,22 +70,81 @@ public class CsvObservationProducer {
      */
     public void processFile(Path filePath, Consumer<List<ObservationRow>> consumer, int batchSize) throws IOException {
         long fileSize = Files.size(filePath);
+        long startTime = System.currentTimeMillis();
 
-        // Check if file is large enough for parallel processing
-        if (fileSize > LARGE_FILE_THRESHOLD_BYTES) {
-            log.info("Large CSV detected ({} MB), using parallel chunk processing",
-                     fileSize / 1024 / 1024);
-            chunkProcessor.processLargeFileInParallel(filePath, consumer, batchSize, this);
-            return;
+        // Set up MDC for file-level context
+        MDC.put("file_name", filePath.getFileName().toString());
+        MDC.put("dataset_id", "legacy-csv");
+
+        try {
+            // Emit file.processing.started event
+            log.atInfo()
+                .addKeyValue("event_type", "file.processing.started")
+                .addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("source_type", "csv")
+                .addKeyValue("dataset_id", "legacy-csv")
+                .addKeyValue("file_path", filePath.toString())
+                .addKeyValue("file_name", filePath.getFileName().toString())
+                .addKeyValue("file_size_bytes", fileSize)
+                .log("Processing CSV file: {} ({} MB)", filePath.getFileName(), fileSize / 1024 / 1024);
+
+            // Check if file is large enough for parallel processing
+            if (fileSize > LARGE_FILE_THRESHOLD_BYTES) {
+                log.info("Large CSV detected ({} MB), using parallel chunk processing",
+                         fileSize / 1024 / 1024);
+                chunkProcessor.processLargeFileInParallel(filePath, consumer, batchSize, this);
+
+                // Emit completion event for parallel processing (detailed stats not available)
+                long elapsedMs = System.currentTimeMillis() - startTime;
+                log.atInfo()
+                    .addKeyValue("event_type", "file.processing.completed")
+                    .addKeyValue("event_schema_version", "1.0")
+                    .addKeyValue("source_type", "csv")
+                    .addKeyValue("dataset_id", "legacy-csv")
+                    .addKeyValue("file_path", filePath.toString())
+                    .addKeyValue("file_name", filePath.getFileName().toString())
+                    .addKeyValue("file_size_bytes", fileSize)
+                    .addKeyValue("processing_mode", "parallel")
+                    .addKeyValue("elapsed_ms", elapsedMs)
+                    .log("Completed processing CSV file: {} (parallel mode, {} ms)", filePath.getFileName(), elapsedMs);
+                return;
+            }
+
+            log.debug("Processing CSV file sequentially: {} ({} MB)", filePath, fileSize / 1024 / 1024);
+            processFileSequential(filePath, consumer, batchSize, startTime, fileSize);
+
+        } finally {
+            // Clean up MDC
+            MDC.remove("file_name");
+            MDC.remove("dataset_id");
         }
+    }
 
-        log.debug("Processing CSV file sequentially: {} ({} MB)", filePath, fileSize / 1024 / 1024);
+    /**
+     * Sequential file processing with structured logging.
+     */
+    private void processFileSequential(Path filePath, Consumer<List<ObservationRow>> consumer,
+                                      int batchSize, long startTime, long fileSize) throws IOException {
 
         try (BufferedReader reader = Files.newBufferedReader(filePath)) {
             // Read first line to detect headers
             String firstLine = reader.readLine();
             if (firstLine == null || firstLine.isBlank()) {
                 log.warn("CSV file is empty: {}", filePath);
+                long elapsedMs = System.currentTimeMillis() - startTime;
+                log.atWarn()
+                    .addKeyValue("event_type", "file.processing.completed")
+                    .addKeyValue("event_schema_version", "1.0")
+                    .addKeyValue("source_type", "csv")
+                    .addKeyValue("dataset_id", "legacy-csv")
+                    .addKeyValue("file_path", filePath.toString())
+                    .addKeyValue("file_name", filePath.getFileName().toString())
+                    .addKeyValue("file_size_bytes", fileSize)
+                    .addKeyValue("records_read", 0L)
+                    .addKeyValue("observations_generated", 0L)
+                    .addKeyValue("elapsed_ms", elapsedMs)
+                    .addKeyValue("warning", "empty_file")
+                    .log("Completed processing empty CSV file: {}", filePath.getFileName());
                 return;
             }
 
@@ -117,12 +177,27 @@ public class CsvObservationProducer {
                 // Reset reader to beginning to reprocess first line as data
                 reader.close();
                 BufferedReader newReader = Files.newBufferedReader(filePath);
-                processWithFormat(newReader, filePath, format, useHeaders, consumer, batchSize);
+                processWithFormat(newReader, filePath, format, useHeaders, consumer, batchSize, startTime, fileSize);
                 return;
             }
 
             // For header mode, continue with current reader position (after first line)
-            processWithFormat(reader, filePath, format, useHeaders, consumer, batchSize);
+            processWithFormat(reader, filePath, format, useHeaders, consumer, batchSize, startTime, fileSize);
+        } catch (Exception e) {
+            // Emit file.processing.failed event
+            long elapsedMs = System.currentTimeMillis() - startTime;
+            log.atError()
+                .addKeyValue("event_type", "file.processing.failed")
+                .addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("source_type", "csv")
+                .addKeyValue("dataset_id", "legacy-csv")
+                .addKeyValue("file_path", filePath.toString())
+                .addKeyValue("file_name", filePath.getFileName().toString())
+                .addKeyValue("file_size_bytes", fileSize)
+                .addKeyValue("elapsed_ms", elapsedMs)
+                .addKeyValue("error_message", e.getMessage())
+                .log("Failed to process CSV file: {}", filePath.getFileName());
+            throw e;
         }
     }
 
@@ -130,17 +205,22 @@ public class CsvObservationProducer {
      * Process CSV with the configured format.
      */
     private void processWithFormat(BufferedReader reader, Path filePath, CSVFormat format, boolean useHeaders,
-                                   Consumer<List<ObservationRow>> consumer, int batchSize) throws IOException {
+                                   Consumer<List<ObservationRow>> consumer, int batchSize, long startTime,
+                                   long fileSize) throws IOException {
         try (CSVParser parser = new CSVParser(reader, format)) {
             List<ObservationRow> batch = new ArrayList<>(batchSize);
+            long recordsRead = 0;
+            long observationsGenerated = 0;
 
             log.debug("CSV processing thread: {} (file: {})", Thread.currentThread().getName(), filePath.getFileName());
-            
+
             for (CSVRecord record : parser) {
+                recordsRead++;
                 try {
                     ObservationRow row = parseRecord(record, filePath, useHeaders);
                     if (row != null) {
                         batch.add(row);
+                        observationsGenerated++;
 
                         if (batch.size() >= batchSize) {
                             consumer.accept(new ArrayList<>(batch));
@@ -158,7 +238,23 @@ public class CsvObservationProducer {
                 consumer.accept(batch);
             }
 
-            log.info("Completed processing CSV file: {}", filePath);
+            long elapsedMs = System.currentTimeMillis() - startTime;
+
+            // Emit file.processing.completed event
+            log.atInfo()
+                .addKeyValue("event_type", "file.processing.completed")
+                .addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("source_type", "csv")
+                .addKeyValue("dataset_id", "legacy-csv")
+                .addKeyValue("file_path", filePath.toString())
+                .addKeyValue("file_name", filePath.getFileName().toString())
+                .addKeyValue("file_size_bytes", fileSize)
+                .addKeyValue("records_read", recordsRead)
+                .addKeyValue("observations_generated", observationsGenerated)
+                .addKeyValue("elapsed_ms", elapsedMs)
+                .addKeyValue("processing_mode", "sequential")
+                .log("Completed processing CSV file: {} ({} records, {} observations, {} ms)",
+                     filePath.getFileName(), recordsRead, observationsGenerated, elapsedMs);
         }
     }
 

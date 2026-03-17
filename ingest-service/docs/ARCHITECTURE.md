@@ -7,14 +7,14 @@ System design and implementation details for HPDS Ingest Service.
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                  Ingest Service                         │
-│  ┌──────────────────────┐  ┌───────────────────────┐   │
-│  │ ParquetObservation   │  │ CsvObservation        │   │
-│  │ Producer             │  │ Producer              │   │
-│  │ (schema projection,  │  │ (streaming parse)     │   │
-│  │  row-group stream)   │  │                       │   │
-│  └──────────┬───────────┘  └───────────┬───────────┘   │
-│             │                           │               │
-│             └───────────┬───────────────┘               │
+│  ┌──────────────────────┐  ┌───────────────────────┐    │
+│  │ ParquetObservation   │  │ CsvObservation        │    │
+│  │ Producer             │  │ Producer              │    │
+│  │ (schema projection,  │  │ (streaming parse)     │    │
+│  │  row-group stream)   │  │                       │    │
+│  └──────────┬───────────┘  └───────────┬───────────┘    │
+│             │                          │                │
+│             └───────────┬──────────────┘                │
 │                         ▼                               │
 │            ┌─────────────────────────┐                  │
 │            │  ObservationRow         │                  │
@@ -24,7 +24,7 @@ System design and implementation details for HPDS Ingest Service.
 │            ┌─────────────────────────┐                  │
 │            │  HPDSWriterAdapter      │                  │
 │            └──────────┬──────────────┘                  │
-└───────────────────────┼──────────────────────────────────┘
+└───────────────────────┼─────────────────────────────────┘
                         ▼
           ┌─────────────────────────────┐
           │  SpoolingLoadingStore       │

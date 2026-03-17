@@ -189,8 +189,21 @@ public class SpoolingLoadingStore {
         // Check if concept has exceeded TOTAL observation limit - REJECT if so
         if (meta.totalObservationCount.get() >= maxObservationsPerConcept) {
             // REJECT this observation - concept has reached its limit
-            conceptRejections.computeIfAbsent(conceptPath, k -> new AtomicLong(0))
-                             .incrementAndGet();
+            long rejectedCount = conceptRejections.computeIfAbsent(conceptPath, k -> new AtomicLong(0))
+                                                   .incrementAndGet();
+
+            // Emit structured event only on first rejection (avoid log flooding)
+            if (rejectedCount == 1) {
+                log.atWarn()
+                        .addKeyValue("event_type", "concept.limit.reached")
+                        .addKeyValue("event_schema_version", "1.0")
+                        .addKeyValue("concept_path", conceptPath)
+                        .addKeyValue("observations_accepted", meta.totalObservationCount.get())
+                        .addKeyValue("limit_value", maxObservationsPerConcept)
+                        .log("Concept '{}' reached observation limit ({}), rejecting further observations",
+                             conceptPath, maxObservationsPerConcept);
+            }
+
             log.debug("Rejecting observation for concept '{}' (limit reached: {} total observations)",
                       conceptPath, meta.totalObservationCount.get());
             return; // Early return - don't add observation
@@ -273,6 +286,7 @@ public class SpoolingLoadingStore {
      * Uses hierarchical directory structure (2-level hash) to avoid filesystem limits with 200K+ concepts.
      */
     private void spoolPartial(String conceptPath, PhenoCube cube) {
+        long startTime = System.currentTimeMillis();
         try {
             ConceptMetadata meta = conceptMetadata.get(conceptPath);
             if (meta == null) {
@@ -292,8 +306,21 @@ public class SpoolingLoadingStore {
                 oos.writeObject(cube.getLoadingMap());
             }
 
-            log.debug("Spooled partial for concept {} to {} ({} observations)",
-                conceptPath, spoolFile, cube.getLoadingMap().size());
+            long elapsedMs = System.currentTimeMillis() - startTime;
+            long spoolFileSize = Files.size(spoolFile);
+
+            // Structured event
+            log.atDebug()
+                    .addKeyValue("event_type", "concept.spooling.completed")
+                    .addKeyValue("event_schema_version", "1.0")
+                    .addKeyValue("concept_path", conceptPath)
+                    .addKeyValue("spool_file_path", spoolFile.toString())
+                    .addKeyValue("spool_file_number", partialNum)
+                    .addKeyValue("observations_spooled", cube.getLoadingMap().size())
+                    .addKeyValue("spool_file_size_bytes", spoolFileSize)
+                    .addKeyValue("elapsed_ms", elapsedMs)
+                    .log("Spooled partial for concept {} to {} ({} observations)",
+                         conceptPath, spoolFile, cube.getLoadingMap().size());
 
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to spool partial for concept: " + conceptPath, e);
@@ -473,7 +500,10 @@ public class SpoolingLoadingStore {
         try (ObjectOutputStream metaOut = new ObjectOutputStream(
             new GZIPOutputStream(new FileOutputStream(outputDirectory + "columnMeta.javabin")))) {
             metaOut.writeObject(sortedMetadata);
-            metaOut.writeObject(allIds);
+            synchronized (allIds) {
+                metaOut.writeObject(new TreeSet<>(allIds));
+            }
+            //metaOut.writeObject(allIds);
         }
 
         // Write columnMeta.csv for data dictionary using shared utility
@@ -716,14 +746,21 @@ public class SpoolingLoadingStore {
         // Log deduplication statistics
         if (duplicatesSkipped > 0) {
             double dedupRate = 100.0 * duplicatesSkipped / totalRead;
-            log.atInfo().setMessage("Dedup for '{}': {} read, {} unique, {} duplicates ({}) | Time: {}ms")
-                    .addArgument(conceptPath)
-                    .addArgument(totalRead)
-                    .addArgument(allEntries.size())
-                    .addArgument(duplicatesSkipped)
-                    .addArgument(String.format("%.1f%%", dedupRate))
-                    .addArgument(dedupTime)
-                    .log();
+            double duplicateRatio = duplicatesSkipped / (double) totalRead;
+
+            // Structured event
+            log.atInfo()
+                    .addKeyValue("event_type", "concept.deduplication.completed")
+                    .addKeyValue("event_schema_version", "1.0")
+                    .addKeyValue("concept_path", conceptPath)
+                    .addKeyValue("records_read", totalRead)
+                    .addKeyValue("records_unique", allEntries.size())
+                    .addKeyValue("records_duplicate", duplicatesSkipped)
+                    .addKeyValue("duplicate_ratio", duplicateRatio)
+                    .addKeyValue("elapsed_ms", dedupTime)
+                    .log("Dedup for '{}': {} read, {} unique, {} duplicates ({}) | Time: {}ms",
+                         conceptPath, totalRead, allEntries.size(), duplicatesSkipped,
+                         String.format("%.1f%%", dedupRate), dedupTime);
         } else {
             log.debug("Dedup for '{}': {} observations, no duplicates | Time: {}ms",
                       conceptPath, totalRead, dedupTime);
