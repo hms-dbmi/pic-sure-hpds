@@ -211,10 +211,10 @@ public class PicSureV3Service {
     private Query convertIncomingQuery(QueryRequest queryJson) throws IOException {
         Object query = queryJson.getQuery();
         if (query instanceof String) {
+            // The query is now being reset in wildfly and encoded as a string in JWTFilter
             return mapper.readValue((String) query, Query.class);
         } else {
             String queryString = mapper.writeValueAsString(query);
-            log.info("Query String = " + queryString);
             return mapper.readValue(queryString, Query.class);
         }
     }
