@@ -1,9 +1,9 @@
-package edu.harvard.hms.dbmi.avillach.hpds.service;
+package edu.harvard.hms.dbmi.avillach.hpds.genomic.config;
 
 import edu.harvard.dbmi.avillach.logging.LoggingClient;
+import edu.harvard.dbmi.avillach.logging.LoggingClientFactory;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.audit.AuditInterceptor;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.audit.AuditLoggingFilter;
-import edu.harvard.dbmi.avillach.logging.LoggingClientFactory;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,7 +15,7 @@ public class LoggingConfig implements WebMvcConfigurer {
 
     @Bean
     public LoggingClient loggingClient() {
-        return LoggingClientFactory.create("hpds");
+        return LoggingClientFactory.create("hpds-genomic");
     }
 
     @Bean
