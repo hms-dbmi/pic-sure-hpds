@@ -76,7 +76,7 @@ class AuditMockMvcTest {
         assertEquals("info", event.getAction());
         assertEquals("POST", event.getRequest().getMethod());
         assertEquals(200, event.getRequest().getStatus());
-        assertNotNull(event.getMetadata().get("session_id"));
+        assertNotNull(event.getSessionId());
     }
 
     @Test

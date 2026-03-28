@@ -11,6 +11,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import edu.harvard.dbmi.avillach.logging.LoggingClient;
 import edu.harvard.dbmi.avillach.logging.LoggingEvent;
 import edu.harvard.dbmi.avillach.logging.RequestInfo;
+import edu.harvard.dbmi.avillach.logging.SessionIdResolver;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -114,9 +115,9 @@ public class AuditLoggingFilter extends OncePerRequestFilter {
                     .bytes(bytes)
                     .build();
 
-                // Build metadata: session_id + api version + domain metadata from controllers
+                // Build metadata: api version + domain metadata from controllers
+                String sessionId = SessionIdResolver.resolve(request.getHeader("X-Session-Id"), srcIp, request.getHeader("User-Agent"));
                 Map<String, Object> metadata = new HashMap<>();
-                metadata.put("session_id", resolveSessionId(request, srcIp));
                 if (fullPath.contains("/v3/")) {
                     metadata.put("api_version", "v3");
                 }
@@ -134,6 +135,7 @@ public class AuditLoggingFilter extends OncePerRequestFilter {
 
                 LoggingEvent.Builder eventBuilder = LoggingEvent.builder(eventType)
                     .action(action)
+                    .sessionId(sessionId)
                     .request(requestInfo)
                     .metadata(metadata);
 
@@ -165,16 +167,6 @@ public class AuditLoggingFilter extends OncePerRequestFilter {
             return xForwardedFor.split(",")[0].trim();
         }
         return request.getRemoteAddr();
-    }
-
-    static String resolveSessionId(HttpServletRequest request, String srcIp) {
-        String sessionId = request.getHeader("X-Session-Id");
-        if (sessionId != null && !sessionId.isEmpty()) {
-            return sessionId;
-        }
-        String raw = (srcIp != null ? srcIp : "") + "|"
-            + (request.getHeader("User-Agent") != null ? request.getHeader("User-Agent") : "");
-        return Integer.toHexString(raw.hashCode());
     }
 
     static Long parseContentLength(String header) {

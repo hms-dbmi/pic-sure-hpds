@@ -14,6 +14,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import edu.harvard.dbmi.avillach.logging.LoggingClient;
 import edu.harvard.dbmi.avillach.logging.LoggingEvent;
+import edu.harvard.dbmi.avillach.logging.SessionIdResolver;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.audit.AuditAttributes;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.audit.AuditLoggingFilter;
 
@@ -175,7 +176,7 @@ class AuditLoggingFilterTest {
 
         ArgumentCaptor<LoggingEvent> captor = ArgumentCaptor.forClass(LoggingEvent.class);
         verify(loggingClient).send(captor.capture());
-        assertEquals("my-session-123", captor.getValue().getMetadata().get("session_id"));
+        assertEquals("my-session-123", captor.getValue().getSessionId());
     }
 
     @Test
@@ -190,9 +191,8 @@ class AuditLoggingFilterTest {
         ArgumentCaptor<LoggingEvent> captor = ArgumentCaptor.forClass(LoggingEvent.class);
         verify(loggingClient).send(captor.capture());
 
-        String expectedRaw = "192.168.1.1|TestBrowser/1.0";
-        String expectedHash = Integer.toHexString(expectedRaw.hashCode());
-        assertEquals(expectedHash, captor.getValue().getMetadata().get("session_id"));
+        String expectedHash = SessionIdResolver.resolve(null, "192.168.1.1", "TestBrowser/1.0");
+        assertEquals(expectedHash, captor.getValue().getSessionId());
     }
 
     // ---- Error detection ----
@@ -306,15 +306,15 @@ class AuditLoggingFilterTest {
         LoggingEvent event = captor.getValue();
         assertEquals("def-456", event.getMetadata().get("query_id"));
         assertEquals("COUNT", event.getMetadata().get("result_type"));
-        // Filter-managed keys always present
-        assertNotNull(event.getMetadata().get("session_id"));
+        // Session ID is a top-level field
+        assertNotNull(event.getSessionId());
     }
 
     @Test
-    void testFilterManagedKeysOverrideControllerMetadata() throws Exception {
+    void testSessionIdFromHeaderTakesPrecedence() throws Exception {
         MockHttpServletRequest request = mockRequest("/PIC-SURE/query", "POST");
         request.addHeader("X-Session-Id", "filter-session");
-        // Controller tries to set session_id — filter's value should win (putIfAbsent)
+        // Controller tries to set session_id in metadata — filter's top-level field takes precedence
         AuditAttributes.putMetadata(request, "session_id", "controller-session");
         MockHttpServletResponse response = new MockHttpServletResponse();
         response.setStatus(200);
@@ -323,7 +323,7 @@ class AuditLoggingFilterTest {
 
         ArgumentCaptor<LoggingEvent> captor = ArgumentCaptor.forClass(LoggingEvent.class);
         verify(loggingClient).send(captor.capture());
-        assertEquals("filter-session", captor.getValue().getMetadata().get("session_id"));
+        assertEquals("filter-session", captor.getValue().getSessionId());
     }
 
     // ---- RequestInfo fields ----
