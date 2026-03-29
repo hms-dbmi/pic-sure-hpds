@@ -464,11 +464,33 @@ public class CsvObservationProducer {
             }
 
             if (timestampRaw != null && !timestampRaw.isBlank()) {
-                try {
-                    timestamp = Instant.parse(timestampRaw);
-                } catch (DateTimeParseException e) {
-                    // Timestamp parsing failures are non-fatal, log and continue
-                    log.debug("Cannot parse timestamp '{}' for patient {}, continuing without timestamp", timestampRaw, patientNum);
+                // ==================================================================================
+                // SPECIAL CASE: Treat "0" as null timestamp
+                // ==================================================================================
+                //
+                // Historical context: Legacy allConcepts.csv files use "0" (string zero) to represent
+                // missing/null timestamps. This is NOT a valid ISO 8601 timestamp and should be treated
+                // as null rather than triggering a parse error.
+                //
+                // Rationale:
+                // - Data format assumption: Timestamps are ISO 8601 strings (e.g., "2021-01-15T10:30:00Z")
+                // - Epoch format is NOT expected in current data pipeline
+                // - Therefore, "0" is INVALID and represents absence of temporal data
+                // - This pattern follows CSVLoaderNewSearch.java behavior (commit e09e2778)
+                //
+                // Example CSV scenarios:
+                //   PATIENT_NUM,CONCEPT_PATH,NVAL_NUM,TVAL_CHAR,TIMESTAMP
+                //   123,\Demographics\Gender\,,"Male",0               <- "0" = no timestamp (treated as null)
+                //   456,\Lab\Hemoglobin\,13.5,,2021-01-15T10:30:00Z  <- valid ISO 8601 timestamp
+                //
+                // ==================================================================================
+                if (!timestampRaw.equals("0")) {
+                    try {
+                        timestamp = Instant.parse(timestampRaw);
+                    } catch (DateTimeParseException e) {
+                        // Timestamp parsing failures are non-fatal, log and continue
+                        log.debug("Cannot parse timestamp '{}' for patient {}, continuing without timestamp", timestampRaw, patientNum);
+                    }
                 }
             }
         } catch (Exception e) {

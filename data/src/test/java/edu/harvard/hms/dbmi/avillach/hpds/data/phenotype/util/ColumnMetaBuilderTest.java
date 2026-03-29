@@ -207,4 +207,125 @@ class ColumnMetaBuilderTest {
         assertDoesNotThrow(() -> ColumnMetaBuilder.writeColumnMetaCsv(emptyMap, csvPath));
         assertTrue(Files.exists(csvPath));
     }
+
+    @Test
+    void testFromPhenoCube_WithTimestamps() {
+        // Create PhenoCube with all observations having timestamps
+        PhenoCube<Double> cube = new PhenoCube<>("\\test\\timestamped\\", Double.class);
+        KeyAndValue<Double>[] sortedByKey = new KeyAndValue[]{
+            new KeyAndValue<>(1, 10.5, 1609459200000L),  // 2021-01-01
+            new KeyAndValue<>(2, 20.3, 1640995200000L),  // 2022-01-01
+            new KeyAndValue<>(3, 15.7, 1672531200000L)   // 2023-01-01
+        };
+        cube.setSortedByKey(sortedByKey);
+
+        ColumnMeta meta = ColumnMetaBuilder.fromPhenoCube(cube);
+
+        // Verify timestamp fields are populated
+        assertTrue(meta.hasTimestamp(), "hasTimestamp should be true when all observations have timestamps");
+        assertNotNull(meta.getTimestampMin());
+        assertNotNull(meta.getTimestampMax());
+        assertEquals(1609459200000L, meta.getTimestampMin());  // Earliest timestamp
+        assertEquals(1672531200000L, meta.getTimestampMax());  // Latest timestamp
+    }
+
+    @Test
+    void testFromPhenoCube_MixedTimestamps() {
+        // Create PhenoCube with some observations having timestamps, some without (coexistence)
+        PhenoCube<Double> cube = new PhenoCube<>("\\test\\mixed\\", Double.class);
+        KeyAndValue<Double>[] sortedByKey = new KeyAndValue[]{
+            new KeyAndValue<>(1, 10.5, 1609459200000L),  // Has timestamp
+            new KeyAndValue<>(2, 20.3, null),             // No timestamp
+            new KeyAndValue<>(3, 15.7, Long.MIN_VALUE),   // Sentinel value (no timestamp)
+            new KeyAndValue<>(4, 30.2, 1640995200000L)   // Has timestamp
+        };
+        cube.setSortedByKey(sortedByKey);
+
+        ColumnMeta meta = ColumnMetaBuilder.fromPhenoCube(cube);
+
+        // Should set hasTimestamp=true if ANY timestamp exists
+        assertTrue(meta.hasTimestamp(), "hasTimestamp should be true when at least one observation has timestamp");
+        assertNotNull(meta.getTimestampMin());
+        assertNotNull(meta.getTimestampMax());
+        assertEquals(1609459200000L, meta.getTimestampMin());  // Min of valid timestamps
+        assertEquals(1640995200000L, meta.getTimestampMax());  // Max of valid timestamps
+    }
+
+    @Test
+    void testFromPhenoCube_NoTimestamps() {
+        // Create PhenoCube with no timestamps
+        PhenoCube<Double> cube = new PhenoCube<>("\\test\\no_timestamps\\", Double.class);
+        KeyAndValue<Double>[] sortedByKey = new KeyAndValue[]{
+            new KeyAndValue<>(1, 10.5, null),
+            new KeyAndValue<>(2, 20.3, Long.MIN_VALUE),  // Sentinel value
+            new KeyAndValue<>(3, 15.7, null)
+        };
+        cube.setSortedByKey(sortedByKey);
+
+        ColumnMeta meta = ColumnMetaBuilder.fromPhenoCube(cube);
+
+        // Should NOT set hasTimestamp when no valid timestamps exist
+        assertFalse(meta.hasTimestamp(), "hasTimestamp should be false when no valid timestamps exist");
+        assertNull(meta.getTimestampMin());
+        assertNull(meta.getTimestampMax());
+    }
+
+    @Test
+    void testWriteColumnMetaCsv_WithTimestamps(@TempDir Path tempDir) throws IOException {
+        // Create ColumnMeta with timestamp data
+        TreeMap<String, ColumnMeta> metadataMap = new TreeMap<>();
+
+        ColumnMeta meta1 = new ColumnMeta()
+            .setName("\\timestamped_concept\\")
+            .setWidthInBytes(1)
+            .setColumnOffset(0)
+            .setCategorical(false)
+            .setMin(1.0)
+            .setMax(10.0)
+            .setAllObservationsOffset(100)
+            .setAllObservationsLength(200)
+            .setObservationCount(50)
+            .setPatientCount(25)
+            .setHasTimestamp(true)
+            .setTimestampMin(1609459200000L)  // 2021-01-01
+            .setTimestampMax(1640995200000L);  // 2022-01-01
+        metadataMap.put("\\timestamped_concept\\", meta1);
+
+        ColumnMeta meta2 = new ColumnMeta()
+            .setName("\\non_timestamped_concept\\")
+            .setWidthInBytes(1)
+            .setColumnOffset(0)
+            .setCategorical(false)
+            .setMin(5.0)
+            .setMax(15.0)
+            .setAllObservationsOffset(300)
+            .setAllObservationsLength(400)
+            .setObservationCount(30)
+            .setPatientCount(15);
+        // No timestamp fields set (defaults: hasTimestamp=false, min/max=null)
+        metadataMap.put("\\non_timestamped_concept\\", meta2);
+
+        // Write CSV
+        Path csvPath = tempDir.resolve("columnMeta.csv");
+        ColumnMetaBuilder.writeColumnMetaCsv(metadataMap, csvPath);
+
+        // Verify file exists and has content
+        assertTrue(Files.exists(csvPath));
+        List<String> lines = Files.readAllLines(csvPath);
+        assertEquals(2, lines.size(), "Should have 2 concept rows");
+
+        // TreeMap sorts alphabetically: \non_timestamped... comes before \timestamped...
+        // Line 0: non_timestamped_concept (no timestamps)
+        // Line 1: timestamped_concept (with timestamps)
+
+        String nonTimestampedLine = lines.get(0);
+        assertTrue(nonTimestampedLine.contains("non_timestamped_concept"), "Line should contain non_timestamped_concept");
+        assertTrue(nonTimestampedLine.contains("false"), "Line should contain hasTimestamp=false");
+
+        String timestampedLine = lines.get(1);
+        assertTrue(timestampedLine.contains("timestamped_concept"), "Line should contain timestamped_concept");
+        assertTrue(timestampedLine.contains("true"), "Line should contain hasTimestamp=true");
+        assertTrue(timestampedLine.contains("1609459200000"), "Line should contain timestampMin");
+        assertTrue(timestampedLine.contains("1640995200000"), "Line should contain timestampMax");
+    }
 }

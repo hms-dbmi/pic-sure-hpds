@@ -109,6 +109,31 @@ public class ColumnMetaBuilder {
             meta.setWidthInBytes(widthInBytes != null ? widthInBytes : 1);
         }
 
+        // Track timestamp min/max
+        Long timestampMin = null;
+        Long timestampMax = null;
+        boolean hasTimestamp = false;
+
+        for (KeyAndValue<?> kv : observations) {
+            Long ts = kv.getTimestamp();
+            // Valid timestamp: non-null AND not Long.MIN_VALUE (default sentinel from KeyAndValue constructor)
+            if (ts != null && ts != Long.MIN_VALUE) {
+                hasTimestamp = true;
+                if (timestampMin == null || ts < timestampMin) {
+                    timestampMin = ts;
+                }
+                if (timestampMax == null || ts > timestampMax) {
+                    timestampMax = ts;
+                }
+            }
+        }
+
+        meta.setHasTimestamp(hasTimestamp);
+        if (hasTimestamp) {
+            meta.setTimestampMin(timestampMin);
+            meta.setTimestampMax(timestampMax);
+        }
+
         return meta;
     }
 
@@ -141,6 +166,9 @@ public class ColumnMetaBuilder {
      *   <li>allObservationsLength</li>
      *   <li>observationCount</li>
      *   <li>patientCount</li>
+     *   <li>hasTimestamp</li>
+     *   <li>timestampMin</li>
+     *   <li>timestampMax</li>
      * </ol>
      *
      * @param metadataMap TreeMap of ColumnMeta entries
@@ -159,7 +187,7 @@ public class ColumnMetaBuilder {
 
             for (Map.Entry<String, ColumnMeta> entry : metadataMap.entrySet()) {
                 ColumnMeta columnMeta = entry.getValue();
-                Object[] columnMetaOut = new Object[11];
+                Object[] columnMetaOut = new Object[14];
 
                 // Build category values string (µ-delimited)
                 StringBuilder categoryValuesStr = new StringBuilder();
@@ -185,6 +213,9 @@ public class ColumnMetaBuilder {
                 columnMetaOut[8] = columnMeta.getAllObservationsLength();
                 columnMetaOut[9] = columnMeta.getObservationCount();
                 columnMetaOut[10] = columnMeta.getPatientCount();
+                columnMetaOut[11] = columnMeta.hasTimestamp();
+                columnMetaOut[12] = columnMeta.getTimestampMin();
+                columnMetaOut[13] = columnMeta.getTimestampMax();
 
                 printer.printRecord(columnMetaOut);
             }

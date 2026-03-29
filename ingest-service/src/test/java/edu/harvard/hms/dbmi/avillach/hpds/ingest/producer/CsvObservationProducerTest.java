@@ -367,4 +367,53 @@ class CsvObservationProducerTest {
         assertNull(allRows.get(2).numericValue());
         assertEquals("text2", allRows.get(2).textValue());
     }
+
+    /**
+     * Test that timestamp value "0" is treated as null (not parsed as epoch).
+     *
+     * Background: Legacy allConcepts.csv files use "0" to represent missing timestamps.
+     * This is NOT a valid ISO 8601 timestamp and should result in null dateTime.
+     *
+     * This test validates the fix from commit e09e2778 (CSVLoaderNewSearch pattern).
+     */
+    @Test
+    void testTimestampZeroTreatedAsNull() throws IOException {
+        Path csvFile = tempDir.resolve("test_zero_timestamp.csv");
+        String csvContent = """
+            PATIENT_NUM,CONCEPT_PATH,NVAL_NUM,TVAL_CHAR,TIMESTAMP
+            123,\\Demographics\\Gender\\,,"Male",0
+            456,\\Lab\\Hemoglobin\\,13.5,,2021-01-15T10:30:00Z
+            789,\\Demographics\\Age\\,65,,
+            """;
+        Files.writeString(csvFile, csvContent);
+
+        List<ObservationRow> allRows = new ArrayList<>();
+        Consumer<List<ObservationRow>> consumer = allRows::addAll;
+
+        producer.processFile(csvFile, consumer, 1000);
+
+        assertEquals(3, allRows.size());
+
+        // Row 1: timestamp "0" should be treated as null
+        ObservationRow row1 = allRows.get(0);
+        assertEquals(123, row1.patientNum());
+        assertEquals("\\Demographics\\Gender\\", row1.conceptPath());
+        assertEquals("Male", row1.textValue());
+        assertNull(row1.dateTime(), "Timestamp '0' should be treated as null, not parsed as epoch");
+
+        // Row 2: valid ISO 8601 timestamp should parse correctly
+        ObservationRow row2 = allRows.get(1);
+        assertEquals(456, row2.patientNum());
+        assertEquals("\\Lab\\Hemoglobin\\", row2.conceptPath());
+        assertEquals(13.5, row2.numericValue());
+        assertNotNull(row2.dateTime(), "Valid ISO 8601 timestamp should parse");
+        assertEquals(Instant.parse("2021-01-15T10:30:00Z"), row2.dateTime());
+
+        // Row 3: empty timestamp should be null (existing behavior)
+        ObservationRow row3 = allRows.get(2);
+        assertEquals(789, row3.patientNum());
+        assertEquals("\\Demographics\\Age\\", row3.conceptPath());
+        assertEquals(65.0, row3.numericValue());
+        assertNull(row3.dateTime(), "Empty timestamp should be null");
+    }
 }
