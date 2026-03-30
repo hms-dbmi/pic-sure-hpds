@@ -42,6 +42,10 @@
 				<enabled>true</enabled>
 			</snapshots>
 		</repository>
+		<repository>
+			<id>github-logging</id>
+			<url>https://maven.pkg.github.com/hms-dbmi/pic-sure-logging-client</url>
+		</repository>
 	</repositories>
 	<build>
 		<pluginManagement>
