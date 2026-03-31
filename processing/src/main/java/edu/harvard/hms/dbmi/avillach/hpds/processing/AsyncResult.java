@@ -21,11 +21,11 @@ import edu.harvard.dbmi.avillach.util.PicSureStatus;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import org.springframework.http.MediaType;
 
-public class AsyncResult implements Runnable, Comparable<AsyncResult>{
-	
-	private static Logger log = LoggerFactory.getLogger(AsyncResult.class);
+public class AsyncResult implements Runnable, Comparable<AsyncResult> {
 
-	public byte[] readAllBytes() {
+    private static Logger log = LoggerFactory.getLogger(AsyncResult.class);
+
+    public byte[] readAllBytes() {
         try {
             return stream.readAllBytes();
         } catch (IOException e) {
@@ -33,264 +33,263 @@ public class AsyncResult implements Runnable, Comparable<AsyncResult>{
         }
     }
 
-	public void closeWriter() {
-		stream.closeWriter();
-	}
+    public void closeWriter() {
+        stream.closeWriter();
+    }
 
-	private MediaType responseType;
+    private MediaType responseType;
 
-	public MediaType getResponseType() {
-		return responseType;
-	}
+    public MediaType getResponseType() {
+        return responseType;
+    }
 
-	public File getFile() {
-		return stream.getFile();
-	}
+    public File getFile() {
+        return stream.getFile();
+    }
 
-	public static enum Status{
-		SUCCESS {
-			@Override
-			public PicSureStatus toPicSureStatus() {
-				return PicSureStatus.AVAILABLE;
-			}
-		},
-		ERROR {
-			@Override
-			public PicSureStatus toPicSureStatus() {
-				return PicSureStatus.ERROR;
-			}
-		},
-		PENDING {
-			@Override
-			public PicSureStatus toPicSureStatus() {
-				return PicSureStatus.QUEUED;
-			}
-		},
-		RUNNING {
-			@Override
-			public PicSureStatus toPicSureStatus() {
-				return PicSureStatus.PENDING;
-			}
-		}, RETRY {
-			@Override
-			public PicSureStatus toPicSureStatus() {
-				return PicSureStatus.QUEUED;
-			}
-		};
+    public static enum Status {
+        SUCCESS {
+            @Override
+            public PicSureStatus toPicSureStatus() {
+                return PicSureStatus.AVAILABLE;
+            }
+        },
+        ERROR {
+            @Override
+            public PicSureStatus toPicSureStatus() {
+                return PicSureStatus.ERROR;
+            }
+        },
+        PENDING {
+            @Override
+            public PicSureStatus toPicSureStatus() {
+                return PicSureStatus.QUEUED;
+            }
+        },
+        RUNNING {
+            @Override
+            public PicSureStatus toPicSureStatus() {
+                return PicSureStatus.PENDING;
+            }
+        },
+        RETRY {
+            @Override
+            public PicSureStatus toPicSureStatus() {
+                return PicSureStatus.QUEUED;
+            }
+        };
 
-		public abstract PicSureStatus toPicSureStatus();
-	}
-	
-	private Query query;
+        public abstract PicSureStatus toPicSureStatus();
+    }
 
-	public Query getQuery() {
-		return query;
-	}
+    private Query query;
 
-	private Status status;
+    public Query getQuery() {
+        return query;
+    }
 
-	public Status getStatus() {
-		return status;
-	}
+    private Status status;
 
-	public AsyncResult setStatus(Status status) {
-		this.status = status;
-		return this;
-	}
+    public Status getStatus() {
+        return status;
+    }
 
-	private long queuedTime;
+    public AsyncResult setStatus(Status status) {
+        this.status = status;
+        return this;
+    }
 
-	public long getQueuedTime() {
-		return queuedTime;
-	}
+    private long queuedTime;
 
-	public AsyncResult setQueuedTime(long queuedTime) {
-		this.queuedTime = queuedTime;
-		return this;
-	}
+    public long getQueuedTime() {
+        return queuedTime;
+    }
 
-	private long completedTime;
+    public AsyncResult setQueuedTime(long queuedTime) {
+        this.queuedTime = queuedTime;
+        return this;
+    }
 
-	public long getCompletedTime() {
-		return completedTime;
-	}
+    private long completedTime;
 
-	private int retryCount;
+    public long getCompletedTime() {
+        return completedTime;
+    }
 
-	private int queueDepth;
+    private int retryCount;
 
-	public int getQueueDepth() {
-		return queueDepth;
-	}
+    private int queueDepth;
 
-	public AsyncResult setQueueDepth(int queueDepth) {
-		this.queueDepth = queueDepth;
-		return this;
-	}
+    public int getQueueDepth() {
+        return queueDepth;
+    }
 
-	private int positionInQueue;
+    public AsyncResult setQueueDepth(int queueDepth) {
+        this.queueDepth = queueDepth;
+        return this;
+    }
 
-	public AsyncResult setPositionInQueue(int positionInQueue) {
-		this.positionInQueue = positionInQueue;
-		return this;
-	}
+    private int positionInQueue;
 
-	private int numRows;
+    public AsyncResult setPositionInQueue(int positionInQueue) {
+        this.positionInQueue = positionInQueue;
+        return this;
+    }
 
-	private int numColumns;
+    private int numRows;
 
-	private String id;
+    private int numColumns;
 
-	public String getId() {
-		return id;
-	}
+    private String id;
 
-	public AsyncResult setId(String id) {
-		this.id = id;
-		return this;
-	}
+    public String getId() {
+        return id;
+    }
 
-	@JsonIgnore
-	private ResultStoreStream stream;
+    public AsyncResult setId(String id) {
+        this.id = id;
+        return this;
+    }
 
-	public ResultStoreStream getStream() {
-		return stream;
-	}
+    @JsonIgnore
+    private ResultStoreStream stream;
 
-	@JsonIgnore
-	private String[] headerRow;
+    public ResultStoreStream getStream() {
+        return stream;
+    }
 
-	/*
-	 * The result needs access to the jobQueue so it can requeue 
-	 * itself if it fails due to insufficient available heap to 
-	 * build its result array.
-	 * 
-	 * The actual exception is thrown in @see ResultStore#constructor
-	 */
-	@JsonIgnore
-	private ExecutorService jobQueue;
+    @JsonIgnore
+    private String[] headerRow;
 
-	public ExecutorService getJobQueue() {
-		return jobQueue;
-	}
+    /*
+     * The result needs access to the jobQueue so it can requeue itself if it fails due to insufficient available heap to build its result
+     * array.
+     * 
+     * The actual exception is thrown in @see ResultStore#constructor
+     */
+    @JsonIgnore
+    private ExecutorService jobQueue;
 
-	public AsyncResult setJobQueue(ExecutorService jobQueue) {
-		this.jobQueue = jobQueue;
-		return this;
-	}
+    public ExecutorService getJobQueue() {
+        return jobQueue;
+    }
 
-	@JsonIgnore
-	private LoggingClient loggingClient;
+    public AsyncResult setJobQueue(ExecutorService jobQueue) {
+        this.jobQueue = jobQueue;
+        return this;
+    }
 
-	public AsyncResult setLoggingClient(LoggingClient loggingClient) {
-		this.loggingClient = loggingClient;
-		return this;
-	}
+    @JsonIgnore
+    private LoggingClient loggingClient;
 
-	@JsonIgnore
-	private HpdsProcessor processor;
+    public AsyncResult setLoggingClient(LoggingClient loggingClient) {
+        this.loggingClient = loggingClient;
+        return this;
+    }
 
-	public HpdsProcessor getProcessor() {
-		return processor;
-	}
+    @JsonIgnore
+    private HpdsProcessor processor;
 
-	public AsyncResult(Query query, HpdsProcessor processor, ResultWriter writer) {
-		this.query = query;
-		this.processor = processor;
-		this.headerRow = processor.getHeaderRow(query);
-		this.responseType = writer.getResponseType();
-		try {
-			stream = new ResultStoreStream(headerRow, writer);
-		} catch (IOException e) {
-			log.error("Exception creating result stream", e);
-		}
-	}
+    public HpdsProcessor getProcessor() {
+        return processor;
+    }
 
-	public void appendResults(List<String[]> dataEntries) {
-		stream.appendResults(dataEntries);
-	}
-	public void appendMultiValueResults(List<List<List<String>>> dataEntries) {
-		stream.appendMultiValueResults(dataEntries);
-	}
+    public AsyncResult(Query query, HpdsProcessor processor, ResultWriter writer) {
+        this.query = query;
+        this.processor = processor;
+        this.headerRow = processor.getHeaderRow(query);
+        this.responseType = writer.getResponseType();
+        try {
+            stream = new ResultStoreStream(headerRow, writer);
+        } catch (IOException e) {
+            log.error("Exception creating result stream", e);
+        }
+    }
 
-	public void appendResultStore(ResultStore resultStore) {
-		stream.appendResultStore(resultStore);
-	}
+    public void appendResults(List<String[]> dataEntries) {
+        stream.appendResults(dataEntries);
+    }
+
+    public void appendMultiValueResults(List<List<List<String>>> dataEntries) {
+        stream.appendMultiValueResults(dataEntries);
+    }
+
+    public void appendResultStore(ResultStore resultStore) {
+        stream.appendResultStore(resultStore);
+    }
 
 
-	private void sendEvent(String eventType, String action, Map<String, String> metadata) {
-		if (loggingClient != null && loggingClient.isEnabled()) {
-			try {
-				loggingClient.send(LoggingEvent.builder(eventType)
-					.action(action)
-					.metadata(Map.copyOf(metadata))
-					.build());
-			} catch (Exception e) {
-				log.warn("Failed to send audit log event", e);
-			}
-		}
-	}
+    private void sendEvent(String eventType, String action, Map<String, String> metadata) {
+        if (loggingClient != null && loggingClient.isEnabled()) {
+            try {
+                loggingClient.send(LoggingEvent.builder(eventType).action(action).metadata(Map.copyOf(metadata)).build());
+            } catch (Exception e) {
+                log.warn("Failed to send audit log event", e);
+            }
+        }
+    }
 
-	@Override
-	public void run() {
-		status = AsyncResult.Status.RUNNING;
-		long startTime = System.currentTimeMillis();
+    @Override
+    public void run() {
+        status = AsyncResult.Status.RUNNING;
+        long startTime = System.currentTimeMillis();
 
-		sendEvent("QUERY", "query.execution.started", Map.of(
-			"query_id", id,
-			"result_type", String.valueOf(query.getExpectedResultType())
-		));
+        sendEvent(
+            "QUERY", "query.execution.started",
+            Map.of("query_id", id != null ? id : "unknown", "result_type", String.valueOf(query.getExpectedResultType()))
+        );
 
-		try {
-			processor.runQuery(query, this);
-			this.numColumns = this.headerRow.length;
-			this.numRows = stream.getNumRows();
-			long durationMs = System.currentTimeMillis() - startTime;
-			log.info("Ran Query in " + durationMs + "ms for " + numRows + " rows and " + numColumns + " columns");
-			this.status = AsyncResult.Status.SUCCESS;
+        try {
+            processor.runQuery(query, this);
+            this.numColumns = this.headerRow.length;
+            this.numRows = stream.getNumRows();
+            long durationMs = System.currentTimeMillis() - startTime;
+            log.info("Ran Query in " + durationMs + "ms for " + numRows + " rows and " + numColumns + " columns");
+            this.status = AsyncResult.Status.SUCCESS;
 
-			sendEvent("QUERY", "query.completed", Map.of(
-				"query_id", id,
-				"result_type", String.valueOf(query.getExpectedResultType()),
-				"status", "success",
-				"duration_ms", String.valueOf(durationMs),
-				"row_count", String.valueOf(numRows)
-			));
-		} catch (Exception e) {
-			long durationMs = System.currentTimeMillis() - startTime;
-			log.error("Query failed in " + durationMs + "ms", e);
-			this.status = AsyncResult.Status.ERROR;
+            sendEvent(
+                "QUERY", "query.completed",
+                Map.of(
+                    "query_id", id != null ? id : "unknown", "result_type", String.valueOf(query.getExpectedResultType()), "status",
+                    "success", "duration_ms", String.valueOf(durationMs), "row_count", String.valueOf(numRows)
+                )
+            );
+        } catch (Exception e) {
+            long durationMs = System.currentTimeMillis() - startTime;
+            log.error("Query failed in " + durationMs + "ms", e);
+            this.status = AsyncResult.Status.ERROR;
 
-			sendEvent("QUERY", "query.completed", Map.of(
-				"query_id", id,
-				"result_type", String.valueOf(query.getExpectedResultType()),
-				"status", "error",
-				"duration_ms", String.valueOf(durationMs)
-			));
-		} finally {
-			this.completedTime = System.currentTimeMillis();
-		}
-	}
+            sendEvent(
+                "QUERY", "query.completed",
+                Map.of(
+                    "query_id", id != null ? id : "unknown", "result_type", String.valueOf(query.getExpectedResultType()), "status",
+                    "error", "duration_ms", String.valueOf(durationMs)
+                )
+            );
+        } finally {
+            this.completedTime = System.currentTimeMillis();
+        }
+    }
 
-	public void enqueue() {
-		try {
-		this.jobQueue.execute(this);
-		} catch (RejectedExecutionException e) {
-			this.status = AsyncResult.Status.ERROR;
-		}
-	}
+    public void enqueue() {
+        try {
+            this.jobQueue.execute(this);
+        } catch (RejectedExecutionException e) {
+            this.status = AsyncResult.Status.ERROR;
+        }
+    }
 
-	public void open() {
-		stream.open();
-	}
+    public void open() {
+        stream.open();
+    }
 
-	@Override
-	public int compareTo(AsyncResult o) {
-		return this.query.getId().compareTo(o.query.getId());
-	}
+    @Override
+    public int compareTo(AsyncResult o) {
+        return this.query.getId().compareTo(o.query.getId());
+    }
 
-	public Path getTempFilePath() {
-		return stream.getTempFilePath();
-	}
+    public Path getTempFilePath() {
+        return stream.getTempFilePath();
+    }
 
 }
