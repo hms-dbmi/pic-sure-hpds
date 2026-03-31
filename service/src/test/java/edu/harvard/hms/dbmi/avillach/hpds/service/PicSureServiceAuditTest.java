@@ -4,9 +4,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
+import java.util.UUID;
 
 import edu.harvard.dbmi.avillach.domain.QueryRequest;
+import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.ResultType;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.*;
@@ -56,7 +60,7 @@ class PicSureServiceAuditTest {
         when(asyncResult.getStatus()).thenReturn(AsyncResult.Status.RUNNING);
         when(asyncResult.getQueuedTime()).thenReturn(1000L);
         when(asyncResult.getCompletedTime()).thenReturn(0L);
-        edu.harvard.hms.dbmi.avillach.hpds.data.query.Query mockQuery = mock(edu.harvard.hms.dbmi.avillach.hpds.data.query.Query.class);
+        Query mockQuery = mock(Query.class);
         when(asyncResult.getQuery()).thenReturn(mockQuery);
         when(mockQuery.getId()).thenReturn("internal-id");
         when(queryService.runQuery(any())).thenReturn(asyncResult);
@@ -76,7 +80,7 @@ class PicSureServiceAuditTest {
 
     @Test
     void queryResultPopulatesQueryId() throws IOException {
-        java.util.UUID queryId = java.util.UUID.randomUUID();
+        UUID queryId = UUID.randomUUID();
         when(queryService.getResultFor(queryId.toString())).thenReturn(null);
 
         service.queryResult(queryId, mock(QueryRequest.class));
@@ -86,12 +90,12 @@ class PicSureServiceAuditTest {
 
     @Test
     void queryStatusPopulatesQueryId() {
-        java.util.UUID queryId = java.util.UUID.randomUUID();
+        UUID queryId = UUID.randomUUID();
         AsyncResult asyncResult = mock(AsyncResult.class);
         when(asyncResult.getStatus()).thenReturn(AsyncResult.Status.RUNNING);
         when(asyncResult.getQueuedTime()).thenReturn(1000L);
         when(asyncResult.getCompletedTime()).thenReturn(0L);
-        edu.harvard.hms.dbmi.avillach.hpds.data.query.Query mockQuery = mock(edu.harvard.hms.dbmi.avillach.hpds.data.query.Query.class);
+        Query mockQuery = mock(Query.class);
         when(asyncResult.getQuery()).thenReturn(mockQuery);
         when(mockQuery.getId()).thenReturn("internal-id");
         when(queryService.getStatusFor(queryId.toString())).thenReturn(asyncResult);
@@ -103,7 +107,7 @@ class PicSureServiceAuditTest {
 
     @Test
     void querySignedUrlPopulatesQueryId() throws IOException {
-        java.util.UUID queryId = java.util.UUID.randomUUID();
+        UUID queryId = UUID.randomUUID();
         when(queryService.getResultFor(queryId.toString())).thenReturn(null);
 
         service.querySignedURL(queryId, mock(QueryRequest.class));
@@ -113,7 +117,7 @@ class PicSureServiceAuditTest {
 
     @Test
     void writeQueryResultPopulatesDataTypeAndResultType() {
-        edu.harvard.hms.dbmi.avillach.hpds.data.query.Query query = mock(edu.harvard.hms.dbmi.avillach.hpds.data.query.Query.class);
+        Query query = mock(Query.class);
         when(query.getExpectedResultType()).thenReturn(ResultType.COUNT);
         when(query.getPicSureId()).thenReturn(":)");
 
@@ -126,8 +130,8 @@ class PicSureServiceAuditTest {
 
     @Test
     void searchPopulatesSearchTerm() {
-        when(abstractProcessor.getDictionary()).thenReturn(new java.util.TreeMap<>());
-        when(abstractProcessor.getInfoStoreMeta()).thenReturn(java.util.List.of());
+        when(abstractProcessor.getDictionary()).thenReturn(new TreeMap<>());
+        when(abstractProcessor.getInfoStoreMeta()).thenReturn(List.of());
 
         QueryRequest searchRequest = mock(QueryRequest.class);
         when(searchRequest.getQuery()).thenReturn("blood pressure");
@@ -139,7 +143,7 @@ class PicSureServiceAuditTest {
 
     @Test
     void searchWithNullQueryDoesNotSetSearchTermOrThrow() {
-        when(abstractProcessor.getDictionary()).thenReturn(new java.util.TreeMap<>());
+        when(abstractProcessor.getDictionary()).thenReturn(new TreeMap<>());
 
         QueryRequest searchRequest = mock(QueryRequest.class);
         when(searchRequest.getQuery()).thenReturn(null);
@@ -151,7 +155,7 @@ class PicSureServiceAuditTest {
 
     @Test
     void searchGenomicConceptValuesPopulatesConceptPath() {
-        when(abstractProcessor.searchInfoConceptValues(anyString(), anyString())).thenReturn(java.util.List.of("val1"));
+        when(abstractProcessor.searchInfoConceptValues(anyString(), anyString())).thenReturn(List.of("val1"));
 
         Paginator paginator = new Paginator();
         PicSureService serviceWithRealPaginator = new PicSureService(
