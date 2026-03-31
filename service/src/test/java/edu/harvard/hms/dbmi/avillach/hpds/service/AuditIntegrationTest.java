@@ -30,12 +30,10 @@ class AuditIntegrationTest {
     static class TestController {
 
         @AuditEvent(type = "QUERY", action = "query.submitted")
-        public void queryEndpoint() {
-        }
+        public void queryEndpoint() {}
 
         @AuditEvent(type = "DATA_ACCESS", action = "query.result")
-        public void resultEndpoint() {
-        }
+        public void resultEndpoint() {}
     }
 
     @BeforeEach
@@ -43,7 +41,7 @@ class AuditIntegrationTest {
         interceptor = new AuditInterceptor();
         loggingClient = mock(LoggingClient.class);
         when(loggingClient.isEnabled()).thenReturn(true);
-        filter = new AuditLoggingFilter(loggingClient);
+        filter = new AuditLoggingFilter(loggingClient, null, null);
     }
 
     @Test
@@ -88,10 +86,12 @@ class AuditIntegrationTest {
         assertEquals("10.0.0.1", event.getRequest().getSrcIp());
         assertEquals(200, event.getRequest().getStatus());
 
+        // Verify session ID (top-level on event, not in metadata)
+        assertEquals("session-99", event.getSessionId());
+
         // Verify metadata
         Map<String, Object> metadata = event.getMetadata();
         assertNotNull(metadata);
-        assertEquals("session-99", metadata.get("session_id"));
         assertEquals("v3", metadata.get("api_version"));
         assertEquals("q-abc", metadata.get("query_id"));
         assertEquals("COUNT", metadata.get("result_type"));

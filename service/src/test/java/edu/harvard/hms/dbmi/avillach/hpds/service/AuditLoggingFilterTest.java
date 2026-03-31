@@ -27,7 +27,7 @@ class AuditLoggingFilterTest {
     void setup() {
         loggingClient = mock(LoggingClient.class);
         when(loggingClient.isEnabled()).thenReturn(true);
-        filter = new AuditLoggingFilter(loggingClient);
+        filter = new AuditLoggingFilter(loggingClient, null, null);
     }
 
     private MockHttpServletRequest mockRequest(String path, String method) {

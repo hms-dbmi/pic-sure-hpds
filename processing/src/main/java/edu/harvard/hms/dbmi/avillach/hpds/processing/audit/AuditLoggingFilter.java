@@ -18,43 +18,24 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Generic audit logging filter shared by both the HPDS service and the genomic processor.
- * <p>
- * Event categorization is NOT done here — it is set by {@link AuditInterceptor}
- * (reading {@link AuditEvent} annotations) as request attributes. This filter reads
- * those attributes and falls back to OTHER / HTTP method if none are set.
- * <p>
- * Domain-specific metadata (query_id, result_type, etc.) is set by controllers via
- * {@link AuditAttributes#putMetadata}.
- * <p>
- * Not annotated {@code @Component} — each application registers it via its own
+ * Generic audit logging filter shared by both the HPDS service and the genomic processor. <p> Event categorization is NOT done here — it is
+ * set by {@link AuditInterceptor} (reading {@link AuditEvent} annotations) as request attributes. This filter reads those attributes and
+ * falls back to OTHER / HTTP method if none are set. <p> Domain-specific metadata (query_id, result_type, etc.) is set by controllers via
+ * {@link AuditAttributes#putMetadata}. <p> Not annotated {@code @Component} — each application registers it via its own
  * {@code LoggingConfig} to allow sharing across separately-scanned Spring Boot apps.
  */
 public class AuditLoggingFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(AuditLoggingFilter.class);
 
-    private static final String DEST_IP;
-    private static final Integer DEST_PORT;
-
-    static {
-        DEST_IP = System.getenv("DEST_IP");
-        Integer port = null;
-        String portStr = System.getenv("DEST_PORT");
-        if (portStr != null) {
-            try {
-                port = Integer.parseInt(portStr);
-            } catch (NumberFormatException e) {
-                // ignore, will fallback to request
-            }
-        }
-        DEST_PORT = port;
-    }
-
+    private final String destIpConfig;
+    private final Integer destPortConfig;
     private final LoggingClient loggingClient;
 
-    public AuditLoggingFilter(LoggingClient loggingClient) {
+    public AuditLoggingFilter(LoggingClient loggingClient, String destIp, Integer destPort) {
         this.loggingClient = loggingClient;
+        this.destIpConfig = destIp;
+        this.destPortConfig = destPort;
     }
 
     @Override
@@ -94,26 +75,17 @@ public class AuditLoggingFilter extends OncePerRequestFilter {
                 String srcIp = extractSourceIp(request);
 
                 // Destination IP and port
-                String destIp = DEST_IP != null ? DEST_IP : request.getLocalAddr();
-                int destPort = DEST_PORT != null ? DEST_PORT : request.getLocalPort();
+                String destIp = destIpConfig != null ? destIpConfig : request.getLocalAddr();
+                int destPort = destPortConfig != null ? destPortConfig : request.getLocalPort();
 
                 // Response info
                 int responseStatus = response.getStatus();
                 String contentType = response.getContentType();
                 Long bytes = parseContentLength(response.getHeader("Content-Length"));
 
-                RequestInfo requestInfo = RequestInfo.builder()
-                    .method(method)
-                    .url(fullPath)
-                    .srcIp(srcIp)
-                    .destIp(destIp)
-                    .destPort(destPort)
-                    .httpUserAgent(request.getHeader("User-Agent"))
-                    .status(responseStatus)
-                    .duration(duration)
-                    .httpContentType(contentType)
-                    .bytes(bytes)
-                    .build();
+                RequestInfo requestInfo = RequestInfo.builder().method(method).url(fullPath).srcIp(srcIp).destIp(destIp).destPort(destPort)
+                    .httpUserAgent(request.getHeader("User-Agent")).status(responseStatus).duration(duration).httpContentType(contentType)
+                    .bytes(bytes).build();
 
                 // Build metadata: api version + domain metadata from controllers
                 String sessionId = SessionIdResolver.resolve(request.getHeader("X-Session-Id"), srcIp, request.getHeader("User-Agent"));
@@ -133,11 +105,8 @@ public class AuditLoggingFilter extends OncePerRequestFilter {
                     errorMap.put("error_type", responseStatus >= 500 ? "server_error" : "client_error");
                 }
 
-                LoggingEvent.Builder eventBuilder = LoggingEvent.builder(eventType)
-                    .action(action)
-                    .sessionId(sessionId)
-                    .request(requestInfo)
-                    .metadata(metadata);
+                LoggingEvent.Builder eventBuilder =
+                    LoggingEvent.builder(eventType).action(action).sessionId(sessionId).request(requestInfo).metadata(metadata);
 
                 if (errorMap != null) {
                     eventBuilder.error(errorMap);
