@@ -9,13 +9,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 
@@ -229,4 +233,92 @@ class PhenotypicQueryExecutorTest {
         assertEquals(Set.of(), patientSet);
     }
 
+    /**
+     * Regression test for a cross-study consent leak.
+     *
+     * Setup mirrors the production bug:
+     *   - User has phs001001.c1, phs001062.c1, phs001062.c2 (NOT phs001001.c2).
+     *   - Patient 1 is in phs001001.c2 AND phs001062.c2 (overlapping).
+     *   - Patient 2 is in phs001001.c2 only.
+     *   - Query filters on a phs001001 variable whose value only appears for phs001001.c2 patients.
+     *
+     * With the global-OR authorization filter, Patient 1 leaks through because their
+     * phs001062.c2 membership satisfies the auth filter. Expected behavior: neither patient
+     * should be returned because the user is not authorized for phs001001.c2.
+     */
+    @Test
+    public void getPatientSet_overlappingConsentsAcrossStudies_doesNotLeakPatients() {
+        String phs001001DiseasePath = "\\phs001001\\data\\disease\\";
+        String consentsPath = "\\_consents\\";
+
+        Map<String, Set<Integer>> consentMembership = Map.of(
+            "phs001001.c1", Set.of(),
+            "phs001001.c2", Set.of(1, 2),
+            "phs001062.c1", Set.of(),
+            "phs001062.c2", Set.of(1)
+        );
+        stubConsentsCube(consentsPath, consentMembership);
+        // Both patients 1 and 2 have the disease value (disease filter alone doesn't distinguish them).
+        when(phenotypicObservationStore.getKeysForValues(eq(phs001001DiseasePath), eq(Set.of("DS-AF-IRB-RD"))))
+            .thenReturn(Set.of(1, 2));
+
+        PhenotypicFilter diseaseFilter =
+            new PhenotypicFilter(PhenotypicFilterType.FILTER, phs001001DiseasePath, Set.of("DS-AF-IRB-RD"), null, null, null);
+        AuthorizationFilter authFilter = new AuthorizationFilter(consentsPath, Set.of("phs001001.c1", "phs001062.c1", "phs001062.c2"));
+        Query query = new Query(
+            List.of(), List.of(authFilter), diseaseFilter, null, ResultType.COUNT, null, null
+        );
+
+        Set<Integer> patientSet = phenotypicQueryExecutor.getPatientSet(query);
+        assertEquals(Set.of(), patientSet);
+    }
+
+    /**
+     * Positive counterpart to the overlap regression: a patient who *is* in the user's allowed
+     * phs001001 consent should still come through, and the per-study auth filter must not
+     * require membership in studies the query doesn't reference.
+     */
+    @Test
+    public void getPatientSet_authorizedPatientInReferencedStudy_returnsPatient() {
+        String phs001001DiseasePath = "\\phs001001\\data\\disease\\";
+        String consentsPath = "\\_consents\\";
+
+        Map<String, Set<Integer>> consentMembership = Map.of(
+            "phs001001.c1", Set.of(42),
+            "phs001001.c2", Set.of(99),
+            "phs001062.c1", Set.of(),
+            "phs001062.c2", Set.of()
+        );
+        stubConsentsCube(consentsPath, consentMembership);
+        // Patient 42 (authorized via c1) and patient 99 (unauthorized c2-only) both have the disease value.
+        when(phenotypicObservationStore.getKeysForValues(eq(phs001001DiseasePath), eq(Set.of("DS-AF-IRB-RD"))))
+            .thenReturn(Set.of(42, 99));
+
+        PhenotypicFilter diseaseFilter =
+            new PhenotypicFilter(PhenotypicFilterType.FILTER, phs001001DiseasePath, Set.of("DS-AF-IRB-RD"), null, null, null);
+        AuthorizationFilter authFilter = new AuthorizationFilter(consentsPath, Set.of("phs001001.c1", "phs001062.c1", "phs001062.c2"));
+        Query query = new Query(
+            List.of(), List.of(authFilter), diseaseFilter, null, ResultType.COUNT, null, null
+        );
+
+        Set<Integer> patientSet = phenotypicQueryExecutor.getPatientSet(query);
+        assertEquals(Set.of(42), patientSet);
+    }
+
+    /**
+     * Stubs the _consents cube so that getKeysForValues returns the union of patients
+     * for whichever consent values the executor asks about. This mirrors the real
+     * multi-value PhenoCube semantics: a patient can belong to multiple consent values,
+     * and any requested value-set yields the union of member patients.
+     */
+    private void stubConsentsCube(String consentsPath, Map<String, Set<Integer>> consentMembership) {
+        lenient().when(phenotypicObservationStore.getKeysForValues(eq(consentsPath), any())).thenAnswer(invocation -> {
+            Collection<String> requested = invocation.getArgument(1);
+            Set<Integer> union = new HashSet<>();
+            for (String value : requested) {
+                union.addAll(consentMembership.getOrDefault(value, Set.of()));
+            }
+            return union;
+        });
+    }
 }
