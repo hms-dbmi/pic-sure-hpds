@@ -8,6 +8,8 @@ import edu.harvard.hms.dbmi.avillach.hpds.test.util.BuildIntegrationTestEnvironm
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,6 +25,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(classes = edu.harvard.hms.dbmi.avillach.hpds.service.HpdsApplication.class)
 @ActiveProfiles("integration-test")
 public class QueryExecutorIntegrationTest {
+
+    private static final Logger log = LoggerFactory.getLogger(QueryExecutorIntegrationTest.class);
 
     @Autowired
     private QueryExecutor queryExecutor;
@@ -91,7 +95,7 @@ public class QueryExecutorIntegrationTest {
         Query query = new Query(
             List.of(), List.of(),
             new PhenotypicFilter(
-                PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", List.of("Finnish"), null, null, null
+                PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", Set.of("Finnish"), null, null, null
             ), null, ResultType.COUNT, null, null
         );
         Set<Integer> idList = queryExecutor.getPatientSubsetForQuery(query);
@@ -103,7 +107,7 @@ public class QueryExecutorIntegrationTest {
         Query query = new Query(
             List.of(), List.of(),
             new PhenotypicFilter(
-                PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\NOTAREAL_CONCEPT\\", List.of("Finnish"), null, null, null
+                PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\NOTAREAL_CONCEPT\\", Set.of("Finnish"), null, null, null
             ), null, ResultType.COUNT, null, null
         );
         Set<Integer> idList = queryExecutor.getPatientSubsetForQuery(query);
@@ -115,7 +119,7 @@ public class QueryExecutorIntegrationTest {
         Query query = new Query(
             List.of(), List.of(),
             new PhenotypicFilter(
-                PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", List.of("Finnish"), null, null, null
+                PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", Set.of("Finnish"), null, null, null
             ), null, ResultType.COUNT, null, null
         );
         Set<Integer> finnishIdList = queryExecutor.getPatientSubsetForQuery(query);
@@ -124,7 +128,7 @@ public class QueryExecutorIntegrationTest {
         query = new Query(
             List.of(), List.of(),
             new PhenotypicFilter(
-                PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", List.of("Colombian"), null, null, null
+                PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", Set.of("Colombian"), null, null, null
             ), null, ResultType.COUNT, null, null
         );
         Set<Integer> columbianIdList = queryExecutor.getPatientSubsetForQuery(query);
@@ -133,7 +137,7 @@ public class QueryExecutorIntegrationTest {
         query = new Query(
             List.of(), List.of(),
             new PhenotypicFilter(
-                PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", List.of("Finnish", "Colombian"), null,
+                PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", Set.of("Finnish", "Colombian"), null,
                 null, null
             ), null, ResultType.COUNT, null, null
         );
@@ -145,15 +149,14 @@ public class QueryExecutorIntegrationTest {
     @Test
     public void getPatientSubsetForQuery_validMultipleCategoricalPhenotypicQuery() {
         PhenotypicFilter finnishFilter = new PhenotypicFilter(
-            PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", List.of("Finnish"), null, null, null
+            PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", Set.of("Finnish"), null, null, null
         );
         Query query = new Query(List.of(), List.of(), finnishFilter, null, ResultType.COUNT, null, null);
         Set<Integer> finnishIdList = queryExecutor.getPatientSubsetForQuery(query);
         assertEquals(102, finnishIdList.size());
 
-        PhenotypicFilter femaleFilter = new PhenotypicFilter(
-            PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\SEX\\", List.of("female"), null, null, null
-        );
+        PhenotypicFilter femaleFilter =
+            new PhenotypicFilter(PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\SEX\\", Set.of("female"), null, null, null);
         query = new Query(List.of(), List.of(), femaleFilter, null, ResultType.COUNT, null, null);
         Set<Integer> femaleIdList = queryExecutor.getPatientSubsetForQuery(query);
         assertEquals(2330, femaleIdList.size());
@@ -174,7 +177,7 @@ public class QueryExecutorIntegrationTest {
         assertEquals(562, ageIdList.size());
 
         PhenotypicFilter maleFilter =
-            new PhenotypicFilter(PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\SEX\\", List.of("male"), null, null, null);
+            new PhenotypicFilter(PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\SEX\\", Set.of("male"), null, null, null);
         query = new Query(List.of(), List.of(), maleFilter, null, ResultType.COUNT, null, null);
         Set<Integer> sexIdList = queryExecutor.getPatientSubsetForQuery(query);
         assertEquals(2648, sexIdList.size());
@@ -388,7 +391,7 @@ public class QueryExecutorIntegrationTest {
     @Test
     public void getPatientSubsetForQuery_validPhenotypicOrQuery() {
         PhenotypicFilter finnishFilter = new PhenotypicFilter(
-            PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", List.of("Finnish"), null, null, null
+            PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", Set.of("Finnish"), null, null, null
         );
         Query query = new Query(List.of(), List.of(), finnishFilter, null, ResultType.COUNT, null, null);
         Set<Integer> finnishIdList = queryExecutor.getPatientSubsetForQuery(query);
@@ -409,7 +412,7 @@ public class QueryExecutorIntegrationTest {
     @Test
     public void getPatientSubsetForQuery_validPhenotypicRequiredQuery() {
         PhenotypicFilter yorubaFilter = new PhenotypicFilter(
-            PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", List.of("Yoruba"), null, null, null
+            PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", Set.of("Yoruba"), null, null, null
         );
         Query query = new Query(List.of(), List.of(), yorubaFilter, null, ResultType.COUNT, null, null);
         Set<Integer> yorubaIdList = queryExecutor.getPatientSubsetForQuery(query);
@@ -431,22 +434,21 @@ public class QueryExecutorIntegrationTest {
     @Test
     public void getPatientSubsetForQuery_validPhenotypicQueryWithAuthorizationFilter() {
         PhenotypicFilter finnishFilter = new PhenotypicFilter(
-            PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", List.of("Finnish"), null, null, null
+            PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\POPULATION NAME\\", Set.of("Finnish"), null, null, null
         );
         Query query = new Query(List.of(), List.of(), finnishFilter, null, ResultType.COUNT, null, null);
         Set<Integer> finnishIdList = queryExecutor.getPatientSubsetForQuery(query);
         assertEquals(102, finnishIdList.size());
 
-        PhenotypicFilter femaleFilter = new PhenotypicFilter(
-            PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\SEX\\", List.of("female"), null, null, null
-        );
+        PhenotypicFilter femaleFilter =
+            new PhenotypicFilter(PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\SEX\\", Set.of("female"), null, null, null);
         query = new Query(List.of(), List.of(), femaleFilter, null, ResultType.COUNT, null, null);
         Set<Integer> femaleIdList = queryExecutor.getPatientSubsetForQuery(query);
         assertEquals(2330, femaleIdList.size());
 
 
         AuthorizationFilter authorizationFilter =
-            new AuthorizationFilter("\\open_access-1000Genomes\\data\\POPULATION NAME\\", List.of("Finnish"));
+            new AuthorizationFilter("\\open_access-1000Genomes\\data\\POPULATION NAME\\", Set.of("Finnish"));
         query = new Query(List.of(), List.of(authorizationFilter), femaleFilter, null, ResultType.COUNT, null, null);
         Set<Integer> bothIdList = queryExecutor.getPatientSubsetForQuery(query);
         assertEquals(64, bothIdList.size());
@@ -479,8 +481,7 @@ public class QueryExecutorIntegrationTest {
 
     @Test
     public void getAllConceptPaths_validQuery_returnPaths() {
-        AuthorizationFilter authorizationFilter =
-            new AuthorizationFilter("\\open_access-1000Genomes\\data\\AUTH_CONCEPT\\", List.of("ABC"));
+        AuthorizationFilter authorizationFilter = new AuthorizationFilter("\\open_access-1000Genomes\\data\\AUTH_CONCEPT\\", Set.of("ABC"));
 
         PhenotypicFilter anyRecordOfFilter =
             new PhenotypicFilter(PhenotypicFilterType.ANY_RECORD_OF, "\\open_access-1000Genomes\\data\\POPULATION", null, null, null, null);
@@ -515,6 +516,29 @@ public class QueryExecutorIntegrationTest {
 
         SequencedSet<String> allConceptPaths = queryExecutor.getAllConceptPaths(query);
         assertEquals(0, allConceptPaths.size());
+    }
+
+    @Test
+    public void getPatientSubsetForQuery_validLargeGenomicQuery() {
+        Query query = new Query(
+            List.of(), List.of(),
+            new PhenotypicFilter(PhenotypicFilterType.FILTER, "\\open_access-1000Genomes\\data\\SYNTHETIC_AGE\\", null, 35.0, 45.0, null),
+            List.of(
+                new GenomicFilter("Gene_with_variant", List.of("LOC102723996", "LOC101928576", "ABC1", "ABC2", "ABC3"), null, null),
+                new GenomicFilter(
+                    "Variant_consequence_calculated",
+                    List.of(
+                        "splice_acceptor_variant", "splice_donor_variant", "stop_gained", "frameshift_variant", "stop_lost", "start_lost",
+                        "inframe_insertion", "inframe_deletion", "missense_variant", "protein_altering_variant", "splice_region_variant",
+                        "splice_donor_5th_base_variant", "splice_donor_region_variant", "splice_polypyrimidine_tract_variant",
+                        "incomplete_terminal_codon_variant", "start_retained_variant", "stop_retained_variant", "synonymous_variant"
+                    ), null, null
+                )
+            ), ResultType.COUNT, null, null
+        );
+
+        Set<Integer> idList = queryExecutor.getPatientSubsetForQuery(query);
+        assertEquals(14, idList.size());
     }
 
 }

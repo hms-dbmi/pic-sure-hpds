@@ -1,5 +1,6 @@
 package edu.harvard.hms.dbmi.avillach.hpds.service.filesharing;
 
+import edu.harvard.dbmi.avillach.logging.LoggingClient;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.ResultType;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.AsyncResult;
@@ -43,6 +44,9 @@ public class FileSharingServiceTest {
     @MockBean
     ResultWriter resultWriter;
 
+    @MockBean
+    LoggingClient loggingClient;
+
     @Autowired
     FileSharingService subject;
 
@@ -54,10 +58,8 @@ public class FileSharingServiceTest {
         AsyncResult result = new AsyncResult(query, variantListProcessor, resultWriter);
         result.setStatus(AsyncResult.Status.SUCCESS);
 
-        Mockito.when(queryService.getResultFor("my-id"))
-            .thenReturn(result);
-        Mockito.when(fileWriter.writeResultToFile("phenotypic_data.csv", result, "my-ps-id"))
-            .thenReturn(true);
+        Mockito.when(queryService.getResultFor("my-id")).thenReturn(result);
+        Mockito.when(fileWriter.writeResultToFile("phenotypic_data.csv", result, "my-ps-id")).thenReturn(true);
 
         boolean actual = subject.createPhenotypicData(query);
 
@@ -72,8 +74,7 @@ public class FileSharingServiceTest {
         AsyncResult result = new AsyncResult(query, variantListProcessor, resultWriter);
         result.setStatus(AsyncResult.Status.ERROR);
 
-        Mockito.when(queryService.getResultFor("my-id"))
-            .thenReturn(result);
+        Mockito.when(queryService.getResultFor("my-id")).thenReturn(result);
 
         boolean actual = subject.createPhenotypicData(query);
 
@@ -85,10 +86,8 @@ public class FileSharingServiceTest {
         Query query = new Query();
         query.setPicSureId("my-id");
         String vcf = "lol lets put the whole vcf in a string";
-        Mockito.when(variantListProcessor.runVcfExcerptQuery(query, true))
-            .thenReturn(vcf);
-        Mockito.when(fileWriter.writeResultToFile("genomic_data.tsv", vcf, "my-id"))
-            .thenReturn(true);
+        Mockito.when(variantListProcessor.runVcfExcerptQuery(query, true)).thenReturn(vcf);
+        Mockito.when(fileWriter.writeResultToFile("genomic_data.tsv", vcf, "my-id")).thenReturn(true);
 
         boolean actual = subject.createGenomicData(query);
 
@@ -99,8 +98,7 @@ public class FileSharingServiceTest {
     public void shouldNotCreateGenomicData() throws IOException {
         Query query = new Query();
         query.setPicSureId("my-id");
-        Mockito.when(variantListProcessor.runVcfExcerptQuery(query, true))
-            .thenThrow(new IOException("oh no!"));
+        Mockito.when(variantListProcessor.runVcfExcerptQuery(query, true)).thenThrow(new IOException("oh no!"));
 
         boolean actual = subject.createGenomicData(query);
 
@@ -115,10 +113,8 @@ public class FileSharingServiceTest {
         query.setExpectedResultType(ResultType.PATIENTS);
         AsyncResult result = new AsyncResult(query, patientProcessor, resultWriter);
         result.setStatus(AsyncResult.Status.SUCCESS);
-        Mockito.when(queryService.getResultFor("jasdijasd"))
-            .thenReturn(result);
-        Mockito.when(fileWriter.writeResultToFile("patients.txt", result, "jasdijasd"))
-            .thenReturn(true);
+        Mockito.when(queryService.getResultFor("jasdijasd")).thenReturn(result);
+        Mockito.when(fileWriter.writeResultToFile("patients.txt", result, "jasdijasd")).thenReturn(true);
 
         boolean actual = subject.createPatientList(query);
 
