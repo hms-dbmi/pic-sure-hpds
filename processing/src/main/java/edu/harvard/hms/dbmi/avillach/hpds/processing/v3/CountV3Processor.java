@@ -197,13 +197,6 @@ public class CountV3Processor implements HpdsV3Processor {
     }
 
     private boolean isContinuousCrossCountFilter(PhenotypicFilter phenotypicFilter) {
-        if (phenotypicFilter.isNumericFilter()) {
-            return true;
-        }
-        if (!PhenotypicFilterType.REQUIRED.equals(phenotypicFilter.phenotypicFilterType())
-            && !PhenotypicFilterType.ANY_RECORD_OF.equals(phenotypicFilter.phenotypicFilterType())) {
-            return false;
-        }
         return Optional.ofNullable(queryExecutor.getDictionary().get(phenotypicFilter.conceptPath()))
             .map(meta -> !meta.isCategorical())
             .orElse(false);
