@@ -36,7 +36,7 @@
 		<repository>
 			<id>github</id>
 			<name>GitHub HMS-DBMI Apache Maven Packages</name>
-			<url>https://maven.pkg.github.com/hms-dbmi/pic-sure</url>
+			<url>https://maven.pkg.github.com/hms-dbmi/pic-sure-common</url>
 			<snapshots>
 				<enabled>true</enabled>
 			</snapshots>
