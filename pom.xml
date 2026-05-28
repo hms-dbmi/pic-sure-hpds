@@ -158,7 +158,7 @@
 			<dependency>
 				<groupId>edu.harvard.hms.dbmi.avillach.hpds</groupId>
 				<artifactId>pic-sure-hpds-model</artifactId>
-				<version>${project.version}</version>
+				<version>1.0.0-SNAPSHOT</version>
 			</dependency>
 			<dependency>
 				<groupId>edu.harvard.hms.dbmi.avillach.hpds</groupId>
