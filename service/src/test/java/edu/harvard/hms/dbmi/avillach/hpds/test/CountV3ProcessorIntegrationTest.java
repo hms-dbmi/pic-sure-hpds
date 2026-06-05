@@ -18,6 +18,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(SpringExtension.class)
 @EnableAutoConfiguration
@@ -156,6 +158,90 @@ public class CountV3ProcessorIntegrationTest {
         Map<String, Map<String, Integer>> crossCounts = countProcessor.runCategoryCrossCounts(query);
         assertEquals(1, crossCounts.size());
         assertEquals(2, crossCounts.get("\\open_access-1000Genomes\\data\\SEX\\").get("male"));
+    }
+
+    /**
+     * Two categorical filters on the SAME concept path, OR'd together. With the v3 query a user can add sex=male OR sex=female as two
+     * separate filters; the result must be a SINGLE chart entry for SEX that contains BOTH values, not just the last filter's value.
+     */
+    @Test
+    public void runCategoryCrossCounts_duplicateCategoricalSamePathOr() {
+        String sexPath = "\\open_access-1000Genomes\\data\\SEX\\";
+        PhenotypicFilter maleFilter = new PhenotypicFilter(PhenotypicFilterType.FILTER, sexPath, Set.of("male"), null, null, null);
+        PhenotypicFilter femaleFilter = new PhenotypicFilter(PhenotypicFilterType.FILTER, sexPath, Set.of("female"), null, null, null);
+        PhenotypicSubquery subquery = new PhenotypicSubquery(null, List.of(maleFilter, femaleFilter), Operator.OR);
+        Query query = new Query(List.of(), List.of(), subquery, null, ResultType.COUNT, null, null);
+
+        Map<String, Map<String, Integer>> crossCounts = countProcessor.runCategoryCrossCounts(query);
+
+        assertEquals(1, crossCounts.size());
+        Map<String, Integer> sexCounts = crossCounts.get(sexPath);
+        assertEquals(Set.of("male", "female"), sexCounts.keySet());
+        assertEquals(2648, sexCounts.get("male"));
+        assertEquals(2330, sexCounts.get("female"));
+    }
+
+    /**
+     * Two categorical filters on the same path, AND'd with disjoint values (sex=male AND sex=female) yields an empty cohort. The single SEX
+     * entry must still list both values, each at zero, rather than dropping one to a map-key collision.
+     */
+    @Test
+    public void runCategoryCrossCounts_duplicateCategoricalSamePathAndDisjoint() {
+        String sexPath = "\\open_access-1000Genomes\\data\\SEX\\";
+        PhenotypicFilter maleFilter = new PhenotypicFilter(PhenotypicFilterType.FILTER, sexPath, Set.of("male"), null, null, null);
+        PhenotypicFilter femaleFilter = new PhenotypicFilter(PhenotypicFilterType.FILTER, sexPath, Set.of("female"), null, null, null);
+        PhenotypicSubquery subquery = new PhenotypicSubquery(null, List.of(maleFilter, femaleFilter), Operator.AND);
+        Query query = new Query(List.of(), List.of(), subquery, null, ResultType.COUNT, null, null);
+
+        Map<String, Map<String, Integer>> crossCounts = countProcessor.runCategoryCrossCounts(query);
+
+        assertEquals(1, crossCounts.size());
+        Map<String, Integer> sexCounts = crossCounts.get(sexPath);
+        assertEquals(Set.of("male", "female"), sexCounts.keySet());
+        assertEquals(0, sexCounts.get("male"));
+        assertEquals(0, sexCounts.get("female"));
+    }
+
+    /**
+     * A REQUIRED filter and a value filter on the same path union to the full distribution within the (male-only) cohort: female must be
+     * present at zero rather than dropped by the value filter overwriting the REQUIRED entry.
+     */
+    @Test
+    public void runCategoryCrossCounts_requiredPlusFilterSamePath() {
+        String sexPath = "\\open_access-1000Genomes\\data\\SEX\\";
+        PhenotypicFilter requiredSex = new PhenotypicFilter(PhenotypicFilterType.REQUIRED, sexPath, null, null, null, null);
+        PhenotypicFilter maleFilter = new PhenotypicFilter(PhenotypicFilterType.FILTER, sexPath, Set.of("male"), null, null, null);
+        PhenotypicSubquery subquery = new PhenotypicSubquery(null, List.of(requiredSex, maleFilter), Operator.AND);
+        Query query = new Query(List.of(), List.of(), subquery, null, ResultType.COUNT, null, null);
+
+        Map<String, Map<String, Integer>> crossCounts = countProcessor.runCategoryCrossCounts(query);
+
+        assertEquals(1, crossCounts.size());
+        Map<String, Integer> sexCounts = crossCounts.get(sexPath);
+        assertEquals(Set.of("male", "female"), sexCounts.keySet());
+        assertEquals(2648, sexCounts.get("male"));
+        assertEquals(0, sexCounts.get("female"));
+    }
+
+    /**
+     * Two numeric range filters on the same path, OR'd, must produce a single entry whose keys are the UNION of the two ranges, not a
+     * widened [min,max] span: a value sitting in the gap between the ranges must NOT appear.
+     */
+    @Test
+    public void runContinuousCrossCounts_duplicateRangesSamePathOr() {
+        String agePath = "\\open_access-1000Genomes\\data\\SYNTHETIC_AGE\\";
+        PhenotypicFilter youngFilter = new PhenotypicFilter(PhenotypicFilterType.FILTER, agePath, null, 31.0, 35.0, null);
+        PhenotypicFilter oldFilter = new PhenotypicFilter(PhenotypicFilterType.FILTER, agePath, null, 55.0, 62.0, null);
+        PhenotypicSubquery subquery = new PhenotypicSubquery(null, List.of(youngFilter, oldFilter), Operator.OR);
+        Query query = new Query(List.of(), List.of(), subquery, null, ResultType.COUNT, null, null);
+
+        Map<String, Map<Double, Integer>> crossCounts = countProcessor.runContinuousCrossCounts(query);
+
+        assertEquals(1, crossCounts.size());
+        Map<Double, Integer> ageCounts = crossCounts.get(agePath);
+        assertTrue(ageCounts.containsKey(31.0), "low range endpoint should be present");
+        assertTrue(ageCounts.containsKey(62.0), "high range endpoint should be present");
+        assertFalse(ageCounts.containsKey(44.0), "a value in the gap between the two ranges must not appear");
     }
 
 }
