@@ -251,6 +251,21 @@ public class CountV3ProcessorIntegrationTest {
     }
 
     /**
+     * A REQUIRED filter on a continuous concept must not produce a categorical cross-count entry: continuous concepts have no categorical
+     * distribution and are handled by runContinuousCrossCounts instead.
+     */
+    @Test
+    public void runCategoryCrossCounts_requiredContinuousConcept_isExcluded() {
+        String agePath = "\\open_access-1000Genomes\\data\\SYNTHETIC_AGE\\";
+        PhenotypicFilter requiredAge = new PhenotypicFilter(PhenotypicFilterType.REQUIRED, agePath, null, null, null, null);
+        Query query = new Query(List.of(), List.of(), requiredAge, null, ResultType.COUNT, null, null);
+
+        Map<String, Map<String, Integer>> crossCounts = countProcessor.runCategoryCrossCounts(query);
+
+        assertFalse(crossCounts.containsKey(agePath), "a continuous concept should not appear in categorical cross counts");
+    }
+
+    /**
      * Two numeric range filters on the same path, OR'd, must produce a single entry whose keys are the UNION of the two ranges, not a
      * widened [min,max] span: a value sitting in the gap between the ranges must NOT appear.
      */

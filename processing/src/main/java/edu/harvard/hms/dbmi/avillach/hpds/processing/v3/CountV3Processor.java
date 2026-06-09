@@ -148,14 +148,19 @@ public class CountV3Processor implements HpdsV3Processor {
     }
 
     /**
-     * A categorical cross count is produced for value filters and REQUIRED filters, excluding variant-spec paths which are not phenotypic
-     * categories.
+     * A categorical cross count is produced for value filters and for REQUIRED filters on categorical concepts, excluding variant-spec
+     * paths. A REQUIRED filter on a continuous concept is gated out here (it is handled by {@link #runContinuousCrossCounts}); otherwise it
+     * would be admitted and rely on the cube having no category map to avoid emitting a meaningless empty entry.
      */
     private boolean isCategoryCrossCountFilter(PhenotypicFilter filter) {
         if (VariantUtils.pathIsVariantSpec(filter.conceptPath())) {
             return false;
         }
-        return filter.isCategoricalFilter() || PhenotypicFilterType.REQUIRED.equals(filter.phenotypicFilterType());
+        if (filter.isCategoricalFilter()) {
+            return true;
+        }
+        return PhenotypicFilterType.REQUIRED.equals(filter.phenotypicFilterType())
+            && Optional.ofNullable(queryExecutor.getDictionary().get(filter.conceptPath())).map(meta -> meta.isCategorical()).orElse(false);
     }
 
     /**

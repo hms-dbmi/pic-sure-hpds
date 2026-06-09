@@ -203,6 +203,7 @@ class CountV3ProcessorTest {
         // Base set is a partial subset of every category, forcing the per-patient counting path.
         // Only patient 1 (male) and patient 4 (female) are in the cohort, so each category count must be exactly 1.
         when(queryExecutor.getPatientSubsetForQuery(query)).thenReturn(Set.of(1, 4));
+        when(queryExecutor.getDictionary()).thenReturn(Map.of(sexPath, new ColumnMeta().setName(sexPath).setCategorical(true)));
         when(phenotypicObservationStore.getCube(sexPath)).thenReturn(Optional.of(cube));
 
         Map<String, Map<String, Integer>> crossCounts = countV3Processor.runCategoryCrossCounts(query);
