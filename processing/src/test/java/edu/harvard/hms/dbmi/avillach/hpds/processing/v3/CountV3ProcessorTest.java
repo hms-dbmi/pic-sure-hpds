@@ -213,26 +213,26 @@ class CountV3ProcessorTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    public void runContinuousCrossCounts_duplicateRangesSamePath_mergesRanges() {
+    public void runContinuousCrossCounts_showsCohortValuesOutsideFilterRange() {
         String agePath = "\\demographics\\AGE\\";
+        // A range filter (age 10-20); the cohort, however, includes patient 2 (age 40) who is outside that range -- as happens when the
+        // range is OR'd with a filter on another concept. The age distribution must include 40 because patient 2 is in the cohort; the
+        // filter range only constrains the cohort, not which values are displayed.
         PhenotypicFilter youngFilter = new PhenotypicFilter(PhenotypicFilterType.FILTER, agePath, null, 10.0, 20.0, null);
-        PhenotypicFilter oldFilter = new PhenotypicFilter(PhenotypicFilterType.FILTER, agePath, null, 60.0, 70.0, null);
-        PhenotypicSubquery subquery = new PhenotypicSubquery(null, List.of(youngFilter, oldFilter), Operator.OR);
-        Query query = new Query(List.of(), List.of(), subquery, List.of(), ResultType.CONTINUOUS_CROSS_COUNT, null, null);
+        Query query = new Query(List.of(), List.of(), youngFilter, List.of(), ResultType.CONTINUOUS_CROSS_COUNT, null, null);
 
         PhenoCube<Double> cube = new PhenoCube<>(agePath, Double.class);
         cube.setSortedByKey(new KeyAndValue[] {new KeyAndValue<>(1, 15.0), new KeyAndValue<>(2, 40.0), new KeyAndValue<>(3, 65.0)});
 
-        when(queryExecutor.getPatientSubsetForQuery(query)).thenReturn(Set.of(1, 2, 3));
+        when(queryExecutor.getPatientSubsetForQuery(query)).thenReturn(Set.of(1, 2));
         when(queryExecutor.getDictionary()).thenReturn(Map.of(agePath, new ColumnMeta().setName(agePath).setCategorical(false)));
         when(phenotypicObservationStore.getCube(agePath)).thenReturn(Optional.of(cube));
 
         Map<String, Map<Double, Integer>> crossCounts = countV3Processor.runContinuousCrossCounts(query);
 
-        assertEquals(1, crossCounts.size());
         assertEquals(1, crossCounts.get(agePath).get(15.0));
-        assertEquals(1, crossCounts.get(agePath).get(65.0));
-        // 40.0 sits in the gap between the two ranges and must not be counted (union of ranges, not a widened span)
-        assertNull(crossCounts.get(agePath).get(40.0));
+        assertEquals(1, crossCounts.get(agePath).get(40.0));
+        // patient 3 (65) is not in the cohort, so it is absent
+        assertNull(crossCounts.get(agePath).get(65.0));
     }
 }
