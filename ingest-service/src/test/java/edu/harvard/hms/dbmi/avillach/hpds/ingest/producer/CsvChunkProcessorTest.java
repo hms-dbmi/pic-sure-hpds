@@ -61,7 +61,8 @@ class CsvChunkProcessorTest {
             """;
         Files.writeString(csvFile, csvContent);
 
-        Consumer<List<ObservationRow>> consumer = rows -> {};
+        Consumer<List<ObservationRow>> consumer = rows -> {
+        };
 
         // Execute
         chunkProcessor.processLargeFileInParallel(csvFile, consumer, 1000, mockProducer);
@@ -79,14 +80,12 @@ class CsvChunkProcessorTest {
 
         // Generate 5000 rows to ensure multiple chunks
         for (int i = 1; i <= 5000; i++) {
-            csvContent.append(i)
-                    .append(",\\test\\concept\\path\\,")
-                    .append(i * 10)
-                    .append(",,2024-01-01T00:00:00Z\n");
+            csvContent.append(i).append(",\\test\\concept\\path\\,").append(i * 10).append(",,2024-01-01T00:00:00Z\n");
         }
         Files.writeString(csvFile, csvContent.toString());
 
-        Consumer<List<ObservationRow>> consumer = rows -> {};
+        Consumer<List<ObservationRow>> consumer = rows -> {
+        };
 
         // Execute - file is small enough to fall back to sequential
         chunkProcessor.processLargeFileInParallel(csvFile, consumer, 1000, mockProducer);
@@ -100,7 +99,8 @@ class CsvChunkProcessorTest {
         Path csvFile = tempDir.resolve("test.csv");
         Files.writeString(csvFile, "PATIENT_NUM,CONCEPT_PATH,NVAL_NUM,TVAL_CHAR\n1,\\test\\,100,\n");
 
-        Consumer<List<ObservationRow>> consumer = rows -> {};
+        Consumer<List<ObservationRow>> consumer = rows -> {
+        };
 
         // Execute - should not throw NullPointerException
         assertDoesNotThrow(() -> {
@@ -116,7 +116,8 @@ class CsvChunkProcessorTest {
         Path csvFile = tempDir.resolve("test.csv");
         Files.writeString(csvFile, "1,\\test\\,100,\n");
 
-        Consumer<List<ObservationRow>> consumer = rows -> {};
+        Consumer<List<ObservationRow>> consumer = rows -> {
+        };
 
         // Should throw NullPointerException when producer is null
         assertThrows(NullPointerException.class, () -> {
@@ -129,7 +130,8 @@ class CsvChunkProcessorTest {
         Path csvFile = tempDir.resolve("empty.csv");
         Files.writeString(csvFile, "");
 
-        Consumer<List<ObservationRow>> consumer = rows -> {};
+        Consumer<List<ObservationRow>> consumer = rows -> {
+        };
 
         // Should not throw exception
         assertDoesNotThrow(() -> {
@@ -143,7 +145,8 @@ class CsvChunkProcessorTest {
         // Add at least one data row so chunk processing is triggered
         Files.writeString(csvFile, "PATIENT_NUM,CONCEPT_PATH,NVAL_NUM,TVAL_CHAR,TIMESTAMP\n1,\\test\\,100,,0\n");
 
-        Consumer<List<ObservationRow>> consumer = rows -> {};
+        Consumer<List<ObservationRow>> consumer = rows -> {
+        };
 
         chunkProcessor.processLargeFileInParallel(csvFile, consumer, 1000, mockProducer);
 
@@ -163,7 +166,8 @@ class CsvChunkProcessorTest {
         }
         Files.writeString(csvFile, csvContent.toString());
 
-        Consumer<List<ObservationRow>> consumer = rows -> {};
+        Consumer<List<ObservationRow>> consumer = rows -> {
+        };
 
         // File is small, will fall back to sequential
         chunkProcessor.processLargeFileInParallel(csvFile, consumer, 1000, mockProducer);
@@ -183,7 +187,8 @@ class CsvChunkProcessorTest {
         }
         Files.writeString(csvFile, csvContent.toString());
 
-        Consumer<List<ObservationRow>> consumer = rows -> {};
+        Consumer<List<ObservationRow>> consumer = rows -> {
+        };
 
         // Should not throw exception - should handle gracefully
         assertDoesNotThrow(() -> {
@@ -192,5 +197,29 @@ class CsvChunkProcessorTest {
 
         // Verify processing was attempted
         verify(mockProducer, atLeastOnce()).processFile(any(Path.class), any(), anyInt());
+    }
+
+    @Test
+    void testDetectHeader_AcceptsCanonicalHeaders() {
+        assertTrue(chunkProcessor.detectHeader("PATIENT_NUM,CONCEPT_PATH,NVAL_NUM,TVAL_CHAR,TIMESTAMP"));
+    }
+
+    @Test
+    void testDetectHeader_AcceptsEhrHeaders() {
+        assertTrue(chunkProcessor.detectHeader("subject_id,concept_path,continuous_nval,categorical_tval,timestamp_ts"));
+        assertTrue(chunkProcessor.detectHeader("Subject_ID,Concept_Path,Continuous_NVal,Categorical_TVal,Timestamp_TS"));
+    }
+
+    @Test
+    void testDetectHeader_RejectsDataLine() {
+        // Data rows always start with an integer patient num
+        assertFalse(chunkProcessor.detectHeader("101,\\teststudy\\condition\\diagnosis\\,,fake diagnosis A,2023-11-25 14:00:00"));
+    }
+
+    @Test
+    void testDetectHeader_RejectsTooFewColumns() {
+        assertFalse(chunkProcessor.detectHeader("some,line"));
+        assertFalse(chunkProcessor.detectHeader(""));
+        assertFalse(chunkProcessor.detectHeader(null));
     }
 }

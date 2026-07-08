@@ -19,23 +19,23 @@ import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /**
  * Produces observations from legacy split CSV files.
  *
- * CSV format (allConcepts schema):
- * Supports both header-based and positional parsing:
+ * CSV format (allConcepts schema): Supports both header-based and positional parsing.
  *
- * With headers (case-insensitive):
- *   PATIENT_NUM, CONCEPT_PATH, NVAL_NUM, TVAL_CHAR, TIMESTAMP
+ * Header detection is structural, not name-based: a first line with at least 4 columns whose first column is not an integer is treated as a
+ * header. This accepts any header naming convention (e.g. PATIENT_NUM,... or subject_id,concept_path,continuous_nval,
+ * categorical_tval,timestamp_ts) while a header-less file - whose first line starts with an integer patient num - stays in positional mode.
  *
- * Without headers (positional):
- * - Column 0: PATIENT_NUM (integer)
- * - Column 1: CONCEPT_PATH (backslash-delimited string, already formatted)
- * - Column 2: NVAL_NUM (numeric value, nullable, empty string if null)
- * - Column 3: TVAL_CHAR (text value, nullable, empty string if null)
- * - Column 4: TIMESTAMP (ISO 8601 or empty, nullable)
+ * Columns (by position, header names are informational only): - Column 0: PATIENT_NUM (integer) - Column 1: CONCEPT_PATH
+ * (backslash-delimited string, already formatted) - Column 2: NVAL_NUM (numeric value, nullable, empty string if null) - Column 3:
+ * TVAL_CHAR (text value, nullable, empty string if null) - Column 4: TIMESTAMP (ISO 8601 with zone, "yyyy-MM-dd HH:mm:ss" assumed UTC, or
+ * empty)
  */
 public class CsvObservationProducer {
     private static final Logger log = LoggerFactory.getLogger(CsvObservationProducer.class);
@@ -47,7 +47,15 @@ public class CsvObservationProducer {
     private final FailureSink failureSink;
     private final CsvChunkProcessor chunkProcessor;
 
-    // Expected header names (case-insensitive)
+    // Per-file timestamp parse failure tracking (parseRecord runs concurrently from chunk threads)
+    private final ConcurrentHashMap<Path, TimestampFailureStats> timestampFailures = new ConcurrentHashMap<>();
+
+    private static class TimestampFailureStats {
+        final AtomicLong count = new AtomicLong();
+        volatile String firstSample;
+    }
+
+    // Canonical column names used for named access after header detection (assigned positionally)
     private static final String HEADER_PATIENT_NUM = "PATIENT_NUM";
     private static final String HEADER_CONCEPT_PATH = "CONCEPT_PATH";
     private static final String HEADER_NVAL_NUM = "NVAL_NUM";
@@ -61,8 +69,7 @@ public class CsvObservationProducer {
     }
 
     /**
-     * Processes a single CSV file with streaming parser.
-     * Automatically detects if file has headers or is positional.
+     * Processes a single CSV file with streaming parser. Automatically detects if file has headers or is positional.
      *
      * @param filePath path to CSV file
      * @param consumer callback for each batch
@@ -78,34 +85,22 @@ public class CsvObservationProducer {
 
         try {
             // Emit file.processing.started event
-            log.atInfo()
-                .addKeyValue("event_type", "file.processing.started")
-                .addKeyValue("event_schema_version", "1.0")
-                .addKeyValue("source_type", "csv")
-                .addKeyValue("dataset_id", "legacy-csv")
-                .addKeyValue("file_path", filePath.toString())
-                .addKeyValue("file_name", filePath.getFileName().toString())
-                .addKeyValue("file_size_bytes", fileSize)
+            log.atInfo().addKeyValue("event_type", "file.processing.started").addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("source_type", "csv").addKeyValue("dataset_id", "legacy-csv").addKeyValue("file_path", filePath.toString())
+                .addKeyValue("file_name", filePath.getFileName().toString()).addKeyValue("file_size_bytes", fileSize)
                 .log("Processing CSV file: {} ({} MB)", filePath.getFileName(), fileSize / 1024 / 1024);
 
             // Check if file is large enough for parallel processing
             if (fileSize > LARGE_FILE_THRESHOLD_BYTES) {
-                log.info("Large CSV detected ({} MB), using parallel chunk processing",
-                         fileSize / 1024 / 1024);
+                log.info("Large CSV detected ({} MB), using parallel chunk processing", fileSize / 1024 / 1024);
                 chunkProcessor.processLargeFileInParallel(filePath, consumer, batchSize, this);
 
                 // Emit completion event for parallel processing (detailed stats not available)
                 long elapsedMs = System.currentTimeMillis() - startTime;
-                log.atInfo()
-                    .addKeyValue("event_type", "file.processing.completed")
-                    .addKeyValue("event_schema_version", "1.0")
-                    .addKeyValue("source_type", "csv")
-                    .addKeyValue("dataset_id", "legacy-csv")
-                    .addKeyValue("file_path", filePath.toString())
-                    .addKeyValue("file_name", filePath.getFileName().toString())
-                    .addKeyValue("file_size_bytes", fileSize)
-                    .addKeyValue("processing_mode", "parallel")
-                    .addKeyValue("elapsed_ms", elapsedMs)
+                log.atInfo().addKeyValue("event_type", "file.processing.completed").addKeyValue("event_schema_version", "1.0")
+                    .addKeyValue("source_type", "csv").addKeyValue("dataset_id", "legacy-csv").addKeyValue("file_path", filePath.toString())
+                    .addKeyValue("file_name", filePath.getFileName().toString()).addKeyValue("file_size_bytes", fileSize)
+                    .addKeyValue("processing_mode", "parallel").addKeyValue("elapsed_ms", elapsedMs)
                     .log("Completed processing CSV file: {} (parallel mode, {} ms)", filePath.getFileName(), elapsedMs);
                 return;
             }
@@ -114,6 +109,10 @@ public class CsvObservationProducer {
             processFileSequential(filePath, consumer, batchSize, startTime, fileSize);
 
         } finally {
+            // Summarize timestamp parse failures (covers sequential, parallel, and failure paths;
+            // remove() inside keeps the recursive single-chunk fallback from double-logging)
+            logTimestampFailureSummary(filePath);
+
             // Clean up MDC
             MDC.remove("file_name");
             MDC.remove("dataset_id");
@@ -123,8 +122,8 @@ public class CsvObservationProducer {
     /**
      * Sequential file processing with structured logging.
      */
-    private void processFileSequential(Path filePath, Consumer<List<ObservationRow>> consumer,
-                                      int batchSize, long startTime, long fileSize) throws IOException {
+    private void processFileSequential(Path filePath, Consumer<List<ObservationRow>> consumer, int batchSize, long startTime, long fileSize)
+        throws IOException {
 
         try (BufferedReader reader = Files.newBufferedReader(filePath)) {
             // Read first line to detect headers
@@ -132,47 +131,30 @@ public class CsvObservationProducer {
             if (firstLine == null || firstLine.isBlank()) {
                 log.warn("CSV file is empty: {}", filePath);
                 long elapsedMs = System.currentTimeMillis() - startTime;
-                log.atWarn()
-                    .addKeyValue("event_type", "file.processing.completed")
-                    .addKeyValue("event_schema_version", "1.0")
-                    .addKeyValue("source_type", "csv")
-                    .addKeyValue("dataset_id", "legacy-csv")
-                    .addKeyValue("file_path", filePath.toString())
-                    .addKeyValue("file_name", filePath.getFileName().toString())
-                    .addKeyValue("file_size_bytes", fileSize)
-                    .addKeyValue("records_read", 0L)
-                    .addKeyValue("observations_generated", 0L)
-                    .addKeyValue("elapsed_ms", elapsedMs)
-                    .addKeyValue("warning", "empty_file")
-                    .log("Completed processing empty CSV file: {}", filePath.getFileName());
+                log.atWarn().addKeyValue("event_type", "file.processing.completed").addKeyValue("event_schema_version", "1.0")
+                    .addKeyValue("source_type", "csv").addKeyValue("dataset_id", "legacy-csv").addKeyValue("file_path", filePath.toString())
+                    .addKeyValue("file_name", filePath.getFileName().toString()).addKeyValue("file_size_bytes", fileSize)
+                    .addKeyValue("records_read", 0L).addKeyValue("observations_generated", 0L).addKeyValue("elapsed_ms", elapsedMs)
+                    .addKeyValue("warning", "empty_file").log("Completed processing empty CSV file: {}", filePath.getFileName());
                 return;
             }
 
             // Parse first line to detect if it's a header
-            boolean useHeaders = detectHeadersFromLine(firstLine);
+            boolean useHeaders = isHeaderLine(firstLine);
 
             // Configure parser based on detection
             CSVFormat format;
             if (useHeaders) {
                 log.info("Detected header row in {}, using named column access", filePath.getFileName());
                 // Parse with headers, skip first line (it's the header)
-                format = CSVFormat.DEFAULT
-                    .builder()
+                format = CSVFormat.DEFAULT.builder()
                     .setHeader(HEADER_PATIENT_NUM, HEADER_CONCEPT_PATH, HEADER_NVAL_NUM, HEADER_TVAL_CHAR, HEADER_TIMESTAMP)
                     .setSkipHeaderRecord(false) // We already read it
-                    .setIgnoreEmptyLines(true)
-                    .setTrim(true)
-                    .setQuote('"')
-                    .build();
+                    .setIgnoreEmptyLines(true).setTrim(true).setQuote('"').build();
             } else {
                 log.info("No valid header detected in {}, using positional column access", filePath.getFileName());
                 // Parse without headers, need to re-process first line as data
-                format = CSVFormat.DEFAULT
-                    .builder()
-                    .setIgnoreEmptyLines(true)
-                    .setTrim(true)
-                    .setQuote('"')
-                    .build();
+                format = CSVFormat.DEFAULT.builder().setIgnoreEmptyLines(true).setTrim(true).setQuote('"').build();
 
                 // Reset reader to beginning to reprocess first line as data
                 reader.close();
@@ -186,16 +168,10 @@ public class CsvObservationProducer {
         } catch (Exception e) {
             // Emit file.processing.failed event
             long elapsedMs = System.currentTimeMillis() - startTime;
-            log.atError()
-                .addKeyValue("event_type", "file.processing.failed")
-                .addKeyValue("event_schema_version", "1.0")
-                .addKeyValue("source_type", "csv")
-                .addKeyValue("dataset_id", "legacy-csv")
-                .addKeyValue("file_path", filePath.toString())
-                .addKeyValue("file_name", filePath.getFileName().toString())
-                .addKeyValue("file_size_bytes", fileSize)
-                .addKeyValue("elapsed_ms", elapsedMs)
-                .addKeyValue("error_message", e.getMessage())
+            log.atError().addKeyValue("event_type", "file.processing.failed").addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("source_type", "csv").addKeyValue("dataset_id", "legacy-csv").addKeyValue("file_path", filePath.toString())
+                .addKeyValue("file_name", filePath.getFileName().toString()).addKeyValue("file_size_bytes", fileSize)
+                .addKeyValue("elapsed_ms", elapsedMs).addKeyValue("error_message", e.getMessage())
                 .log("Failed to process CSV file: {}", filePath.getFileName());
             throw e;
         }
@@ -204,9 +180,10 @@ public class CsvObservationProducer {
     /**
      * Process CSV with the configured format.
      */
-    private void processWithFormat(BufferedReader reader, Path filePath, CSVFormat format, boolean useHeaders,
-                                   Consumer<List<ObservationRow>> consumer, int batchSize, long startTime,
-                                   long fileSize) throws IOException {
+    private void processWithFormat(
+        BufferedReader reader, Path filePath, CSVFormat format, boolean useHeaders, Consumer<List<ObservationRow>> consumer, int batchSize,
+        long startTime, long fileSize
+    ) throws IOException {
         try (CSVParser parser = new CSVParser(reader, format)) {
             List<ObservationRow> batch = new ArrayList<>(batchSize);
             long recordsRead = 0;
@@ -241,26 +218,20 @@ public class CsvObservationProducer {
             long elapsedMs = System.currentTimeMillis() - startTime;
 
             // Emit file.processing.completed event
-            log.atInfo()
-                .addKeyValue("event_type", "file.processing.completed")
-                .addKeyValue("event_schema_version", "1.0")
-                .addKeyValue("source_type", "csv")
-                .addKeyValue("dataset_id", "legacy-csv")
-                .addKeyValue("file_path", filePath.toString())
-                .addKeyValue("file_name", filePath.getFileName().toString())
-                .addKeyValue("file_size_bytes", fileSize)
-                .addKeyValue("records_read", recordsRead)
-                .addKeyValue("observations_generated", observationsGenerated)
-                .addKeyValue("elapsed_ms", elapsedMs)
-                .addKeyValue("processing_mode", "sequential")
-                .log("Completed processing CSV file: {} ({} records, {} observations, {} ms)",
-                     filePath.getFileName(), recordsRead, observationsGenerated, elapsedMs);
+            log.atInfo().addKeyValue("event_type", "file.processing.completed").addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("source_type", "csv").addKeyValue("dataset_id", "legacy-csv").addKeyValue("file_path", filePath.toString())
+                .addKeyValue("file_name", filePath.getFileName().toString()).addKeyValue("file_size_bytes", fileSize)
+                .addKeyValue("records_read", recordsRead).addKeyValue("observations_generated", observationsGenerated)
+                .addKeyValue("elapsed_ms", elapsedMs).addKeyValue("processing_mode", "sequential").log(
+                    "Completed processing CSV file: {} ({} records, {} observations, {} ms)", filePath.getFileName(), recordsRead,
+                    observationsGenerated, elapsedMs
+                );
         }
     }
 
     /**
-     * Process CSV from a BufferedReader (used by chunk processor for parallel processing).
-     * This method is package-private to allow CsvChunkProcessor access.
+     * Process CSV from a BufferedReader (used by chunk processor for parallel processing). This method is package-private to allow
+     * CsvChunkProcessor access.
      *
      * @param reader BufferedReader positioned at start of data (no header)
      * @param filePath source file path (for error reporting)
@@ -269,14 +240,9 @@ public class CsvObservationProducer {
      * @param hasHeaders whether reader includes header row (false for chunks)
      * @return number of rows processed
      */
-    long processStream(BufferedReader reader, Path filePath,
-                       Consumer<List<ObservationRow>> consumer,
-                       int batchSize, boolean hasHeaders) throws IOException {
-        CSVFormat format = CSVFormat.DEFAULT.builder()
-            .setIgnoreEmptyLines(true)
-            .setTrim(true)
-            .setQuote('"')
-            .build();
+    long processStream(BufferedReader reader, Path filePath, Consumer<List<ObservationRow>> consumer, int batchSize, boolean hasHeaders)
+        throws IOException {
+        CSVFormat format = CSVFormat.DEFAULT.builder().setIgnoreEmptyLines(true).setTrim(true).setQuote('"').build();
 
         try (CSVParser parser = new CSVParser(reader, format)) {
             List<ObservationRow> batch = new ArrayList<>(batchSize);
@@ -309,16 +275,19 @@ public class CsvObservationProducer {
     }
 
     /**
-     * Detects if a CSV line is a valid header row by parsing it first.
+     * Detects if a CSV line is a header row by parsing it first. Package-private so CsvChunkProcessor shares the same gate.
      */
-    private boolean detectHeadersFromLine(String line) {
+    static boolean isHeaderLine(String line) {
+        if (line == null || line.isBlank()) {
+            return false;
+        }
         try {
             // Parse the line
             CSVParser parser = CSVParser.parse(line, CSVFormat.DEFAULT.builder().setQuote('"').build());
             CSVRecord record = parser.iterator().next();
             parser.close();
 
-            return detectHeaders(record);
+            return isHeaderRecord(record);
         } catch (Exception e) {
             log.debug("Failed to parse first line as CSV, assuming positional: {}", e.getMessage());
             return false;
@@ -326,30 +295,19 @@ public class CsvObservationProducer {
     }
 
     /**
-     * Detects if the first record is a valid header row.
-     * Returns true if all expected column names are present (case-insensitive).
+     * Structural header gate: a record is a header if it has at least 4 columns and its first column is not an integer. Data rows always
+     * start with an integer patient num, so any header naming convention is accepted without an alias list.
      */
-    private boolean detectHeaders(CSVRecord record) {
+    static boolean isHeaderRecord(CSVRecord record) {
         if (record.size() < 4) {
             return false; // Too few columns to be a valid header
         }
 
-        // Check if first row contains expected header names (case-insensitive)
         try {
-            String col0 = record.get(0).trim().toUpperCase();
-            String col1 = record.get(1).trim().toUpperCase();
-            String col2 = record.get(2).trim().toUpperCase();
-            String col3 = record.get(3).trim().toUpperCase();
-
-            // Match expected headers
-            boolean hasPatientNum = col0.equals(HEADER_PATIENT_NUM);
-            boolean hasConceptPath = col1.equals(HEADER_CONCEPT_PATH);
-            boolean hasNvalNum = col2.equals(HEADER_NVAL_NUM);
-            boolean hasTvalChar = col3.equals(HEADER_TVAL_CHAR);
-
-            return hasPatientNum && hasConceptPath && hasNvalNum && hasTvalChar;
-        } catch (Exception e) {
-            return false;
+            Integer.parseInt(record.get(0).trim());
+            return false; // First column is an integer patient num - this is a data row
+        } catch (NumberFormatException e) {
+            return true;
         }
     }
 
@@ -363,8 +321,9 @@ public class CsvObservationProducer {
     private ObservationRow parseRecord(CSVRecord record, Path filePath, boolean useHeaders) {
         // Validate minimum columns (positional mode only)
         if (!useHeaders && record.size() < 4) {
-            recordFailure(filePath.toString(), null, FailureReason.UNKNOWN,
-                "Record has only " + record.size() + " columns, expected at least 4");
+            recordFailure(
+                filePath.toString(), null, FailureReason.UNKNOWN, "Record has only " + record.size() + " columns, expected at least 4"
+            );
             return null;
         }
 
@@ -373,8 +332,7 @@ public class CsvObservationProducer {
         try {
             patientNumRaw = useHeaders ? record.get(HEADER_PATIENT_NUM) : record.get(0);
         } catch (IllegalArgumentException e) {
-            recordFailure(filePath.toString(), null, FailureReason.MISSING_PATIENT_ID,
-                "PATIENT_NUM column not found: " + e.getMessage());
+            recordFailure(filePath.toString(), null, FailureReason.MISSING_PATIENT_ID, "PATIENT_NUM column not found: " + e.getMessage());
             return null;
         }
 
@@ -387,7 +345,9 @@ public class CsvObservationProducer {
         try {
             patientNum = Integer.parseInt(patientNumRaw.trim());
         } catch (NumberFormatException e) {
-            recordFailure(filePath.toString(), patientNumRaw, FailureReason.INVALID_PATIENT_ID, "Cannot parse as integer: " + patientNumRaw);
+            recordFailure(
+                filePath.toString(), patientNumRaw, FailureReason.INVALID_PATIENT_ID, "Cannot parse as integer: " + patientNumRaw
+            );
             return null;
         }
 
@@ -396,13 +356,17 @@ public class CsvObservationProducer {
         try {
             conceptPath = useHeaders ? record.get(HEADER_CONCEPT_PATH) : record.get(1);
         } catch (IllegalArgumentException e) {
-            recordFailure(filePath.toString(), String.valueOf(patientNum), FailureReason.MISSING_CONCEPT_PATH,
-                "CONCEPT_PATH column not found: " + e.getMessage());
+            recordFailure(
+                filePath.toString(), String.valueOf(patientNum), FailureReason.MISSING_CONCEPT_PATH,
+                "CONCEPT_PATH column not found: " + e.getMessage()
+            );
             return null;
         }
 
         if (conceptPath == null || conceptPath.isBlank()) {
-            recordFailure(filePath.toString(), String.valueOf(patientNum), FailureReason.MISSING_CONCEPT_PATH, "CONCEPT_PATH is null or empty");
+            recordFailure(
+                filePath.toString(), String.valueOf(patientNum), FailureReason.MISSING_CONCEPT_PATH, "CONCEPT_PATH is null or empty"
+            );
             return null;
         }
 
@@ -418,8 +382,9 @@ public class CsvObservationProducer {
             nvalNumRaw = useHeaders ? record.get(HEADER_NVAL_NUM) : record.get(2);
             tvalChar = useHeaders ? record.get(HEADER_TVAL_CHAR) : record.get(3);
         } catch (IllegalArgumentException e) {
-            recordFailure(filePath.toString(), String.valueOf(patientNum), FailureReason.UNKNOWN,
-                "Value column not found: " + e.getMessage());
+            recordFailure(
+                filePath.toString(), String.valueOf(patientNum), FailureReason.UNKNOWN, "Value column not found: " + e.getMessage()
+            );
             return null;
         }
 
@@ -430,8 +395,10 @@ public class CsvObservationProducer {
             try {
                 numericValue = Double.parseDouble(nvalNumRaw);
             } catch (NumberFormatException e) {
-                recordFailure(filePath.toString(), String.valueOf(patientNum), FailureReason.NUMERIC_PARSE_ERROR,
-                    "Cannot parse NVAL_NUM: " + nvalNumRaw);
+                recordFailure(
+                    filePath.toString(), String.valueOf(patientNum), FailureReason.NUMERIC_PARSE_ERROR,
+                    "Cannot parse NVAL_NUM: " + nvalNumRaw
+                );
                 return null;
             }
         }
@@ -442,8 +409,9 @@ public class CsvObservationProducer {
 
         // Validate at least one value (allow both for flexibility)
         if (numericValue == null && textValue == null) {
-            recordFailure(filePath.toString(), String.valueOf(patientNum), FailureReason.MISSING_VALUE,
-                "Both NVAL_NUM and TVAL_CHAR are null");
+            recordFailure(
+                filePath.toString(), String.valueOf(patientNum), FailureReason.MISSING_VALUE, "Both NVAL_NUM and TVAL_CHAR are null"
+            );
             return null;
         }
 
@@ -474,22 +442,24 @@ public class CsvObservationProducer {
                 //
                 // Rationale:
                 // - Data format assumption: Timestamps are ISO 8601 strings (e.g., "2021-01-15T10:30:00Z")
+                // or zoneless date-times treated as UTC (e.g., "2023-11-25 14:00:00") - see TimestampParser
                 // - Epoch format is NOT expected in current data pipeline
                 // - Therefore, "0" is INVALID and represents absence of temporal data
                 // - This pattern follows CSVLoaderNewSearch.java behavior (commit e09e2778)
                 //
                 // Example CSV scenarios:
-                //   PATIENT_NUM,CONCEPT_PATH,NVAL_NUM,TVAL_CHAR,TIMESTAMP
-                //   123,\Demographics\Gender\,,"Male",0               <- "0" = no timestamp (treated as null)
-                //   456,\Lab\Hemoglobin\,13.5,,2021-01-15T10:30:00Z  <- valid ISO 8601 timestamp
+                // PATIENT_NUM,CONCEPT_PATH,NVAL_NUM,TVAL_CHAR,TIMESTAMP
+                // 123,\Demographics\Gender\,,"Male",0 <- "0" = no timestamp (treated as null)
+                // 456,\Lab\Hemoglobin\,13.5,,2021-01-15T10:30:00Z <- valid ISO 8601 timestamp
                 //
                 // ==================================================================================
                 if (!timestampRaw.equals("0")) {
                     try {
-                        timestamp = Instant.parse(timestampRaw);
+                        timestamp = TimestampParser.parse(timestampRaw);
                     } catch (DateTimeParseException e) {
-                        // Timestamp parsing failures are non-fatal, log and continue
-                        log.debug("Cannot parse timestamp '{}' for patient {}, continuing without timestamp", timestampRaw, patientNum);
+                        // Timestamp parsing failures are non-fatal; WARN on first failure per file,
+                        // count the rest and summarize at file completion
+                        recordTimestampFailure(filePath, timestampRaw, patientNum);
                     }
                 }
             }
@@ -502,24 +472,42 @@ public class CsvObservationProducer {
     }
 
     /**
+     * Records a timestamp parse failure for the file. WARNs on the first failure, counts the rest for a summary at file completion.
+     */
+    private void recordTimestampFailure(Path filePath, String timestampRaw, int patientNum) {
+        TimestampFailureStats stats = timestampFailures.computeIfAbsent(filePath, p -> new TimestampFailureStats());
+        if (stats.count.getAndIncrement() == 0) {
+            stats.firstSample = timestampRaw;
+            log.warn(
+                "Cannot parse timestamp '{}' for patient {} in {}, continuing without timestamp (further failures counted, summary at file completion)",
+                timestampRaw, patientNum, filePath.getFileName()
+            );
+        } else {
+            log.debug("Cannot parse timestamp '{}' for patient {}, continuing without timestamp", timestampRaw, patientNum);
+        }
+    }
+
+    /**
+     * Logs a summary of timestamp parse failures for the file, if any. Uses remove() so the recursive single-chunk fallback path only logs
+     * once.
+     */
+    private void logTimestampFailureSummary(Path filePath) {
+        TimestampFailureStats stats = timestampFailures.remove(filePath);
+        if (stats != null && stats.count.get() > 0) {
+            log.warn(
+                "File {}: {} timestamp values could not be parsed and were ingested as null (first sample: '{}')", filePath.getFileName(),
+                stats.count.get(), stats.firstSample
+            );
+        }
+    }
+
+    /**
      * Records a failure to the sink.
      */
     private void recordFailure(String inputFile, String participantId, FailureReason reason, String detail) {
         FailureRecord record = new FailureRecord(
-            runId,
-            FailureRecord.SourceType.CSV,
-            "legacy-csv",
-            inputFile,
-            participantId,
-            null,  // dbgapSubjectId (not applicable for CSV)
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            reason,
-            detail
+            runId, FailureRecord.SourceType.CSV, "legacy-csv", inputFile, participantId, null, // dbgapSubjectId (not applicable for CSV)
+            null, null, null, null, null, null, reason, detail
         );
         failureSink.recordFailure(record);
     }

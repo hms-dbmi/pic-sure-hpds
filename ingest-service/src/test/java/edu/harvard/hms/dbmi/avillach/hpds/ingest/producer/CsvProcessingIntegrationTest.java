@@ -26,8 +26,8 @@ import static org.mockito.Mockito.*;
 /**
  * Integration tests for CSV processing - tests end-to-end CSV ingestion with real data.
  *
- * These tests use real CSV files from the input directory if available.
- * Set system property -Dtest.integration.csv.path=/path/to/csv to test with specific files.
+ * These tests use real CSV files from the input directory if available. Set system property -Dtest.integration.csv.path=/path/to/csv to
+ * test with specific files.
  */
 class CsvProcessingIntegrationTest {
 
@@ -83,10 +83,8 @@ class CsvProcessingIntegrationTest {
         assertNull(firstRow.textValue());
 
         // Verify text value row
-        ObservationRow textRow = allRows.stream()
-                .filter(r -> r.textValue() != null && r.textValue().equals("Male"))
-                .findFirst()
-                .orElse(null);
+        ObservationRow textRow =
+            allRows.stream().filter(r -> r.textValue() != null && r.textValue().equals("Male")).findFirst().orElse(null);
         assertNotNull(textRow, "Should find Male text value");
         assertEquals(62602, textRow.patientNum());
 
@@ -111,14 +109,8 @@ class CsvProcessingIntegrationTest {
             double nvalNum = i * 1.5;
             String timestamp = "0";
 
-            csvContent.append(patientNum)
-                    .append(",")
-                    .append(conceptPath)
-                    .append(",")
-                    .append(nvalNum)
-                    .append(",,")
-                    .append(timestamp)
-                    .append("\n");
+            csvContent.append(patientNum).append(",").append(conceptPath).append(",").append(nvalNum).append(",,").append(timestamp)
+                .append("\n");
         }
 
         Files.writeString(csvFile, csvContent.toString());
@@ -152,8 +144,7 @@ class CsvProcessingIntegrationTest {
         assertEquals(65000, row5000.patientNum());
         assertTrue(row5000.conceptPath().startsWith("\\DCC Harmonized data set\\"));
 
-        System.out.println("Processed 100,000 rows in " + duration + "ms (" +
-                          (100_000.0 / duration * 1000) + " rows/sec)");
+        System.out.println("Processed 100,000 rows in " + duration + "ms (" + (100_000.0 / duration * 1000) + " rows/sec)");
 
         // No failures should be recorded
         verify(mockFailureSink, never()).recordFailure(any());
@@ -246,12 +237,8 @@ class CsvProcessingIntegrationTest {
         // Create data for 10 patients across 5 different concept paths
         for (int patientId = 1; patientId <= 10; patientId++) {
             for (int conceptId = 1; conceptId <= 5; conceptId++) {
-                csvContent.append(patientId)
-                        .append(",\\concept\\path_")
-                        .append(conceptId)
-                        .append("\\,")
-                        .append(patientId * conceptId)
-                        .append(",,0\n");
+                csvContent.append(patientId).append(",\\concept\\path_").append(conceptId).append("\\,").append(patientId * conceptId)
+                    .append(",,0\n");
             }
         }
         Files.writeString(csvFile, csvContent.toString());
@@ -265,22 +252,18 @@ class CsvProcessingIntegrationTest {
         assertEquals(50, allRows.size());
 
         // Group by patient
-        Map<Integer, List<ObservationRow>> byPatient = allRows.stream()
-                .collect(Collectors.groupingBy(ObservationRow::patientNum));
+        Map<Integer, List<ObservationRow>> byPatient = allRows.stream().collect(Collectors.groupingBy(ObservationRow::patientNum));
         assertEquals(10, byPatient.size(), "Should have 10 unique patients");
 
         // Each patient should have 5 observations
-        byPatient.values().forEach(rows ->
-                assertEquals(5, rows.size(), "Each patient should have 5 concept observations"));
+        byPatient.values().forEach(rows -> assertEquals(5, rows.size(), "Each patient should have 5 concept observations"));
 
         // Group by concept path
-        Map<String, List<ObservationRow>> byConcept = allRows.stream()
-                .collect(Collectors.groupingBy(ObservationRow::conceptPath));
+        Map<String, List<ObservationRow>> byConcept = allRows.stream().collect(Collectors.groupingBy(ObservationRow::conceptPath));
         assertEquals(5, byConcept.size(), "Should have 5 unique concept paths");
 
         // Each concept should have 10 observations (one per patient)
-        byConcept.values().forEach(rows ->
-                assertEquals(10, rows.size(), "Each concept should have 10 patient observations"));
+        byConcept.values().forEach(rows -> assertEquals(10, rows.size(), "Each concept should have 10 patient observations"));
     }
 
     @Test
@@ -324,8 +307,7 @@ class CsvProcessingIntegrationTest {
         allRows.forEach(row -> {
             assertNotNull(row.patientNum(), "Patient num should not be null");
             assertNotNull(row.conceptPath(), "Concept path should not be null");
-            assertTrue(row.numericValue() != null || row.textValue() != null,
-                      "Should have at least one value type");
+            assertTrue(row.numericValue() != null || row.textValue() != null, "Should have at least one value type");
         });
     }
 
@@ -337,10 +319,7 @@ class CsvProcessingIntegrationTest {
         csvContent.append("PATIENT_NUM,CONCEPT_PATH,NVAL_NUM,TVAL_CHAR,TIMESTAMP\n");
 
         for (int i = 1; i <= 10_000; i++) {
-            csvContent.append(i)
-                    .append(",\\test\\concept\\,")
-                    .append(i * 1.0)
-                    .append(",,0\n");
+            csvContent.append(i).append(",\\test\\concept\\,").append(i * 1.0).append(",,0\n");
         }
         Files.writeString(csvFile, csvContent.toString());
 
@@ -366,5 +345,39 @@ class CsvProcessingIntegrationTest {
         for (int i = 1; i <= 10_000; i++) {
             assertTrue(rowMap.containsKey(i), "Should contain patient " + i);
         }
+    }
+
+    @Test
+    void testEndToEnd_EhrFormatFile_ParsesTimestamps() throws IOException {
+        // EHR export format shape: alias header names, µ-delimited concept paths,
+        // space-separated zoneless timestamps (synthetic data)
+        Path csvFile = tempDir.resolve("ehr-format.csv");
+        String csvContent = """
+            subject_id,concept_path,continuous_nval,categorical_tval,timestamp_ts
+            101,µteststudyµcohortµEHRµConditionOccurenceµFake Condition(S-00001)µ,,00001 fake diagnosis A,2023-11-25 14:00:00
+            101,µteststudyµcohortµEHRµConditionOccurenceµFake Condition(S-00001)µ,,00002 fake diagnosis B,2023-11-27 00:00:00
+            102,µteststudyµcohortµEHRµConditionOccurenceµFake Condition(S-00001)µ,,00001 fake diagnosis A,2024-06-27 15:00:00
+            """;
+        Files.writeString(csvFile, csvContent);
+
+        List<ObservationRow> allRows = new ArrayList<>();
+        Consumer<List<ObservationRow>> consumer = allRows::addAll;
+
+        producer.processFile(csvFile, consumer, 1000);
+
+        assertEquals(3, allRows.size(), "Header line must be detected, all data rows ingested");
+
+        ObservationRow row1 = allRows.get(0);
+        assertEquals(101, row1.patientNum());
+        assertEquals("00001 fake diagnosis A", row1.textValue());
+        assertEquals(Instant.parse("2023-11-25T14:00:00Z"), row1.dateTime(), "Space-separated timestamp must be ingested as UTC");
+        assertEquals(Instant.parse("2023-11-27T00:00:00Z"), allRows.get(1).dateTime());
+        assertEquals(Instant.parse("2024-06-27T15:00:00Z"), allRows.get(2).dateTime());
+
+        // Every row must carry a non-null timestamp
+        allRows.forEach(row -> assertNotNull(row.dateTime()));
+
+        // No failures (header line must not be recorded as INVALID_PATIENT_ID)
+        verify(mockFailureSink, never()).recordFailure(any());
     }
 }

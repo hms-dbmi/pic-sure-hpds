@@ -300,8 +300,8 @@ class CsvObservationProducerTest {
 
         // Create enough content to exceed threshold
         for (int i = 1; i <= 1000; i++) {
-            csvContent.append(i).append(",\\test\\path\\with\\very\\long\\name\\to\\increase\\size\\,")
-                    .append(i * 10).append(",very-long-text-value-to-increase-file-size\n");
+            csvContent.append(i).append(",\\test\\path\\with\\very\\long\\name\\to\\increase\\size\\,").append(i * 10)
+                .append(",very-long-text-value-to-increase-file-size\n");
         }
 
         // Pad to exceed 500MB threshold (note: in real test this would be huge)
@@ -371,8 +371,8 @@ class CsvObservationProducerTest {
     /**
      * Test that timestamp value "0" is treated as null (not parsed as epoch).
      *
-     * Background: Legacy allConcepts.csv files use "0" to represent missing timestamps.
-     * This is NOT a valid ISO 8601 timestamp and should result in null dateTime.
+     * Background: Legacy allConcepts.csv files use "0" to represent missing timestamps. This is NOT a valid ISO 8601 timestamp and should
+     * result in null dateTime.
      *
      * This test validates the fix from commit e09e2778 (CSVLoaderNewSearch pattern).
      */
@@ -415,5 +415,130 @@ class CsvObservationProducerTest {
         assertEquals("\\Demographics\\Age\\", row3.conceptPath());
         assertEquals(65.0, row3.numericValue());
         assertNull(row3.dateTime(), "Empty timestamp should be null");
+    }
+
+    /**
+     * EHR-format files use different header names (subject_id,concept_path,continuous_nval, categorical_tval,timestamp_ts) and
+     * space-separated timestamps. The header line must be detected (not recorded as an INVALID_PATIENT_ID failure) and timestamps must
+     * parse as UTC.
+     */
+    @Test
+    void testProcessFile_EhrHeaders_ParsesCorrectly() throws IOException {
+        Path csvFile = tempDir.resolve("ehr-headers.csv");
+        String csvContent = """
+            subject_id,concept_path,continuous_nval,categorical_tval,timestamp_ts
+            1,\\teststudy\\condition\\diagnosis\\,,fake diagnosis A,2023-11-25 14:00:00
+            2,\\teststudy\\condition\\diagnosis\\,,fake diagnosis B,2024-06-27 00:00:00
+            """;
+        Files.writeString(csvFile, csvContent);
+
+        List<ObservationRow> allRows = new ArrayList<>();
+        Consumer<List<ObservationRow>> consumer = allRows::addAll;
+
+        producer.processFile(csvFile, consumer, 1000);
+
+        assertEquals(2, allRows.size(), "Header line must not be ingested as data");
+
+        ObservationRow row1 = allRows.get(0);
+        assertEquals(1, row1.patientNum());
+        assertEquals("\\teststudy\\condition\\diagnosis\\", row1.conceptPath());
+        assertEquals("fake diagnosis A", row1.textValue());
+        assertEquals(Instant.parse("2023-11-25T14:00:00Z"), row1.dateTime(), "Space-separated timestamp should parse as UTC");
+
+        assertEquals(Instant.parse("2024-06-27T00:00:00Z"), allRows.get(1).dateTime());
+
+        // Header line must not be recorded as an INVALID_PATIENT_ID failure
+        verify(mockFailureSink, never()).recordFailure(any());
+    }
+
+    /**
+     * Header detection is structural (column count + non-integer first cell), so any header naming convention is accepted.
+     */
+    @Test
+    void testProcessFile_ArbitraryHeaderNames_DetectedAsHeader() throws IOException {
+        Path csvFile = tempDir.resolve("arbitrary-headers.csv");
+        String csvContent = """
+            Patient ID,Concept,Numeric Value,Text Value,Date
+            1,\\test\\path\\,100,,2024-01-01T00:00:00Z
+            """;
+        Files.writeString(csvFile, csvContent);
+
+        List<ObservationRow> allRows = new ArrayList<>();
+        Consumer<List<ObservationRow>> consumer = allRows::addAll;
+
+        producer.processFile(csvFile, consumer, 1000);
+
+        assertEquals(1, allRows.size());
+        assertEquals(1, allRows.get(0).patientNum());
+        verify(mockFailureSink, never()).recordFailure(any());
+    }
+
+    /**
+     * A header-less file's first line is a data row starting with an integer patient num; it must stay in positional mode and not be
+     * swallowed as a header.
+     */
+    @Test
+    void testProcessFile_HeaderlessFile_FirstRowNotSwallowed() throws IOException {
+        Path csvFile = tempDir.resolve("headerless.csv");
+        String csvContent = """
+            1,\\test\\path\\,100,,2023-11-25 14:00:00
+            2,\\test\\path\\,200,,
+            """;
+        Files.writeString(csvFile, csvContent);
+
+        List<ObservationRow> allRows = new ArrayList<>();
+        Consumer<List<ObservationRow>> consumer = allRows::addAll;
+
+        producer.processFile(csvFile, consumer, 1000);
+
+        assertEquals(2, allRows.size(), "First data row must not be treated as a header");
+        assertEquals(1, allRows.get(0).patientNum());
+        assertEquals(Instant.parse("2023-11-25T14:00:00Z"), allRows.get(0).dateTime());
+        verify(mockFailureSink, never()).recordFailure(any());
+    }
+
+    /**
+     * Space-separated timestamps parse regardless of header naming.
+     */
+    @Test
+    void testProcessFile_SpaceSeparatedTimestamp_ParsedAsUtc() throws IOException {
+        Path csvFile = tempDir.resolve("space-timestamp.csv");
+        String csvContent = """
+            PATIENT_NUM,CONCEPT_PATH,NVAL_NUM,TVAL_CHAR,TIMESTAMP
+            1,\\test\\path\\,100,,2023-11-25 14:00:00
+            """;
+        Files.writeString(csvFile, csvContent);
+
+        List<ObservationRow> allRows = new ArrayList<>();
+        Consumer<List<ObservationRow>> consumer = allRows::addAll;
+
+        producer.processFile(csvFile, consumer, 1000);
+
+        assertEquals(1, allRows.size());
+        assertEquals(Instant.parse("2023-11-25T14:00:00Z"), allRows.get(0).dateTime());
+    }
+
+    /**
+     * Invalid timestamps remain non-fatal: rows are produced with null dateTime and no failure records.
+     */
+    @Test
+    void testProcessFile_ManyInvalidTimestamps_RowsStillProduced() throws IOException {
+        Path csvFile = tempDir.resolve("many-invalid-timestamps.csv");
+        String csvContent = """
+            PATIENT_NUM,CONCEPT_PATH,NVAL_NUM,TVAL_CHAR,TIMESTAMP
+            1,\\test\\path\\,100,,not-a-date
+            2,\\test\\path\\,200,,25/11/2023
+            3,\\test\\path\\,300,,2023-13-45 99:00:00
+            """;
+        Files.writeString(csvFile, csvContent);
+
+        List<ObservationRow> allRows = new ArrayList<>();
+        Consumer<List<ObservationRow>> consumer = allRows::addAll;
+
+        producer.processFile(csvFile, consumer, 1000);
+
+        assertEquals(3, allRows.size(), "Rows with invalid timestamps must still be produced");
+        allRows.forEach(row -> assertNull(row.dateTime()));
+        verify(mockFailureSink, never()).recordFailure(any());
     }
 }

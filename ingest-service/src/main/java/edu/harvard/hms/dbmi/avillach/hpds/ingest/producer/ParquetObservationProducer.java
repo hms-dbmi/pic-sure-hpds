@@ -23,9 +23,6 @@ import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,8 +32,7 @@ import java.util.function.Consumer;
 /**
  * Produces observations from Parquet files using Apache Arrow Dataset API.
  *
- * - Schema projection (read only needed columns)
- * - Bounded memory (record batch streaming)
+ * - Schema projection (read only needed columns) - Bounded memory (record batch streaming)
  */
 public class ParquetObservationProducer {
     private static final Logger log = LoggerFactory.getLogger(ParquetObservationProducer.class);
@@ -51,7 +47,9 @@ public class ParquetObservationProducer {
     private final BufferAllocator allocator;
     private long perFileObservationLimit = Long.MAX_VALUE; // Default: unlimited
 
-    public ParquetObservationProducer(String runId, ParquetDatasetConfig config, FailureSink failureSink, PatientIdResolver patientIdResolver) {
+    public ParquetObservationProducer(
+        String runId, ParquetDatasetConfig config, FailureSink failureSink, PatientIdResolver patientIdResolver
+    ) {
         this.runId = runId;
         this.config = config;
         this.failureSink = failureSink;
@@ -60,8 +58,7 @@ public class ParquetObservationProducer {
     }
 
     /**
-     * Sets the per-file observation limit.
-     * When limit is reached, file processing stops and remaining rows are skipped.
+     * Sets the per-file observation limit. When limit is reached, file processing stops and remaining rows are skipped.
      */
     public void setPerFileObservationLimit(long limit) {
         this.perFileObservationLimit = limit;
@@ -97,13 +94,9 @@ public class ParquetObservationProducer {
 
         try {
             // Emit file.processing.started event
-            log.atInfo()
-                .addKeyValue("event_type", "file.processing.started")
-                .addKeyValue("event_schema_version", "1.0")
-                .addKeyValue("source_type", "parquet")
-                .addKeyValue("dataset_id", config.datasetName())
-                .addKeyValue("file_path", filePath.toString())
-                .addKeyValue("file_name", filePath.getFileName().toString())
+            log.atInfo().addKeyValue("event_type", "file.processing.started").addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("source_type", "parquet").addKeyValue("dataset_id", config.datasetName())
+                .addKeyValue("file_path", filePath.toString()).addKeyValue("file_name", filePath.getFileName().toString())
                 .addKeyValue("file_size_bytes", fileSize)
                 .log("Processing Parquet file: {} (limit: {} observations)", filePath.getFileName(), perFileObservationLimit);
 
@@ -119,8 +112,9 @@ public class ParquetObservationProducer {
     /**
      * Internal processing logic, extracted to allow proper try-finally MDC cleanup.
      */
-    private void processFileInternal(java.nio.file.Path filePath, Consumer<List<ObservationRow>> consumer,
-                                     int batchSize, long startTime, long fileSize) throws IOException {
+    private void processFileInternal(
+        java.nio.file.Path filePath, Consumer<List<ObservationRow>> consumer, int batchSize, long startTime, long fileSize
+    ) throws IOException {
         String fileUri = filePath.toUri().toString();
 
         // Build column projection (only read needed columns)
@@ -131,15 +125,13 @@ public class ParquetObservationProducer {
         }
         columns.addAll(config.variableColumns());
 
-        ScanOptions options = new ScanOptions.Builder(batchSize)
-            .columns(Optional.of(columns.toArray(new String[0])))
-            .build();
+        ScanOptions options = new ScanOptions.Builder(batchSize).columns(Optional.of(columns.toArray(new String[0]))).build();
 
-        try (DatasetFactory datasetFactory = new FileSystemDatasetFactory(
-                allocator, NativeMemoryPool.getDefault(), FileFormat.PARQUET, fileUri);
-             Dataset dataset = datasetFactory.finish();
-             Scanner scanner = dataset.newScan(options);
-             ArrowReader reader = scanner.scanBatches()) {
+        try (
+            DatasetFactory datasetFactory =
+                new FileSystemDatasetFactory(allocator, NativeMemoryPool.getDefault(), FileFormat.PARQUET, fileUri); Dataset dataset =
+                    datasetFactory.finish(); Scanner scanner = dataset.newScan(options); ArrowReader reader = scanner.scanBatches()
+        ) {
 
             List<ObservationRow> batch = new ArrayList<>(batchSize);
             long rowCount = 0;
@@ -160,8 +152,10 @@ public class ParquetObservationProducer {
                             // Limit reached - stop processing this file
                             limitReached = true;
 
-                            log.info("Per-file limit reached: {} | Limit: {} obs | Generated: {} obs | Rows processed: {}",
-                                     filePath.getFileName(), perFileObservationLimit, observationsGenerated, rowCount - 1);
+                            log.info(
+                                "Per-file limit reached: {} | Limit: {} obs | Generated: {} obs | Rows processed: {}",
+                                filePath.getFileName(), perFileObservationLimit, observationsGenerated, rowCount - 1
+                            );
 
                             // Record file limit event (with unknown skipped count - Arrow doesn't provide total row count easily)
                             recordFileLimitReached(filePath, rowCount - 1, -1, observationsGenerated, perFileObservationLimit);
@@ -192,34 +186,22 @@ public class ParquetObservationProducer {
             long elapsedMs = System.currentTimeMillis() - startTime;
 
             // Emit file.processing.completed event
-            log.atInfo()
-                .addKeyValue("event_type", "file.processing.completed")
-                .addKeyValue("event_schema_version", "1.0")
-                .addKeyValue("source_type", "parquet")
-                .addKeyValue("dataset_id", config.datasetName())
-                .addKeyValue("file_path", filePath.toString())
-                .addKeyValue("file_name", filePath.getFileName().toString())
-                .addKeyValue("file_size_bytes", fileSize)
-                .addKeyValue("records_read", rowCount)
-                .addKeyValue("observations_generated", observationsGenerated)
-                .addKeyValue("elapsed_ms", elapsedMs)
-                .addKeyValue("limit_reached", limitReached)
-                .log("Completed processing file: {} ({} rows, {} observations{}, {} ms)",
-                     filePath.getFileName(), rowCount, observationsGenerated,
-                     limitReached ? " - LIMIT REACHED" : "", elapsedMs);
+            log.atInfo().addKeyValue("event_type", "file.processing.completed").addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("source_type", "parquet").addKeyValue("dataset_id", config.datasetName())
+                .addKeyValue("file_path", filePath.toString()).addKeyValue("file_name", filePath.getFileName().toString())
+                .addKeyValue("file_size_bytes", fileSize).addKeyValue("records_read", rowCount)
+                .addKeyValue("observations_generated", observationsGenerated).addKeyValue("elapsed_ms", elapsedMs)
+                .addKeyValue("limit_reached", limitReached).log(
+                    "Completed processing file: {} ({} rows, {} observations{}, {} ms)", filePath.getFileName(), rowCount,
+                    observationsGenerated, limitReached ? " - LIMIT REACHED" : "", elapsedMs
+                );
         } catch (Exception e) {
             // Emit file.processing.failed event
             long elapsedMs = System.currentTimeMillis() - startTime;
-            log.atError()
-                .addKeyValue("event_type", "file.processing.failed")
-                .addKeyValue("event_schema_version", "1.0")
-                .addKeyValue("source_type", "parquet")
-                .addKeyValue("dataset_id", config.datasetName())
-                .addKeyValue("file_path", filePath.toString())
-                .addKeyValue("file_name", filePath.getFileName().toString())
-                .addKeyValue("file_size_bytes", fileSize)
-                .addKeyValue("elapsed_ms", elapsedMs)
-                .addKeyValue("error_message", e.getMessage())
+            log.atError().addKeyValue("event_type", "file.processing.failed").addKeyValue("event_schema_version", "1.0")
+                .addKeyValue("source_type", "parquet").addKeyValue("dataset_id", config.datasetName())
+                .addKeyValue("file_path", filePath.toString()).addKeyValue("file_name", filePath.getFileName().toString())
+                .addKeyValue("file_size_bytes", fileSize).addKeyValue("elapsed_ms", elapsedMs).addKeyValue("error_message", e.getMessage())
                 .log("Failed to process Parquet file: {}", filePath.getFileName());
             throw new IOException("Failed to process Parquet file: " + filePath, e);
         }
@@ -252,13 +234,7 @@ public class ParquetObservationProducer {
                 reason = FailureReason.UNKNOWN;
             }
 
-            recordFailure(
-                filePath.toString(),
-                participantIdRaw,
-                resolution.dbgapSubjectId(),
-                reason,
-                resolution.failureReasonDetail()
-            );
+            recordFailure(filePath.toString(), participantIdRaw, resolution.dbgapSubjectId(), reason, resolution.failureReasonDetail());
             return rows;
         }
 
@@ -298,8 +274,10 @@ public class ParquetObservationProducer {
                 try {
                     numericValue = Double.parseDouble(valueRaw);
                 } catch (NumberFormatException e) {
-                    recordFailure(filePath.toString(), participantIdRaw, resolution.dbgapSubjectId(), FailureReason.NUMERIC_PARSE_ERROR,
-                        "Cannot parse as numeric: " + valueRaw);
+                    recordFailure(
+                        filePath.toString(), participantIdRaw, resolution.dbgapSubjectId(), FailureReason.NUMERIC_PARSE_ERROR,
+                        "Cannot parse as numeric: " + valueRaw
+                    );
                     continue;
                 }
             } else if ("TEXT".equalsIgnoreCase(varConfig.forceType())) {
@@ -317,8 +295,7 @@ public class ParquetObservationProducer {
     }
 
     /**
-     * Parses timestamp from configured column.
-     * Returns null if timestamp cannot be parsed (timestamps are optional in HPDS).
+     * Parses timestamp from configured column. Returns null if timestamp cannot be parsed (timestamps are optional in HPDS).
      */
     private Instant parseTimestamp(VectorSchemaRoot root, int rowIndex, java.nio.file.Path filePath, String participantId) {
         if ("none".equalsIgnoreCase(config.timestampColumn())) {
@@ -346,31 +323,14 @@ public class ParquetObservationProducer {
                 // fall through
             }
         }
-        // Deterministic timestamp parsing with strict fallback chain:
-        // 1. Try Instant.parse() - accepts ISO-8601 with zone (Z or offset like +00:00)
-        // 2. Try LocalDateTime.parse() - accepts ISO-8601 local date-time, treat as UTC
-        // 3. Try LocalDate.parse() - accepts yyyy-MM-dd, treat as midnight UTC
-        // 4. Return null (timestamps are optional, don't fail the row)
-
+        // Deterministic timestamp parsing with strict fallback chain (see TimestampParser):
+        // ISO-8601 with zone, then "yyyy-MM-dd HH:mm:ss" as UTC, then ISO local date-time
+        // as UTC, then yyyy-MM-dd as midnight UTC. Timestamps are optional, don't fail the row.
         try {
-            // Attempt 1: Parse as Instant (requires Z or offset)
-            return Instant.parse(timestampRaw);
-        } catch (DateTimeParseException e1) {
-            try {
-                // Attempt 2: Parse as LocalDateTime (e.g., 2025-02-28T12:56:40.500), treat as UTC
-                java.time.LocalDateTime localDateTime = java.time.LocalDateTime.parse(timestampRaw, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-                return localDateTime.toInstant(ZoneOffset.UTC);
-            } catch (DateTimeParseException e2) {
-                try {
-                    // Attempt 3: Parse as LocalDate (e.g., 2025-02-28), treat as midnight UTC
-                    LocalDate date = LocalDate.parse(timestampRaw, DateTimeFormatter.ISO_LOCAL_DATE);
-                    return date.atStartOfDay().toInstant(ZoneOffset.UTC);
-                } catch (DateTimeParseException e3) {
-                    // Attempt 4: All parsing failed - log warning but continue (timestamps are optional)
-                    log.warn("Cannot parse timestamp for participant {}, using null: {}", participantId, timestampRaw);
-                    return null;
-                }
-            }
+            return TimestampParser.parse(timestampRaw);
+        } catch (DateTimeParseException e) {
+            log.warn("Cannot parse timestamp for participant {}, using null: {}", participantId, timestampRaw);
+            return null;
         }
     }
 
@@ -378,17 +338,17 @@ public class ParquetObservationProducer {
         // Heuristic by magnitude:
         // seconds ~ 1e9-1e10, millis ~ 1e12-1e13, micros ~ 1e15-1e16, nanos ~ 1e18-1e19
         try {
-            if (v >= 1_000_000_000_000_000_000L) {           // nanos
+            if (v >= 1_000_000_000_000_000_000L) { // nanos
                 long secs = v / 1_000_000_000L;
                 long nanos = v % 1_000_000_000L;
                 return Instant.ofEpochSecond(secs, nanos);
-            } else if (v >= 1_000_000_000_000_000L) {        // micros
+            } else if (v >= 1_000_000_000_000_000L) { // micros
                 long secs = v / 1_000_000L;
                 long micros = v % 1_000_000L;
                 return Instant.ofEpochSecond(secs, micros * 1_000L);
-            } else if (v >= 1_000_000_000_000L) {            // millis
+            } else if (v >= 1_000_000_000_000L) { // millis
                 return Instant.ofEpochMilli(v);
-            } else {                                         // seconds (or small)
+            } else { // seconds (or small)
                 return Instant.ofEpochSecond(v);
             }
         } catch (Exception e) {
@@ -396,6 +356,7 @@ public class ParquetObservationProducer {
             return null;
         }
     }
+
     /**
      * Attempts to parse a string as Double.
      */
@@ -412,33 +373,21 @@ public class ParquetObservationProducer {
      */
     private void recordFailure(String inputFile, String participantId, String dbgapSubjectId, FailureReason reason, String detail) {
         FailureRecord record = new FailureRecord(
-            runId,
-            FailureRecord.SourceType.PARQUET,
-            config.datasetName(),
-            inputFile,
-            participantId,
-            dbgapSubjectId,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            reason,
-            detail
+            runId, FailureRecord.SourceType.PARQUET, config.datasetName(), inputFile, participantId, dbgapSubjectId, null, null, null, null,
+            null, null, reason, detail
         );
         failureSink.recordFailure(record);
     }
 
     /**
-     * Records when a file reaches its observation limit.
-     * TODO: Implement FileLimitTracker for detailed per-file tracking.
+     * Records when a file reaches its observation limit. TODO: Implement FileLimitTracker for detailed per-file tracking.
      */
-    private void recordFileLimitReached(java.nio.file.Path file, long rowsRead, long rowsSkipped,
-                                        long observationsGenerated, long limit) {
+    private void recordFileLimitReached(java.nio.file.Path file, long rowsRead, long rowsSkipped, long observationsGenerated, long limit) {
         // For now, just log - will be replaced with FileLimitTracker in Phase 2
-        log.warn("File limit tracking not yet implemented: file={}, rowsRead={}, rowsSkipped={}, obsGenerated={}, limit={}",
-                 file.getFileName(), rowsRead, rowsSkipped, observationsGenerated, limit);
+        log.warn(
+            "File limit tracking not yet implemented: file={}, rowsRead={}, rowsSkipped={}, obsGenerated={}, limit={}", file.getFileName(),
+            rowsRead, rowsSkipped, observationsGenerated, limit
+        );
     }
 
     public void close() {

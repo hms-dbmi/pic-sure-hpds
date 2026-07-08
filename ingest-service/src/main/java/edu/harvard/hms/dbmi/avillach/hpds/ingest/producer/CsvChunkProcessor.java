@@ -16,13 +16,9 @@ import java.util.function.Consumer;
 /**
  * Processes large CSV files in parallel by chunking them into byte-range segments.
  *
- * <p>Strategy:
- * <ol>
- *   <li>Pre-scan file to find byte offsets for chunk boundaries (aligned to row boundaries)</li>
- *   <li>Split file into N chunks based on estimated rows per chunk</li>
- *   <li>Process each chunk in parallel using virtual threads</li>
- *   <li>Each chunk reads its portion independently via RandomAccessFile</li>
- * </ol>
+ * <p>Strategy: <ol> <li>Pre-scan file to find byte offsets for chunk boundaries (aligned to row boundaries)</li> <li>Split file into N
+ * chunks based on estimated rows per chunk</li> <li>Process each chunk in parallel using virtual threads</li> <li>Each chunk reads its
+ * portion independently via RandomAccessFile</li> </ol>
  *
  */
 public class CsvChunkProcessor {
@@ -38,12 +34,14 @@ public class CsvChunkProcessor {
     /**
      * Chunk boundary record: byte offsets for a segment of the file.
      */
-    private record ChunkBoundary(long startOffset, long endOffset, int chunkIndex) {}
+    private record ChunkBoundary(long startOffset, long endOffset, int chunkIndex) {
+    }
 
     /**
      * Result of processing a single chunk.
      */
-    private record ChunkResult(int chunkIndex, long rowsProcessed, Exception error) {}
+    private record ChunkResult(int chunkIndex, long rowsProcessed, Exception error) {
+    }
 
     public CsvChunkProcessor(String runId, FailureSink failureSink) {
         this.runId = runId;
@@ -59,10 +57,9 @@ public class CsvChunkProcessor {
      * @param producer CSV observation producer for sequential fallback
      * @throws IOException if file processing fails
      */
-    public void processLargeFileInParallel(Path filePath,
-                                           Consumer<List<ObservationRow>> consumer,
-                                           int batchSize,
-                                           CsvObservationProducer producer) throws IOException {
+    public void processLargeFileInParallel(
+        Path filePath, Consumer<List<ObservationRow>> consumer, int batchSize, CsvObservationProducer producer
+    ) throws IOException {
         log.info("Processing large CSV file in parallel: {}", filePath);
 
         // Step 1: Build chunk boundaries (pre-scan pass)
@@ -82,9 +79,7 @@ public class CsvChunkProcessor {
         try {
             // Submit all chunks
             for (ChunkBoundary chunk : chunks) {
-                Future<ChunkResult> future = executor.submit(() ->
-                    processChunk(filePath, chunk, consumer, batchSize, producer)
-                );
+                Future<ChunkResult> future = executor.submit(() -> processChunk(filePath, chunk, consumer, batchSize, producer));
                 futures.add(future);
             }
 
@@ -107,8 +102,9 @@ public class CsvChunkProcessor {
                 }
             }
 
-            log.info("Completed parallel CSV processing: {} rows from {} chunks ({} failed)",
-                     totalRowsProcessed, chunks.size(), failedChunks);
+            log.info(
+                "Completed parallel CSV processing: {} rows from {} chunks ({} failed)", totalRowsProcessed, chunks.size(), failedChunks
+            );
 
         } finally {
             executor.shutdown();
@@ -128,13 +124,8 @@ public class CsvChunkProcessor {
     /**
      * Builds chunk boundaries by pre-scanning the file to estimate byte offsets.
      *
-     * <p>Algorithm:
-     * <ol>
-     *   <li>Sample first N rows to estimate bytes per row</li>
-     *   <li>Calculate target chunk size in bytes</li>
-     *   <li>Walk file, seeking to chunk end estimates</li>
-     *   <li>Align each boundary to next newline (complete row)</li>
-     * </ol>
+     * <p>Algorithm: <ol> <li>Sample first N rows to estimate bytes per row</li> <li>Calculate target chunk size in bytes</li> <li>Walk
+     * file, seeking to chunk end estimates</li> <li>Align each boundary to next newline (complete row)</li> </ol>
      */
     private List<ChunkBoundary> buildChunkBoundaries(Path filePath, long chunkSizeRows) throws IOException {
         List<ChunkBoundary> chunks = new ArrayList<>();
@@ -187,32 +178,32 @@ public class CsvChunkProcessor {
             }
         }
 
-        log.info("Split file into {} chunks (estimated {} rows per chunk, {} MB per chunk)",
-                 chunks.size(), chunkSizeRows, targetChunkBytes / 1024 / 1024);
+        log.info(
+            "Split file into {} chunks (estimated {} rows per chunk, {} MB per chunk)", chunks.size(), chunkSizeRows,
+            targetChunkBytes / 1024 / 1024
+        );
         return chunks;
     }
 
     /**
      * Processes a single chunk using bounded file reading.
      */
-    private ChunkResult processChunk(Path filePath, ChunkBoundary chunk,
-                                     Consumer<List<ObservationRow>> consumer,
-                                     int batchSize,
-                                     CsvObservationProducer producer) {
+    private ChunkResult processChunk(
+        Path filePath, ChunkBoundary chunk, Consumer<List<ObservationRow>> consumer, int batchSize, CsvObservationProducer producer
+    ) {
         try {
-            log.debug("Processing chunk {} (offset {}-{}, {} MB)",
-                      chunk.chunkIndex(), chunk.startOffset(), chunk.endOffset(),
-                      (chunk.endOffset() - chunk.startOffset()) / 1024 / 1024);
+            log.debug(
+                "Processing chunk {} (offset {}-{}, {} MB)", chunk.chunkIndex(), chunk.startOffset(), chunk.endOffset(),
+                (chunk.endOffset() - chunk.startOffset()) / 1024 / 1024
+            );
 
             // Open file at chunk start offset and read until end offset
             try (RandomAccessFile raf = new RandomAccessFile(filePath.toFile(), "r")) {
                 raf.seek(chunk.startOffset());
 
                 // Wrap in bounded input stream to limit reading to chunk range
-                InputStream boundedInput = new BoundedInputStream(
-                    new RandomAccessFileInputStream(raf),
-                    chunk.endOffset() - chunk.startOffset()
-                );
+                InputStream boundedInput =
+                    new BoundedInputStream(new RandomAccessFileInputStream(raf), chunk.endOffset() - chunk.startOffset());
 
                 // Use producer's parsing logic for this chunk
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(boundedInput))) {
@@ -230,18 +221,10 @@ public class CsvChunkProcessor {
     }
 
     /**
-     * Detects if a line is a valid header row.
-     * (Simplified detection - checks for expected column names)
+     * Detects if a line is a header row, using the same structural gate as CsvObservationProducer so sequential and parallel paths agree.
      */
-    private boolean detectHeader(String line) {
-        if (line == null || line.isBlank()) {
-            return false;
-        }
-        String upper = line.toUpperCase();
-        return upper.contains("PATIENT_NUM") &&
-               upper.contains("CONCEPT_PATH") &&
-               upper.contains("NVAL_NUM") &&
-               upper.contains("TVAL_CHAR");
+    boolean detectHeader(String line) {
+        return CsvObservationProducer.isHeaderLine(line);
     }
 
     /**
@@ -266,8 +249,7 @@ public class CsvChunkProcessor {
     }
 
     /**
-     * Input stream wrapper that limits reading to maxBytes.
-     * (Similar to Commons IO BoundedInputStream, but self-contained)
+     * Input stream wrapper that limits reading to maxBytes. (Similar to Commons IO BoundedInputStream, but self-contained)
      */
     private static class BoundedInputStream extends InputStream {
         private final InputStream delegate;
