@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import edu.harvard.dbmi.avillach.domain.*;
+import edu.harvard.dbmi.avillach.util.PicSureStatus;
 import edu.harvard.dbmi.avillach.util.UUIDv5;
 import edu.harvard.hms.dbmi.avillach.hpds.crypto.Crypto;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.audit.AuditAttributes;
@@ -236,6 +237,9 @@ public class PicSureV3Service {
     }
 
     private QueryStatus convertToQueryStatus(AsyncResult entity) {
+        if (entity == null) {
+            return new QueryStatus().setStatus(PicSureStatus.NOT_FOUND);
+        }
         QueryStatus status = new QueryStatus();
         status.setDuration(entity.getCompletedTime() == 0 ? 0 : entity.getCompletedTime() - entity.getQueuedTime());
         status.setResourceResultId(entity.getId());

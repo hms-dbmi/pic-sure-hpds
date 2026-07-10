@@ -143,6 +143,9 @@ public class QueryV3Service {
 
     public AsyncResult getStatusFor(String queryId) {
         AsyncResult asyncResult = results.get(queryId);
+        if (asyncResult == null) {
+            return null;
+        }
         int queueDepth =
             asyncResult.getQuery().select().size() > SMALL_JOB_LIMIT ? largeTaskExecutionQueue.size() : smallTaskExecutionQueue.size();
         // note: code copied from this method in QueryService was removed, it was obviously not working
