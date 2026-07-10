@@ -34,14 +34,14 @@ public class TimeseriesV3Processor implements HpdsV3Processor {
     private final QueryExecutor queryExecutor;
     private final TimeSeriesConversionService conversionService;
 
-    private final PhenotypicObservationStore phenotypicObservationStore;
+    private final PartitionedPhenotypicObservationStore phenotypicObservationStore;
 
     private final int idBatchSize;
 
     @Autowired
     public TimeseriesV3Processor(
-        QueryExecutor queryExecutor, TimeSeriesConversionService conversionService, PhenotypicObservationStore phenotypicObservationStore,
-        @Value("${ID_BATCH_SIZE:0}") int idBatchSize
+        QueryExecutor queryExecutor, TimeSeriesConversionService conversionService,
+        PartitionedPhenotypicObservationStore phenotypicObservationStore, @Value("${ID_BATCH_SIZE:0}") int idBatchSize
     ) {
         this.queryExecutor = queryExecutor;
         this.conversionService = conversionService;
@@ -77,11 +77,11 @@ public class TimeseriesV3Processor implements HpdsV3Processor {
         Set<String> exportedConceptPaths = new HashSet<>();
         Collection<String> pathList = queryExecutor.getAllConceptPaths(query);
 
-        addDataForConcepts(pathList, exportedConceptPaths, idList, result);
+        addDataForConcepts(pathList, exportedConceptPaths, idList, result, query.getUserConsents());
     }
 
     private void addDataForConcepts(
-        Collection<String> pathList, Set<String> exportedConceptPaths, Set<Integer> idList, AsyncResult result
+        Collection<String> pathList, Set<String> exportedConceptPaths, Set<Integer> idList, AsyncResult result, List<String> userConsents
     ) {
         for (String conceptPath : pathList) {
             // skip concepts we may already have encountered

@@ -92,7 +92,7 @@ public class ColumnMeta implements Serializable {
         return this;
     }
 
-    public long getPatientCount() {
+    public int getPatientCount() {
         return patientCount;
     }
 
