@@ -102,7 +102,22 @@ public class PartitionedPhenotypicObservationStore {
     }
 
     public Optional<PhenoCube<?>> getCube(String path) {
-        throw new RuntimeException("Not implemented");
+        Set<PhenoCube<?>> phenoCubes;
+        // todo: disallow this by default
+        if (userRequestContext.getUserConsents().isEmpty()) {
+            phenoCubes = phenotypicPartitions.values().stream()
+                .flatMap(phenotypicObservationStore -> phenotypicObservationStore.getCube(path).stream()).collect(Collectors.toSet());
+        } else {
+            phenoCubes = userRequestContext.getUserConsents().stream().map(phenotypicPartitions::get)
+                .flatMap(phenotypicObservationStore -> phenotypicObservationStore.getCube(path).stream()).collect(Collectors.toSet());
+        }
+        PhenoCube<?> result = phenoCubes.stream().reduce((phenoCube, phenoCube2) -> {
+            if (phenoCube.vType.equals(String.class)) {
+                return ((PhenoCube<String>) phenoCube).merge((PhenoCube<String>) phenoCube2);
+            }
+            return ((PhenoCube<Double>) phenoCube).merge((PhenoCube<Double>) phenoCube2);
+        }).get();
+        return Optional.ofNullable(result);
     }
 
     public Set<String> getCachedKeys() {
