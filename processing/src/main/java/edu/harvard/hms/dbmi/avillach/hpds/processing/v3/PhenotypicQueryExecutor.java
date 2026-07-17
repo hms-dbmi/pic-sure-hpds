@@ -24,9 +24,7 @@ public class PhenotypicQueryExecutor {
     private final PartitionedPhenotypicObservationStore phenotypicObservationStore;
 
     @Autowired
-    public PhenotypicQueryExecutor(
-        PartitionedPhenotypicObservationStore phenotypicObservationStore, UserRequestContext userRequestContext
-    ) {
+    public PhenotypicQueryExecutor(PartitionedPhenotypicObservationStore phenotypicObservationStore) {
         this.phenotypicObservationStore = phenotypicObservationStore;
     }
 

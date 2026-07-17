@@ -4,13 +4,11 @@ import com.google.common.collect.Lists;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genomic.VariantUtils;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.VariableVariantMasks;
 import edu.harvard.hms.dbmi.avillach.hpds.data.genotype.caching.VariantBucketHolder;
-import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.ColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.KeyAndValue;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.PhenoCube;
 import edu.harvard.hms.dbmi.avillach.hpds.data.phenotype.SummaryColumnMeta;
 import edu.harvard.hms.dbmi.avillach.hpds.data.query.v3.Query;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.ResultStore;
-import edu.harvard.hms.dbmi.avillach.hpds.processing.util.UserRequestContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,16 +38,13 @@ public class QueryV3Processor implements HpdsV3Processor {
 
     private final PartitionedPhenotypicObservationStore phenotypicObservationStore;
 
-    private final UserRequestContext userRequestContext;
-
     @Autowired
     public QueryV3Processor(
         QueryExecutor queryExecutor, PartitionedPhenotypicObservationStore phenotypicObservationStore,
-        UserRequestContext userRequestContext, @Value("${ID_BATCH_SIZE:0}") int idBatchSize
+        @Value("${ID_BATCH_SIZE:0}") int idBatchSize
     ) {
         this.queryExecutor = queryExecutor;
         this.phenotypicObservationStore = phenotypicObservationStore;
-        this.userRequestContext = userRequestContext;
         this.idBatchSize = idBatchSize;
     }
 

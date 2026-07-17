@@ -1,15 +1,12 @@
 package edu.harvard.hms.dbmi.avillach.hpds.processing.util;
 
-import org.springframework.context.annotation.Scope;
-import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.context.annotation.RequestScope;
 
 import java.util.List;
 
 @Component
-@Scope(value = WebApplicationContext.SCOPE_REQUEST, proxyMode = ScopedProxyMode.TARGET_CLASS)
-// Or simply use the shortcut: @RequestScope
+@RequestScope
 public class UserRequestContext {
     private List<String> userConsents = List.of();
 

@@ -36,17 +36,15 @@ public class PartitionedPhenotypicObservationStore {
     ) {
         this.userRequestContext = userRequestContext;
 
-        try (Stream<Path> stream = Files.walk(Path.of(hpdsDataDirectory))) {
+        try (Stream<Path> stream = Files.list(Path.of(hpdsDataDirectory))) {
             List<Path> subdirectories = stream.filter(Files::isDirectory)
                 .filter(subdirectory -> !subdirectory.equals(Path.of(hpdsDataDirectory))).collect(Collectors.toList());
 
             Map<String, PhenotypicObservationStore> phenotypicPartitions = new HashMap<>();
-            Set<PhenotypeMetaStore> allMetaStores = new HashSet<>();
 
             for (Path subdirectory : subdirectories) {
                 String partitionName = subdirectory.getFileName().toString();
                 PhenotypeMetaStore phenotypeMetaStore = new PhenotypeMetaStore(subdirectory.toString(), 500);
-                allMetaStores.add(phenotypeMetaStore);
                 PhenotypicObservationStore phenotypicObservationStore =
                     new PhenotypicObservationStore(phenotypeMetaStore, subdirectory.toString(), 1000);
                 phenotypicPartitions.put(partitionName, phenotypicObservationStore);
@@ -140,7 +138,7 @@ public class PartitionedPhenotypicObservationStore {
                 if (summaryColumnMeta == null) {
                     summaryColumnMeta = new SummaryColumnMeta(stringColumnMetaEntry.getValue());
                 } else {
-                    summaryColumnMeta = summaryColumnMeta.merge(stringColumnMetaEntry.getValue());
+                    summaryColumnMeta = summaryColumnMeta.merge(new SummaryColumnMeta(stringColumnMetaEntry.getValue()));
                 }
                 mergedColumnMeta.put(stringColumnMetaEntry.getKey(), summaryColumnMeta);
             }

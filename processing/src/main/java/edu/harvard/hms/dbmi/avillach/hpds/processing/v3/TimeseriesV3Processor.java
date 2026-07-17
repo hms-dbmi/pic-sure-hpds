@@ -77,11 +77,11 @@ public class TimeseriesV3Processor implements HpdsV3Processor {
         Set<String> exportedConceptPaths = new HashSet<>();
         Collection<String> pathList = queryExecutor.getAllConceptPaths(query);
 
-        addDataForConcepts(pathList, exportedConceptPaths, idList, result, query.getUserConsents());
+        addDataForConcepts(pathList, exportedConceptPaths, idList, result);
     }
 
     private void addDataForConcepts(
-        Collection<String> pathList, Set<String> exportedConceptPaths, Set<Integer> idList, AsyncResult result, List<String> userConsents
+        Collection<String> pathList, Set<String> exportedConceptPaths, Set<Integer> idList, AsyncResult result
     ) {
         for (String conceptPath : pathList) {
             // skip concepts we may already have encountered

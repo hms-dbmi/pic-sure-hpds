@@ -31,10 +31,8 @@ public class PhenotypicObservationStore {
 
     private final PhenotypeMetaStore phenotypeMetaStore;
 
-    public PhenotypicObservationStore(
-        PhenotypeMetaStore phenotypeMetaStore, @Value("${HPDS_DATA_DIRECTORY:/opt/local/hpds/}") String hpdsDataDirectory,
-        @Value("${CACHE_SIZE:100}") int cacheSize
-    ) {
+    public PhenotypicObservationStore(PhenotypeMetaStore phenotypeMetaStore, String hpdsDataDirectory, int cacheSize) {
+        // todo: reconsider cache size
         this.phenotypeMetaStore = phenotypeMetaStore;
         this.hpdsDataDirectory = hpdsDataDirectory.endsWith("/") ? hpdsDataDirectory : hpdsDataDirectory + "/";
         phenoCubeCache = CacheBuilder.newBuilder().maximumSize(cacheSize).build(new CacheLoader<>() {

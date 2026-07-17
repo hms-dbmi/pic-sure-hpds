@@ -30,7 +30,7 @@ class PhenotypicQueryExecutorTest {
 
     @BeforeEach
     public void setup() {
-        phenotypicQueryExecutor = new PhenotypicQueryExecutor(phenotypicObservationStore, new UserRequestContext());
+        phenotypicQueryExecutor = new PhenotypicQueryExecutor(phenotypicObservationStore);
     }
 
     @Test

@@ -22,7 +22,7 @@ class PhenotypicFilterValidatorTest {
         phenotypicFilterValidator = new PhenotypicFilterValidator();
         metaStore = Map.of(
             "\\study123\\demographics\\sex\\", new SummaryColumnMeta().setCategorical(true), "\\study123\\demographics\\age\\",
-            new SummaryColumnMeta().setCategorical(false).setMin(0).setMax(130)
+            new SummaryColumnMeta().setCategorical(false).setMin(0.0).setMax(130.0)
         );
     }
 

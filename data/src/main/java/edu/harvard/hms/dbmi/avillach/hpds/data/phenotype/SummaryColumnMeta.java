@@ -3,19 +3,29 @@ package edu.harvard.hms.dbmi.avillach.hpds.data.phenotype;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.StringJoiner;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class SummaryColumnMeta {
+/**
+ * {@ColumnMeta ColumnMeta} fields that apply globally to a column and can be aggregated across partitioned data.
+ */
+public class SummaryColumnMeta implements Serializable {
 
     private static final Logger log = LoggerFactory.getLogger(SummaryColumnMeta.class);
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     private String name;
     private int widthInBytes;
     private boolean categorical;
-    private List<String> categoryValues = List.of();
+    private Set<String> categoryValues = Set.of();
     private Double min, max;
     private int patientCount;
     private boolean hasTimestamp;
@@ -26,7 +36,7 @@ public class SummaryColumnMeta {
         this.name = columnMeta.getName();
         this.widthInBytes = columnMeta.getWidthInBytes();
         this.categorical = columnMeta.isCategorical();
-        this.categoryValues = columnMeta.getCategoryValues();
+        this.categoryValues = Set.copyOf(columnMeta.getCategoryValues());
         this.min = columnMeta.getMin();
         this.max = columnMeta.getMax();
         this.patientCount = columnMeta.getPatientCount();
@@ -37,7 +47,7 @@ public class SummaryColumnMeta {
 
     public SummaryColumnMeta() {}
 
-    public SummaryColumnMeta merge(ColumnMeta columnMeta) {
+    public SummaryColumnMeta merge(SummaryColumnMeta columnMeta) {
         SummaryColumnMeta newSummaryColumnMeta = new SummaryColumnMeta();
 
         if (!Objects.equals(this.name, columnMeta.getName())) {
@@ -60,7 +70,7 @@ public class SummaryColumnMeta {
         newSummaryColumnMeta.categoryValues = Stream.concat(
             categoryValues != null ? categoryValues.stream() : Stream.of(),
             columnMeta.getCategoryValues() != null ? columnMeta.getCategoryValues().stream() : Stream.of()
-        ).collect(Collectors.toList());
+        ).collect(Collectors.toSet());
 
         if (columnMeta.getMin() != null) {
             newSummaryColumnMeta.min = this.min == null ? columnMeta.getMin() : Double.min(this.min, columnMeta.getMin());
@@ -108,7 +118,7 @@ public class SummaryColumnMeta {
         return categorical;
     }
 
-    public List<String> getCategoryValues() {
+    public Set<String> getCategoryValues() {
         return categoryValues;
     }
 
@@ -124,7 +134,7 @@ public class SummaryColumnMeta {
         return patientCount;
     }
 
-    public boolean isHasTimestamp() {
+    public boolean hasTimestamp() {
         return hasTimestamp;
     }
 
@@ -141,22 +151,27 @@ public class SummaryColumnMeta {
         return this;
     }
 
+    public SummaryColumnMeta setWidthInBytes(int widthInBytes) {
+        this.widthInBytes = widthInBytes;
+        return this;
+    }
+
     public SummaryColumnMeta setCategorical(boolean categorical) {
         this.categorical = categorical;
         return this;
     }
 
-    public SummaryColumnMeta setCategoryValues(List<String> categoryValues) {
+    public SummaryColumnMeta setCategoryValues(Set<String> categoryValues) {
         this.categoryValues = categoryValues;
         return this;
     }
 
-    public SummaryColumnMeta setMin(double min) {
+    public SummaryColumnMeta setMin(Double min) {
         this.min = min;
         return this;
     }
 
-    public SummaryColumnMeta setMax(double max) {
+    public SummaryColumnMeta setMax(Double max) {
         this.max = max;
         return this;
     }
@@ -179,5 +194,29 @@ public class SummaryColumnMeta {
     public SummaryColumnMeta setTimestampMax(Long timestampMax) {
         this.timestampMax = timestampMax;
         return this;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        SummaryColumnMeta that = (SummaryColumnMeta) o;
+        return widthInBytes == that.widthInBytes && categorical == that.categorical && patientCount == that.patientCount
+            && hasTimestamp == that.hasTimestamp && Objects.equals(name, that.name) && Objects.equals(categoryValues, that.categoryValues)
+            && Objects.equals(min, that.min) && Objects.equals(max, that.max) && Objects.equals(timestampMin, that.timestampMin)
+            && Objects.equals(timestampMax, that.timestampMax);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects
+            .hash(name, widthInBytes, categorical, categoryValues, min, max, patientCount, hasTimestamp, timestampMin, timestampMax);
+    }
+
+    @Override
+    public String toString() {
+        return new StringJoiner(", ", SummaryColumnMeta.class.getSimpleName() + "[", "]").add("name='" + name + "'")
+            .add("widthInBytes=" + widthInBytes).add("categorical=" + categorical).add("categoryValues=" + categoryValues).add("min=" + min)
+            .add("max=" + max).add("patientCount=" + patientCount).add("hasTimestamp=" + hasTimestamp).add("timestampMin=" + timestampMin)
+            .add("timestampMax=" + timestampMax).toString();
     }
 }
