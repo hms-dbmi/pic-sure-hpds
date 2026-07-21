@@ -258,12 +258,12 @@ public class PhenoCube<V extends Comparable<V>> implements Serializable {
         TreeMap<V, TreeSet<Integer>> newCategoryMap = new TreeMap<>();
         TreeMap<V, TreeSet<Integer>> thisCategoryMap = this.categoryMap != null ? this.categoryMap : new TreeMap<>();
         TreeMap<V, TreeSet<Integer>> otherCategoryMap = other.categoryMap != null ? other.categoryMap : new TreeMap<>();
-        thisCategoryMap.keySet().stream().forEach(key -> {
+        thisCategoryMap.keySet().forEach(key -> {
             TreeSet<Integer> values = new TreeSet<>(thisCategoryMap.get(key));
             values.addAll(otherCategoryMap.getOrDefault(key, new TreeSet<>()));
             newCategoryMap.put(key, values);
         });
-        otherCategoryMap.keySet().stream().forEach(key -> {
+        otherCategoryMap.keySet().forEach(key -> {
             // if the map contains the key, the values were added in the previous loop
             if (!newCategoryMap.containsKey(key)) {
                 newCategoryMap.put(key, otherCategoryMap.get(key));
@@ -271,9 +271,12 @@ public class PhenoCube<V extends Comparable<V>> implements Serializable {
         });
         newPhenoCube.setCategoryMap(newCategoryMap);
 
-        newPhenoCube.columnWidth = this.columnWidth;
+        newPhenoCube.columnWidth = Integer.max(this.columnWidth, other.columnWidth);
         newPhenoCube.setSortedByKey(newKeyAndValues.stream().toArray(KeyAndValue[]::new));
         return newPhenoCube;
     }
 
+    protected KeyAndValue<V>[] getSortedByKey() {
+        return sortedByKey;
+    }
 }
