@@ -232,4 +232,41 @@ class PhenotypicQueryExecutorTest {
         assertEquals(Set.of(), patientSet);
     }
 
+
+    private void mockMetaStore() {
+        Map<String, SummaryColumnMeta> metaStore = new TreeMap<>();
+        metaStore.put("\\study1\\demographics\\age\\", new SummaryColumnMeta().setName("age"));
+        metaStore.put("\\study1\\demographics\\sex\\", new SummaryColumnMeta().setName("sex"));
+        metaStore.put("\\study2\\demographics\\age\\", new SummaryColumnMeta().setName("age"));
+        metaStore.put("\\study2\\demographics\\sex\\", new SummaryColumnMeta().setName("sex"));
+        when(phenotypicObservationStore.getMetaStore()).thenReturn(metaStore);
+    }
+
+    @Test
+    public void loadChildConceptPaths_matchingConcepts_shouldReturnConcepts() {
+        mockMetaStore();
+
+        Set<String> childConceptPaths = phenotypicQueryExecutor.loadChildConceptPaths("\\study1\\demographics\\");
+        assertEquals(Set.of("\\study1\\demographics\\age\\", "\\study1\\demographics\\sex\\"), childConceptPaths);
+    }
+
+    @Test
+    public void loadChildConceptPaths_noMatchingConcepts_shouldReturnNoConcepts() {
+        mockMetaStore();
+
+        Set<String> childConceptPaths = phenotypicQueryExecutor.loadChildConceptPaths("\\study3\\demographics\\");
+        assertEquals(Set.of(), childConceptPaths);
+    }
+
+    @Test
+    public void getChildConceptPaths_multipleCalls_shouldCacheResults() {
+        mockMetaStore();
+
+        for (int k = 0; k < 5; k++) {
+            Set<String> childConceptPaths = phenotypicQueryExecutor.getChildConceptPaths("\\study1\\demographics\\");
+            assertEquals(Set.of("\\study1\\demographics\\age\\", "\\study1\\demographics\\sex\\"), childConceptPaths);
+        }
+        verify(phenotypicObservationStore, times(1)).getMetaStore();
+    }
+
 }
