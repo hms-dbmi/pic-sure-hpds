@@ -8,7 +8,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import edu.harvard.dbmi.avillach.logging.LoggingClient;
 import edu.harvard.dbmi.avillach.logging.LoggingEvent;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.upload.SignUrlService;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.util.UserRequestContext;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.v3.CountV3Processor;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.v3.VariantListV3Processor;
+import edu.harvard.hms.dbmi.avillach.hpds.service.filesharing.FileSharingV3Service;
+import edu.harvard.hms.dbmi.avillach.hpds.service.filesharing.TestDataService;
+import edu.harvard.hms.dbmi.avillach.hpds.service.util.Paginator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -38,8 +44,21 @@ class AuditMockMvcTest {
     @MockitoBean
     LoggingClient loggingClient;
 
+    // Mock all service dependencies so we don't need real data
     @MockitoBean
-    private UserRequestContext userRequestContext;
+    QueryV3Service queryService;
+    @MockitoBean
+    CountV3Processor countProcessor;
+    @MockitoBean
+    VariantListV3Processor variantListProcessor;
+    @MockitoBean
+    Paginator paginator;
+    @MockitoBean
+    SignUrlService signUrlService;
+    @MockitoBean
+    FileSharingV3Service fileSystemService;
+    @MockitoBean
+    TestDataService testDataService;
 
     @Test
     void postInfoEndpointProducesAuditEvent() throws Exception {
