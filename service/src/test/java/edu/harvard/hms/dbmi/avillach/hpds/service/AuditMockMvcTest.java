@@ -29,7 +29,6 @@ import org.springframework.test.web.servlet.MockMvc;
 @ExtendWith(SpringExtension.class)
 @EnableAutoConfiguration
 @SpringBootTest(classes = edu.harvard.hms.dbmi.avillach.hpds.service.HpdsApplication.class)
-@ActiveProfiles("integration-test")
 @AutoConfigureMockMvc
 class AuditMockMvcTest {
 
