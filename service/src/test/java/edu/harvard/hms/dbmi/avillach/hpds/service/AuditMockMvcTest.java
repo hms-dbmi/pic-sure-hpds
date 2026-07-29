@@ -11,6 +11,7 @@ import edu.harvard.dbmi.avillach.logging.LoggingEvent;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.upload.SignUrlService;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.util.UserRequestContext;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.v3.CountV3Processor;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.v3.PartitionedPhenotypicObservationStore;
 import edu.harvard.hms.dbmi.avillach.hpds.processing.v3.VariantListV3Processor;
 import edu.harvard.hms.dbmi.avillach.hpds.service.filesharing.FileSharingV3Service;
 import edu.harvard.hms.dbmi.avillach.hpds.service.filesharing.TestDataService;
@@ -34,6 +35,7 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 @ExtendWith(SpringExtension.class)
 @EnableAutoConfiguration
+@ActiveProfiles("integration-test")
 @SpringBootTest(classes = edu.harvard.hms.dbmi.avillach.hpds.service.HpdsApplication.class)
 @AutoConfigureMockMvc
 class AuditMockMvcTest {
@@ -59,6 +61,8 @@ class AuditMockMvcTest {
     FileSharingV3Service fileSystemService;
     @MockitoBean
     TestDataService testDataService;
+    @MockitoBean
+    PartitionedPhenotypicObservationStore partitionedPhenotypicObservationStore;
 
     @Test
     void postInfoEndpointProducesAuditEvent() throws Exception {
