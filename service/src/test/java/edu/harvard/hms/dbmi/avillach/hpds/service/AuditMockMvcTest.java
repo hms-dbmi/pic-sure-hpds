@@ -33,10 +33,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * Verifies that Spring actually registers the AuditLoggingFilter and AuditInterceptor, and that @AuditEvent annotations on real controller
  * methods produce correct logging events through the full HTTP pipeline.
  */
-@ExtendWith(SpringExtension.class)
-@EnableAutoConfiguration
-@ActiveProfiles("integration-test")
-@SpringBootTest(classes = edu.harvard.hms.dbmi.avillach.hpds.service.HpdsApplication.class)
+@SpringBootTest
 @AutoConfigureMockMvc
 class AuditMockMvcTest {
 
