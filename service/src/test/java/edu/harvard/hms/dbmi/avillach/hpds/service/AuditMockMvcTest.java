@@ -8,20 +8,29 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import edu.harvard.dbmi.avillach.logging.LoggingClient;
 import edu.harvard.dbmi.avillach.logging.LoggingEvent;
+import edu.harvard.hms.dbmi.avillach.hpds.processing.util.UserRequestContext;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
  * Verifies that Spring actually registers the AuditLoggingFilter and AuditInterceptor, and that @AuditEvent annotations on real controller
  * methods produce correct logging events through the full HTTP pipeline.
  */
-@SpringBootTest
+@ExtendWith(SpringExtension.class)
+@EnableAutoConfiguration
+@SpringBootTest(classes = edu.harvard.hms.dbmi.avillach.hpds.service.HpdsApplication.class)
+@ActiveProfiles("integration-test")
 @AutoConfigureMockMvc
 class AuditMockMvcTest {
 
@@ -30,6 +39,9 @@ class AuditMockMvcTest {
 
     @MockBean
     LoggingClient loggingClient;
+
+    @MockitoBean
+    private UserRequestContext userRequestContext;
 
     @Test
     void postInfoEndpointProducesAuditEvent() throws Exception {
