@@ -8,27 +8,22 @@ import org.springframework.stereotype.Service;
 import java.util.UUID;
 
 /**
- * Writes test data to the directory shared with the uploader to test
- * uploading features
+ * Writes test data to the directory shared with the uploader to test uploading features
  */
 @Service
 public class TestDataService {
 
     private static final Logger LOG = LoggerFactory.getLogger(TestDataService.class);
 
-    private final FileSystemService fileSystemService;
+    private final FileSystemV3Service fileSystemService;
 
     @Autowired
-    public TestDataService(FileSystemService fileSystemService) {
+    public TestDataService(FileSystemV3Service fileSystemService) {
         this.fileSystemService = fileSystemService;
     }
 
     public boolean uploadTestFile(String uuid) {
         LOG.info("Writing test file for uuid {}", uuid);
-       return fileSystemService.writeResultToFile(
-           "test_data.txt",
-           "This is a disposable test file",
-           uuid
-       );
+        return fileSystemService.writeResultToFile("test_data.txt", "This is a disposable test file", uuid);
     }
 }
